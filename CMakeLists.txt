@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.8.11)
-project (Tarp)
+project (Tarp C)
 
 find_package(OpenGL REQUIRED)
 

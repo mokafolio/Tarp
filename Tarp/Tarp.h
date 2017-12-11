@@ -203,11 +203,24 @@ tpVec2 tp_vec2_mult_mat(const tpMat3 * _mat, const tpVec2 * _vec);
 // Matrix Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-tpMat3 tp_mat3_make(Float _v0, Float _v1, Float _v2,
-                    Float _v3, Float _v4, Float _v5,
-                    Float _v6, Float _v7, Float _v8);
+tpMat3 tp_mat3_make(Float _v0, Float _v1, Float _v2, //row1
+                    Float _v3, Float _v4, Float _v5, //row2
+                    Float _v6, Float _v7, Float _v8); //row3
 
 tpMat3 tp_mat3_identity();
+
+void tp_mat3_decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _outScale, Float * _outRotation);
+
+tpMat4 tp_mat4_make(Float _v0, Float _v1, Float _v2, Float _v3, //row1
+                    Float _v4, Float _v5, Float _v6, Float _v7, //row2
+                    Float _v8, Float _v9, Float _v10, Float _v11, //row3
+                    Float _v12, Float _v13, Float _v14, Float _v15); //row4
+
+tpMat4 tp_mat4_identity();
+
+tpMat4 tp_mat4_ortho(Float _left, Float _right, Float _bottom, Float _top, Float _near, Float _far);
+
+tpMat4 tp_mat4_from_2D_transform(const tpMat3 * _transform);
 
 
 // Array Functions
@@ -288,6 +301,7 @@ void tp_gradient_add_color_stop(tpGradient * _gradient, Float _r, Float _g, Floa
 
 void tp_gradient_destroy(tpGradient * _gradient);
 
+
 // Context Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -295,9 +309,11 @@ int tp_context_init(tpContext * _ctx);
 
 int tp_context_deallocate(tpContext * _ctx);
 
-int tp_context_prepare_drawing(tpContext * _ctx);
+int tp_prepare_drawing(tpContext * _ctx);
 
-int tp_context_finish_drawing(tpContext * _ctx);
+int tp_finish_drawing(tpContext * _ctx);
+
+int tp_set_projection(tpContext * _ctx, const tpMat4 * _projection);
 
 int tp_draw_path(tpContext * _ctx, tpPath * _path, const tpStyle * _style, const tpMat3 * _transform);
 
@@ -346,9 +362,9 @@ tpMat3 tp_mat3_make(Float _v0, Float _v1, Float _v2,
 {
     return (tpMat3)
     {
-        _v0, _v1, _v2,
-             _v3, _v4, _v5,
-             _v6, _v7, _v8
+        _v0, _v3, _v6,
+             _v1, _v4, _v7,
+             _v2, _v5, _v8
     };
 }
 
@@ -362,6 +378,70 @@ tpMat3 tp_mat3_identity()
     };
 }
 
+void tp_mat3_decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _outScale, Float * _outRotation)
+{
+    _outTranslation->x = _mat->v[6];
+    _outTranslation->y = _mat->v[7];
+
+    Float a = _mat->v[0];
+    Float b = _mat->v[3];
+    Float c = _mat->v[1];;
+    Float d = _mat->v[4];;
+
+    _outScale->x = sqrt(a * a + b * b);
+    _outScale->y = sqrt(c * c + d * d);
+
+    *_outRotation = -atan2(b, a);
+}
+
+tpMat4 tp_mat4_make(Float _v0, Float _v1, Float _v2, Float _v3,
+                    Float _v4, Float _v5, Float _v6, Float _v7,
+                    Float _v8, Float _v9, Float _v10, Float _v11,
+                    Float _v12, Float _v13, Float _v14, Float _v15)
+{
+    return (tpMat4)
+    {
+        _v0, _v4, _v8, _v12,
+             _v1, _v5, _v9, _v13,
+             _v2, _v6, _v10, _v14,
+             _v3, _v7, _v11, _v15
+    };
+}
+
+tpMat4 tp_mat4_identity()
+{
+    return (tpMat4)
+    {
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    };
+}
+
+tpMat4 tp_mat4_ortho(Float _left, Float _right, Float _bottom, Float _top, Float _near, Float _far)
+{
+    Float a = 2.0 / (_right - _left);
+    Float b = 2.0 / (_top - _bottom);
+    Float c = - 2.0 / (_far - _near);
+    Float tx = -(_right + _left) / (_right - _left);
+    Float ty = -(_top + _bottom) / (_top - _bottom);
+    Float tz = -(_far + _near) / (_far - _near);
+
+    return tp_mat4_make(a, 0.0, 0.0, tx,
+                        0.0, b, 0.0, ty,
+                        0.0, 0.0, c, tz,
+                        0.0, 0.0, 0, 1.0);
+}
+
+tpMat4 tp_mat4_from_2D_transform(const tpMat3 * _transform)
+{
+    return tp_mat4_make(_transform->v[0], _transform->v[1], _transform->v[2], 0.0,
+                        _transform->v[3], _transform->v[4], _transform->v[5], 0.0,
+                        0, 0, 1, 0,
+                        _transform->v[6], _transform->v[7], _transform->v[8], 1.0);
+}
+
 tpVec2 tp_vec2_mult_mat(const tpMat3 * _mat, const tpVec2 * _vec)
 {
     return (tpVec2)
@@ -373,7 +453,7 @@ tpVec2 tp_vec2_mult_mat(const tpMat3 * _mat, const tpVec2 * _vec)
 
 void tp_ptr_array_init(tpPtrArray * _array, int _capacity)
 {
-    _array->array = (const void **)malloc(sizeof(void *) * _capacity);
+    _array->array = malloc(sizeof(void *) * _capacity);
     _array->capacity = _capacity;
     _array->count = 0;
 }
@@ -397,7 +477,7 @@ void tp_ptr_array_append(tpPtrArray * _array, const void * _element)
     if (_array->count == _array->capacity)
     {
         _array->capacity *= 2;
-        _array->array = (const void **)realloc(_array->array, _array->capacity * sizeof(void *));
+        _array->array = realloc(_array->array, _array->capacity * sizeof(void *));
     }
     _array->array[_array->count++] = _element;
 }

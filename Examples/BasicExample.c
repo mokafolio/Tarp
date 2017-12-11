@@ -4,8 +4,6 @@
 // we use GLFW to open a simple window
 #include <GLFW/glfw3.h>
 
-#include <Crunch/Matrix3.hpp>
-
 int main(int argc, char * argv[])
 {
     // initialize glfw
@@ -35,7 +33,7 @@ int main(int argc, char * argv[])
 
         tpPath * path = tp_path_new();
         tp_path_add_point(path, 10, 10);
-        tp_path_cubic_curve_to(path, 15, 15, 90, 90, 100, 100);
+        tp_path_cubic_curve_to(path, 15, 15, 100, 15, 100, 100);
 
         printf("WE GOT %lu\n", tp_path_segment_count(path));
 
@@ -82,7 +80,8 @@ int main(int argc, char * argv[])
 
             glViewport(0, 0, width, height);
 
-            crunch::Matrix4<Float> proj = crunch::Matrix4<Float>::ortho(0, 800, 600, 0, -1, 1);
+            tpMat4 proj = tp_mat4_ortho(0, 800, 600, 0, -1, 1);
+            tp_set_projection(&ctx, &proj);
             tpStyle style = tp_style_make();
             tp_draw_path(&ctx, path, &style, NULL);
 

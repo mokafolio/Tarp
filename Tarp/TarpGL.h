@@ -70,13 +70,14 @@ exit(EXIT_FAILURE); \
 //The shader programs used by the renderer
 static const char * _vertexShaderCode =
     "#version 150 \n"
-    "uniform mat4 transformProjection; \n"
+    "uniform mat4 transform; \n"
+    "uniform mat4 projection; \n"
     "uniform vec4 meshColor; \n"
     "in vec2 vertex; \n"
     "out vec4 icol;\n"
     "void main() \n"
     "{ \n"
-    "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
+    "gl_Position = projection * transform * vec4(vertex, 0.0, 1.0); \n"
     "icol = meshColor;\n"
     "} \n";
 
@@ -91,13 +92,14 @@ static const char * _fragmentShaderCode =
 
 static const char * _vertexShaderCodeTexture =
     "#version 150 \n"
-    "uniform mat4 transformProjection; \n"
+    "uniform mat4 transform; \n"
+    "uniform mat4 projection; \n"
     "in vec2 vertex; \n"
     "in float tc; \n"
     "out float itc;\n"
     "void main() \n"
     "{ \n"
-    "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
+    "gl_Position = projection * transform * vec4(vertex, 0.0, 1.0); \n"
     "itc = tc; \n"
     "} \n";
 
@@ -136,6 +138,14 @@ typedef struct
 
 typedef struct
 {
+    char * array;
+    int count;
+    int capacity;
+    int elementSize;
+} _DataArray;
+
+typedef struct
+{
     GLuint program;
     GLuint textureProgram;
     GLuint vao;
@@ -145,10 +155,13 @@ typedef struct
     GLuint currentClipStencilPlane;
     tpPath clippingStack[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
     int clippingStackDepth;
-    Float * geometryCache;
-    int geometryCacheCapacity;
-    int geometryCacheCount;
+    _DataArray geometryCache;
+    _DataArray jointCache;
+    // Float * geometryCache;
+    // int geometryCacheCapacity;
+    // int geometryCacheCount;
     _Rect boundsCache;
+    tpMat4 projection;
 } _GLContext;
 
 typedef struct
@@ -171,6 +184,43 @@ typedef struct
     _Curve first, second;
 } _CurvePair;
 
+void _data_array_init(_DataArray * _array, int _capacity, int _elementSize)
+{
+    _array->array = malloc(_elementSize * _capacity);
+    assert(_array->array);
+    _array->capacity = _capacity;
+    _array->count = 0;
+    _array->elementSize = _elementSize;
+}
+
+void _data_array_deallocate(_DataArray * _array)
+{
+    if (_array->array)
+    {
+        free(_array->array);
+        _array->capacity = 0;
+        _array->count = 0;
+        _array->elementSize = 0;
+    }
+}
+
+void _data_array_append_array(_DataArray * _array, void * _elements, int _count)
+{
+    if (_array->capacity - _array->count < _count)
+    {
+        int c = _array->capacity * 2;
+        _array->array = realloc(_array->array, c * _array->elementSize);
+        assert(_array->array);
+        _array->capacity = c;
+    }
+    memcpy(_array->array + _array->count * _array->elementSize, _elements, _count * _array->elementSize);
+    _array->count += _count;
+}
+
+void _data_array_clear(_DataArray * _array)
+{
+    _array->count = 0;
+}
 
 static int _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint * _outHandle, _ErrorMessage * _outError)
 {
@@ -301,9 +351,12 @@ int tp_context_init(tpContext * _ctx)
 
     glctx->currentClipStencilPlane = kClipStencilPlaneOne;
     glctx->clippingStackDepth = 0;
-    glctx->geometryCache = NULL;
-    glctx->geometryCacheCapacity = 0;
-    glctx->geometryCacheCount = 0;
+    // glctx->geometryCache = NULL;
+    // glctx->geometryCacheCapacity = 0;
+    // glctx->geometryCacheCount = 0;
+    _data_array_init(&glctx->geometryCache, 1024, sizeof(Float));
+    _data_array_init(&glctx->jointCache, 1024, sizeof(int));
+    glctx->projection = tp_mat4_identity();
 
     printf("DA PROG3 %i\n", glctx->program);
     _ctx->_implData = glctx;
@@ -323,37 +376,52 @@ int tp_context_deallocate(tpContext * _ctx)
     glDeleteBuffers(1, &glctx->textureVbo);
     glDeleteVertexArrays(1, &glctx->textureVao);
 
-    if (glctx->geometryCache)
-        free(glctx->geometryCache);
+    // if (glctx->geometryCache)
+    //     free(glctx->geometryCache);
+
+    _data_array_deallocate(&glctx->geometryCache);
+    _data_array_deallocate(&glctx->jointCache);
 
     free(glctx);
     return 0;
 }
 
-void _geometry_cache_append(_GLContext * _ctx, Float * _data, int _count)
-{
-    printf("APPEND %i %i %i\n", _count, _ctx->geometryCacheCapacity, _ctx->geometryCacheCount);
-    if (!_ctx->geometryCache)
-    {
-        int c = _ctx->geometryCacheCapacity ? _ctx->geometryCacheCapacity * 2 : 1024;
-        _ctx->geometryCache = (Float *)malloc(c * sizeof(Float));
-        _ctx->geometryCacheCapacity = c;
-    }
-    else if (_ctx->geometryCacheCapacity - _ctx->geometryCacheCount < _count)
-    {
-        int c = _ctx->geometryCacheCapacity ? _ctx->geometryCacheCapacity * 2 : 1024;
-        _ctx->geometryCache = (Float *)realloc(_ctx->geometryCache, c * sizeof(Float));
-        _ctx->geometryCacheCapacity = c;
-    }
+// void _geometry_cache_append(_GLContext * _ctx, const Float * _data, int _count)
+// {
+//     printf("APPEND %i %i %i\n", _count, _ctx->geometryCacheCapacity, _ctx->geometryCacheCount);
 
-    memcpy(_ctx->geometryCache + sizeof(Float) * _ctx->geometryCacheCount, _data, _count * sizeof(Float));
-    _ctx->geometryCacheCount += _count;
-}
+//     printf("DATA %i\n", _count);
+//     for (int i = 0; i < _count; ++i)
+//     {
+//         printf("DAT %f\n", _data[i]);
+//     }
+//     if (!_ctx->geometryCache)
+//     {
+//         printf("MALLOC\n");
+//         int c = _ctx->geometryCacheCapacity ? _ctx->geometryCacheCapacity * 2 : 1024;
+//         _ctx->geometryCache = malloc(c * sizeof(Float));
+//         _ctx->geometryCacheCapacity = c;
+//     }
+//     else if (_ctx->geometryCacheCapacity - _ctx->geometryCacheCount < _count)
+//     {
+//         printf("REALLOC\n");
+//         int c = _ctx->geometryCacheCapacity ? _ctx->geometryCacheCapacity * 2 : 1024;
+//         _ctx->geometryCache = realloc(_ctx->geometryCache, c * sizeof(Float));
+//         _ctx->geometryCacheCapacity = c;
+//     }
+//     printf("DA FUCK %p %i\n", _ctx->geometryCache, _count * sizeof(Float));
+//     memcpy(_ctx->geometryCache + _ctx->geometryCacheCount, _data, _count * sizeof(Float));
+//     _ctx->geometryCacheCount += _count;
+//     for (int i = 0; i < _ctx->geometryCacheCount; ++i)
+//     {
+//         printf("CAHCE %f\n", _ctx->geometryCache[i]);
+//     }
+// }
 
-void _geometry_cache_clear(_GLContext * _ctx)
-{
-    _ctx->geometryCacheCount = 0;
-}
+// void _geometry_cache_clear(_GLContext * _ctx)
+// {
+//     _ctx->geometryCacheCount = 0;
+// }
 
 Float _length_squared(Float _x, Float _y)
 {
@@ -617,7 +685,7 @@ int _is_flat_enough(Float _x0, Float _y0, Float _h0x, Float _h0y, Float _h1x, Fl
     Float vx = _h1x * 3.0 - _x1 * 2.0 - _x0;
     Float vy = _h1y * 3.0 - _y1 * 2.0 - _y0;
 
-    return TARP_MAX(ux * ux, vx * vx) + TARP_MAX(uy * uy, vy * vy);
+    return TARP_MAX(ux * ux, vx * vx) + TARP_MAX(uy * uy, vy * vy) < 10 * _tolerance * _tolerance;
 }
 
 void _subdivide_curve(Float _x0, Float _y0,
@@ -656,6 +724,7 @@ void _flatten_curve(_GLContext * _ctx,
                     Float _h0x, Float _h0y,
                     Float _h1x, Float _h1y,
                     Float _x1, Float _y1,
+                    const _Curve * _initialCurve,
                     Float _angleTolerance,
                     Float _minDistance,
                     int _recursionDepth,
@@ -675,6 +744,7 @@ void _flatten_curve(_GLContext * _ctx,
                        p.first.h0x, p.first.h0y,
                        p.first.h1x, p.first.h1y,
                        p.first.x1, p.first.y1,
+                       _initialCurve,
                        _angleTolerance, _minDistance,
                        rd, _maxRecursionDepth,
                        _bIsClosed, _bLastCurve);
@@ -683,6 +753,7 @@ void _flatten_curve(_GLContext * _ctx,
                        p.second.h0x, p.second.h0y,
                        p.second.h1x, p.second.h1y,
                        p.second.x1, p.second.y1,
+                       _initialCurve,
                        _angleTolerance, _minDistance,
                        rd, _maxRecursionDepth,
                        _bIsClosed, _bLastCurve);
@@ -692,8 +763,21 @@ void _flatten_curve(_GLContext * _ctx,
     {
         printf("ADD TO CACHE\n");
         //for the first curve we also add its first segment
-        Float data[] = {_x0, _y0, _x1, _y1};
-        _geometry_cache_append(_ctx, data, 4);
+        if (!_ctx->geometryCache.count)
+        {
+            Float data[] = {_x0, _y0, _x1, _y1};
+            _data_array_append_array(&_ctx->geometryCache, data, 4);
+            int isJoint[] = {0, _x1 == _initialCurve->x1 && _y1 == _initialCurve->y1 && !_bLastCurve};
+            _data_array_append_array(&_ctx->jointCache, &isJoint, 2);
+        }
+        else
+        {
+            Float data[] = {_x1, _y1};
+            _data_array_append_array(&_ctx->geometryCache, data, 2);
+            int isJoint = _bIsClosed ? (_x1 == _initialCurve->x1 && _y1 == _initialCurve->y1) :
+                          (_x1 == _initialCurve->x1 && _y1 == _initialCurve->y1 && !_bLastCurve);
+            _data_array_append_array(&_ctx->jointCache, &isJoint, 1);
+        }
 
 
         // Float mds = _minDistance * _minDistance;
@@ -775,11 +859,17 @@ int _flatten_path(_GLContext * _ctx,
                 printf("MIN %f %f\n", curveBounds.minX, curveBounds.minY);
                 printf("MAX %f %f\n", curveBounds.maxX, curveBounds.maxY);
 
+                _Curve _initialCurve = {last->position.x, last->position.y,
+                                        last->handleOut.x, last->handleOut.y,
+                                        current->handleIn.x, current->handleIn.y,
+                                        current->position.x, current->position.y
+                                       };
                 _flatten_curve(_ctx,
                                last->position.x, last->position.y,
                                last->handleOut.x, last->handleOut.y,
                                current->handleIn.x, current->handleIn.y,
                                current->position.x, current->position.y,
+                               &_initialCurve,
                                _angleTolerance,
                                _minDistance,
                                recursionDepth,
@@ -790,6 +880,10 @@ int _flatten_path(_GLContext * _ctx,
         }
     }
 
+    // Float bw = tmpBounds.maxX - tmpBounds.minX;
+    // Float bh = tmpBounds.maxY - tmpBounds.minY;
+    // _ctx->geometryCache[0] = tmpBounds.minX + bw * 0.5;
+    // _ctx->geometryCache[1] = tmpBounds.minY + bh * 0.5;
     _ctx->boundsCache = tmpBounds;
 
     printf("EEEEND\n");
@@ -806,12 +900,11 @@ int _draw_fill_even_odd(_GLContext * _ctx, tpPath * _path, const tpStyle * _styl
 
     //_transform ? & (*_transform).v[0] : NULL
     //@TODO: Cache the uniform loc
-    tpMat3 mat = tp_mat3_identity();
-    int loca = glGetUniformLocation(_ctx->program, "transformProjection");
-    printf("LOCA %i %i\n", _ctx->program, loca);
-    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &mat.v[0]));
-    ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(Float) * _ctx->geometryCacheCount, _ctx->geometryCache, GL_DYNAMIC_DRAW));
-    ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, 0, _ctx->geometryCacheCount / 2));
+    // ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &mat.v[0]));
+    Float data[8] = {50, 50, 10, 10, 100, 10, 100, 100};
+    // ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(Float) * 8, data, GL_DYNAMIC_DRAW));
+    ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(Float) * _ctx->geometryCache.count, _ctx->geometryCache.array, GL_DYNAMIC_DRAW));
+    ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, 0, _ctx->geometryCache.count / 2));
 
     // ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 255, detail::FillRasterStencilPlane));
     // ASSERT_NO_GL_ERROR(glStencilMask(detail::FillRasterStencilPlane));
@@ -834,24 +927,62 @@ int _draw_paint(_GLContext * _ctx, tpPath * _path, const tpStyle * _style, const
 
 }
 
+int tp_set_projection(tpContext * _ctx, const tpMat4 * _projection)
+{
+    ((_GLContext *)_ctx->_implData)->projection = *_projection;
+    return 0;
+}
+
 int tp_draw_path(tpContext * _ctx, tpPath * _path, const tpStyle * _style, const tpMat3 * _transform)
 {
     _GLContext * ctx = (_GLContext *)_ctx->_implData;
     assert(ctx);
 
-    _geometry_cache_clear(ctx);
+    _data_array_clear(&ctx->geometryCache);
+    // Float tmp[2] = {0, 0};
+    // _geometry_cache_append(ctx, tmp, 2);
+    // Float tmp2[2] = {10, 30};
+    // _geometry_cache_append(ctx, tmp2, 2);
+
+    tpMat4 transform = tp_mat4_identity();
+    Float flattenError = 0.15;
+    if (_transform)
+    {
+        transform = tp_mat4_from_2D_transform(_transform);
+        tpVec2 scale, translation;
+        Float rotation;
+        tp_mat3_decompose(_transform, &translation, &scale, &rotation);
+    }
+
     _flatten_path(ctx, _path, 0.15, 0, 32);
     printf("BOUNDS\n");
     printf("MIN %f %f\n", ctx->boundsCache.minX, ctx->boundsCache.minY);
     printf("MAX %f %f\n", ctx->boundsCache.maxX, ctx->boundsCache.maxY);
-    printf("GEOM CACHE %i\n", ctx->geometryCacheCount);
+    // printf("GEOM CACHE %i\n", ctx->geometryCacheCount);
 
-    for(int i=0; i<ctx->geometryCacheCount; ++i)
-    {
-        printf("CACHE %f\n", ctx->geometryCache[i]);
-    }
+    // for (int i = 0; i < ctx->geometryCacheCount; ++i)
+    // {
+    //     printf("CACHE %f\n", ctx->geometryCache[i]);
+    // }
+
+    ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
+    ASSERT_NO_GL_ERROR(glDepthMask(GL_FALSE));
+    ASSERT_NO_GL_ERROR(glEnable(GL_MULTISAMPLE));
+    ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
+    ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    ASSERT_NO_GL_ERROR(glEnable(GL_STENCIL_TEST));
+    ASSERT_NO_GL_ERROR(glStencilMask(kFillRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glClearStencil(0));
+    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+    ASSERT_NO_GL_ERROR(glStencilMask(kClipStencilPlaneOne | kClipStencilPlaneTwo | kStrokeRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glClearStencil(255));
+    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
     ASSERT_NO_GL_ERROR(glUseProgram(ctx->program));
+
+    //@TODO: Cache the uniform loc
+    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(ctx->program, "transform"), 1, GL_FALSE, &transform.v[0]));
+    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(ctx->program, "projection"), 1, GL_FALSE, &ctx->projection.v[0]));
     ASSERT_NO_GL_ERROR(glBindVertexArray(ctx->vao));
     ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo));
     ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(0));
