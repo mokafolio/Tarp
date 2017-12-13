@@ -328,7 +328,7 @@ static int _createProgram(const char * _vertexShader, const char * _fragmentShad
     return 0;
 }
 
-int tp_context_init(tpContext * _ctx)
+int tpContextInit(tpContext * _ctx)
 {
     int ret = 0;
     _GLContext * glctx = (_GLContext *)malloc(sizeof(_GLContext));
@@ -368,7 +368,7 @@ int tp_context_init(tpContext * _ctx)
     // glctx->geometryCacheCount = 0;
     // _data_array_init(&glctx->geometryCache, 1024, sizeof(Float));
     // _data_array_init(&glctx->jointCache, 1024, sizeof(int));
-    glctx->projection = tp_mat4_identity();
+    glctx->projection = tpMat4Identity();
 
     printf("DA PROG3 %i\n", glctx->program);
     _ctx->_implData = glctx;
@@ -376,7 +376,7 @@ int tp_context_init(tpContext * _ctx)
     return ret;
 }
 
-int tp_context_deallocate(tpContext * _ctx)
+int toContextDeallocate(tpContext * _ctx)
 {
     _GLContext * glctx = (_GLContext *)_ctx->_implData;
     assert(_ctx->_implData);
@@ -963,7 +963,7 @@ int _draw_fill_even_odd(_GLContext * _ctx, tpPath * _path, _GLPathData * _pdata,
 
 int _draw_fill_non_zero(_GLContext * _ctx, tpPath * _path, _GLPathData * _pdata, const tpStyle * _style)
 {
-
+    
 }
 
 int _recursively_draw_stroke(_GLContext * _ctx, tpPath * _path, _GLPathData * _pdata, const tpStyle * _style)
@@ -971,7 +971,7 @@ int _recursively_draw_stroke(_GLContext * _ctx, tpPath * _path, _GLPathData * _p
 
 }
 
-int _tp_path_init(tpPath * _path)
+int _tpPathInit(tpPath * _path)
 {
     _GLPathData * pdata = malloc(sizeof(_GLPathData));
     _data_array_init(&pdata->geometryCache, 128, sizeof(Float));
@@ -984,7 +984,7 @@ int _tp_path_init(tpPath * _path)
     return 0;
 }
 
-int _tp_path_deallocate(tpPath * _path)
+int _tpPathDeallocate(tpPath * _path)
 {
     _GLPathData * pdata = (_GLPathData *) _path->_implData;
     _data_array_deallocate(&pdata->geometryCache);
@@ -993,37 +993,37 @@ int _tp_path_deallocate(tpPath * _path)
     free(pdata);
 }
 
-int _tp_path_geometry_changed(tpPath * _path)
+int _tpPathGeometryChanged(tpPath * _path)
 {
     ((_GLPathData *)_path->_implData)->bGeometryCacheDirty = tpTrue;
     return 0;
 }
 
-int _tp_path_transform_changed(tpPath * _path, const tpMat3 * _old, const tpMat3 * _new)
+int _tpPathTransformChanged(tpPath * _path, const tpMat3 * _old, const tpMat3 * _new)
 {
     _GLPathData * pdata = (_GLPathData *)_path->_implData;
-    if (!tp_mat3_equals(_old, _new))
+    if (!tpMat3Equals(_old, _new))
     {
         tpVec2 scale, skew, translation;
         Float rotation;
-        tp_mat3_decompose(_new, &translation, &scale, &skew, &rotation);
+        tpMat3Decompose(_new, &translation, &scale, &skew, &rotation);
         if (pdata->lastTransformScale < scale.x || pdata->lastTransformScale < scale.y)
         {
             pdata->lastTransformScale = TARP_MAX(scale.x, scale.y);
             pdata->bGeometryCacheDirty = tpTrue;
         }
-        pdata->renderTransform = tp_mat4_from_2D_transform(_new);
+        pdata->renderTransform = tpMat4MakeFrom2DTransform(_new);
     }
     return 0;
 }
 
-int tp_set_projection(tpContext * _ctx, const tpMat4 * _projection)
+int tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
 {
     ((_GLContext *)_ctx->_implData)->projection = *_projection;
     return 0;
 }
 
-int tp_draw_path(tpContext * _ctx, tpPath * _path, const tpStyle * _style)
+int tpDrawPath(tpContext * _ctx, tpPath * _path, const tpStyle * _style)
 {
     _GLContext * ctx = (_GLContext *)_ctx->_implData;
     _GLPathData * pdata = (_GLPathData *)_path->_implData;

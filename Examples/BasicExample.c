@@ -24,47 +24,47 @@ int main(int argc, char * argv[])
         glfwMakeContextCurrent(window);
 
         tpContext ctx;
-        int err = tp_context_init(&ctx);
+        int err = tpContextInit(&ctx);
         if (err)
         {
             printf("COULT NOT INIT TARP CONTEXT %s\n", ctx.lastErrorMessage);
             return EXIT_FAILURE;
         }
 
-        tpPath * path = tp_path_new();
-        tp_path_add_point(path, 10, 10);
-        tp_path_cubic_curve_to(path, 15, 15, 100, 15, 100, 100);
+        tpPath * path = tpPathCreate();
+        tpPathAddPoint(path, 10, 10);
+        tpPathCubicCurveTo(path, 15, 15, 100, 15, 100, 100);
 
-        printf("WE GOT %lu\n", tp_path_segment_count(path));
+        printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
 
-        // tpVec2 a = tp_vec2_make(10, 20);
-        // tpVec2 b = tp_vec2_make(2, 4);
+        // tpVec2 a = tpVec2Make(10, 20);
+        // tpVec2 b = tpVec2Make(2, 4);
 
-        // tpVec2 c = tp_vec2_add(&a, &b);
+        // tpVec2 c = tpVec2Add(&a, &b);
         // printf("%f %f\n", a.x, a.y);
         // printf("%f %f\n", b.x, b.y);
         // printf("%f %f\n", c.x, c.y);
 
-        // tpMat3 mat = tp_mat3_identity();
+        // tpMat3 mat = tpMat3Identity();
         // printf("%f %f %f\n%f %f %f\n%f %f %f\n", mat.v[0], mat.v[1], mat.v[2],
         //        mat.v[3], mat.v[4], mat.v[5],
         //        mat.v[6], mat.v[7], mat.v[8]);
 
-        // tpVec2 c2 = tp_vec2_mult_mat(&mat, &c);
+        // tpVec2 c2 = tpMat3MultVec2(&mat, &c);
         // printf("%f %f\n", c2.x, c2.y);
 
-        // tpGradient * grad = tp_gradient_linear_new(0, 0, 100, 100);
-        // tp_gradient_add_color_stop(grad, 1, 0, 0, 1.0, 0.1);
-        // tp_gradient_add_color_stop(grad, 1, 0, 1, 1.0, 0.9);
+        // tpGradient * grad = tpGradientCreateLinear(0, 0, 100, 100);
+        // tpGradientAddColorStop(grad, 1, 0, 0, 1.0, 0.1);
+        // tpGradientAddColorStop(grad, 1, 0, 1, 1.0, 0.9);
         // printf("COUNTS %i\n", grad->stopCount);
 
-        // tpStyle style = tp_style_make();
-        // tp_style_set_fill_gradient(&style, grad);
-        // tp_style_set_stroke_width(&style, 4.0);
+        // tpStyle style = tpStyleMake();
+        // tpStyleSetFillGradient(&style, grad);
+        // tpStyleSetStrokeWidth(&style, 4.0);
 
-        // tpPath * p = tp_path_new();
-        // tp_path_destroy(p);
+        // tpPath * p = tpPathCreate();
+        // tpPathDestroy(p);
 
         // the main loop
         while (!glfwWindowShouldClose(window))
@@ -80,10 +80,10 @@ int main(int argc, char * argv[])
 
             glViewport(0, 0, width, height);
 
-            tpMat4 proj = tp_mat4_ortho(0, 800, 600, 0, -1, 1);
-            tp_set_projection(&ctx, &proj);
-            tpStyle style = tp_style_make();
-            tp_draw_path(&ctx, path, &style);
+            tpMat4 proj = tpMat4Ortho(0, 800, 600, 0, -1, 1);
+            tpSetProjection(&ctx, &proj);
+            tpStyle style = tpStyleMake();
+            tpDrawPath(&ctx, path, &style);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
