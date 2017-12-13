@@ -83,7 +83,7 @@ int main(int argc, char * argv[])
             tpMat4 proj = tp_mat4_ortho(0, 800, 600, 0, -1, 1);
             tp_set_projection(&ctx, &proj);
             tpStyle style = tp_style_make();
-            tp_draw_path(&ctx, path, &style, NULL);
+            tp_draw_path(&ctx, path, &style);
 
             glfwSwapBuffers(window);
             glfwPollEvents();

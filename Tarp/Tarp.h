@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 //POSSIBLE PLATFORMS
 #define TARP_PLATFORM_OSX 1
@@ -76,6 +77,11 @@ typedef enum
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 typedef float Float;
+typedef enum
+{
+    tpFalse = 0,
+    tpTrue = 1
+} tpBool;
 
 // Structures
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -128,7 +134,8 @@ typedef struct
     int bIsClosed;
     tpSegment * lastSegment;
     char lastErrorMessage[512];
-    // void * _implData;
+    void * _implData;
+    tpMat3 transform;
 } tpPath;
 
 typedef struct
@@ -144,24 +151,25 @@ typedef struct
     tpColorStop stops[TARP_MAX_COLOR_STOPS];
     int stopCount;
     GradientType type;
+    void * _implData;
 } tpGradient;
 
 typedef union
 {
     tpGradient * gradient;
     tpColor color;
-} _tpPaintStorageUnion;
+} _tpPaintUnion;
 
 typedef struct
 {
-    _tpPaintStorageUnion data;
+    _tpPaintUnion data;
     PaintType type;
-} tpPaintStorage;
+} tpPaint;
 
 typedef struct
 {
-    tpPaintStorage fill;
-    tpPaintStorage stroke;
+    tpPaint fill;
+    tpPaint stroke;
     Float strokeWidth;
     StrokeCap strokeCap;
     StrokeJoin strokeJoin;
@@ -182,6 +190,7 @@ typedef struct
 
 tpColor tp_color_make(Float _r, Float _g, Float _b, Float _a);
 
+
 // Vector Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -195,7 +204,7 @@ tpVec2 tp_vec2_mult(const tpVec2 * _a, const tpVec2 * _b);
 
 tpVec2 tp_vec2_div(const tpVec2 * _a, const tpVec2 * _b);
 
-int tp_vec2_equals(const tpVec2 * _a, const tpVec2 * _b);
+tpBool tp_vec2_equals(const tpVec2 * _a, const tpVec2 * _b);
 
 tpVec2 tp_vec2_mult_mat(const tpMat3 * _mat, const tpVec2 * _vec);
 
@@ -209,7 +218,10 @@ tpMat3 tp_mat3_make(Float _v0, Float _v1, Float _v2, //row1
 
 tpMat3 tp_mat3_identity();
 
-void tp_mat3_decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _outScale, Float * _outRotation);
+int tp_mat3_decompose(const tpMat3 * _mat, tpVec2 * _outTranslation,
+                      tpVec2 * _outScale, tpVec2 * _outSkew, Float * _outRotation);
+
+tpBool tp_mat3_equals(const tpMat3 * _a, const tpMat3 * _b);
 
 tpMat4 tp_mat4_make(Float _v0, Float _v1, Float _v2, Float _v3, //row1
                     Float _v4, Float _v5, Float _v6, Float _v7, //row2
@@ -256,6 +268,8 @@ tpSegment * tp_path_get_segment(tpPath * _path, int _idx);
 
 int tp_path_circle(tpPath * _path, Float _x, Float _y, Float _r);
 
+int tp_path_set_transform(tpPath * _path, const tpMat3 * _transform);
+
 int tp_path_add_segment(tpPath * _path, Float _h0x, Float _h0y, Float _px, Float _py, Float _h1x, Float _h1y);
 
 int tp_path_add_point(tpPath * _path, Float _x, Float _y);
@@ -271,6 +285,7 @@ int tp_path_add_child(tpPath * _path, const tpPath * _child);
 tpSegmentChunk * _tp_segment_chunk_new();
 
 tpSegmentChunk * _tp_path_last_segment_chunk(tpPath * _path);
+
 
 // Style Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -302,7 +317,7 @@ void tp_gradient_add_color_stop(tpGradient * _gradient, Float _r, Float _g, Floa
 void tp_gradient_destroy(tpGradient * _gradient);
 
 
-// Context Functions
+// Context Functions (These are implemented by the backend)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 int tp_context_init(tpContext * _ctx);
@@ -315,7 +330,17 @@ int tp_finish_drawing(tpContext * _ctx);
 
 int tp_set_projection(tpContext * _ctx, const tpMat4 * _projection);
 
-int tp_draw_path(tpContext * _ctx, tpPath * _path, const tpStyle * _style, const tpMat3 * _transform);
+int tp_draw_path(tpContext * _ctx, tpPath * _path, const tpStyle * _style);
+
+
+// Hidden functions that need to be implemented
+// by the backend
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+int _tp_path_init(tpPath * _path);
+int _tp_path_deallocate(tpPath * _path);
+int _tp_path_geometry_changed(tpPath * _path);
+int _tp_path_transform_changed(tpPath * _path, const tpMat3 * _old, const tpMat3 * _new);
 
 
 // Implementations
@@ -351,7 +376,7 @@ tpVec2 tp_vec2_div(const tpVec2 * _a, const tpVec2 * _b)
     return (tpVec2) {_a->x / _b->x, _a->y / _b->y};
 }
 
-int tp_vec2_equals(const tpVec2 * _a, const tpVec2 * _b)
+tpBool tp_vec2_equals(const tpVec2 * _a, const tpVec2 * _b)
 {
     return _a->x == _b->x && _a->y == _b->y;
 }
@@ -378,7 +403,7 @@ tpMat3 tp_mat3_identity()
     };
 }
 
-void tp_mat3_decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _outScale, Float * _outRotation)
+int tp_mat3_decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _outScale, tpVec2 * _outSkew, Float * _outRotation)
 {
     _outTranslation->x = _mat->v[6];
     _outTranslation->y = _mat->v[7];
@@ -387,11 +412,48 @@ void tp_mat3_decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _
     Float b = _mat->v[3];
     Float c = _mat->v[1];;
     Float d = _mat->v[4];;
+    Float det = a * d - b * c;
 
-    _outScale->x = sqrt(a * a + b * b);
-    _outScale->y = sqrt(c * c + d * d);
+    if (a != 0 || b != 0)
+    {
+        Float r = sqrt(a * a + b * b);
+        *_outRotation = acos(a / r) * (b > 0 ? 1 : -1);
+        _outScale->x = r;
+        _outScale->y = det / r;
+        _outSkew->x = atan2(a * c + b * d, r * r);
+        _outSkew->y = 0;
+    }
+    else if (c != 0 || d != 0)
+    {
+        Float s = sqrt(c * c + d * d);
+        *_outRotation = asin(c / s)  * (d > 0 ? 1 : -1);
+        _outScale->x = det / s;
+        _outScale->y = s;
+        _outSkew->x = 0;
+        _outSkew->y = atan2(a * c + b * d, s * s);
+    }
+    else     // a = b = c = d = 0
+    {
+        *_outRotation = 0;
+        _outScale->x = 0;
+        _outScale->y = 0;
+        _outSkew->x = 0;
+        _outSkew->y = 0;
+    }
 
-    *_outRotation = -atan2(b, a);
+    // _outScale->x = sqrtf(a * a + b * b);
+    // _outScale->y = sqrtf(c * c + d * d);
+
+    // *_outRotation = -atan2(b, a);
+
+    return 0;
+}
+
+tpBool tp_mat3_equals(const tpMat3 * _a, const tpMat3 * _b)
+{
+    return (_a->v[0] == _b->v[0] && _a->v[1] == _b->v[1] && _a->v[2] == _b->v[2] &&
+            _a->v[3] == _b->v[3] && _a->v[4] == _b->v[4] && _a->v[5] == _b->v[5] &&
+            _a->v[6] == _b->v[6] && _a->v[7] == _b->v[7] && _a->v[8] == _b->v[8]);
 }
 
 tpMat4 tp_mat4_make(Float _v0, Float _v1, Float _v2, Float _v3,
@@ -512,11 +574,17 @@ tpPath * tp_path_new()
     ret->lastSegment = NULL;
     ret->bIsClosed = 0;
     memset(ret->lastErrorMessage, 0, sizeof(ret->lastErrorMessage));
+
+    _tp_path_init(ret);
+
+    tpMat3 tmp = tp_mat3_identity();
+    tp_path_set_transform(ret, &tmp);
     return ret;
 }
 
 void tp_path_destroy(tpPath * _path)
 {
+    _tp_path_deallocate(_path);
     for (int i = 0; i < _path->segmentChunks.count; ++i)
     {
         free((tpSegmentChunk *)_path->segmentChunks.array[i]);
@@ -571,6 +639,8 @@ int tp_path_add_segment(tpPath * _path, Float _h0x, Float _h0y, Float _px, Float
     chunk->array[idx] = tp_segment_make(_h0x, _h0y, _px, _py, _h1x, _h1y);
     _path->lastSegment = &chunk->array[idx];
     chunk->count++;
+
+    _tp_path_geometry_changed(_path);
     return 0;
 }
 
@@ -612,6 +682,12 @@ int tp_path_close(tpPath * _path)
 int tp_path_add_child(tpPath * _path, const tpPath * _child)
 {
     tp_ptr_array_append(&_path->children, _child);
+}
+
+int tp_path_set_transform(tpPath * _path, const tpMat3 * _transform)
+{
+    _tp_path_transform_changed(_path, &_path->transform, _transform);
+    _path->transform = *_transform;
 }
 
 tpStyle tp_style_make()
