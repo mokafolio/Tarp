@@ -119,42 +119,107 @@ typedef enum
     //2 bits. These need to be the lower bits in order to work with the
     //Increment, Decrement stencil operations
     //http://www.opengl.org/discussion_boards/showthread.php/149740-glStencilOp-s-GL_INCR-GL_DECR-behaviour-when-masked
-    kFillRasterStencilPlane = 0x1F, //binary mask    00011111
-    kClipStencilPlaneOne = 1 << 5, //binary mask     00100000
-    kClipStencilPlaneTwo = 1 << 6, //binary mask     01000000
-    kStrokeRasterStencilPlane = 1 << 7 //binary mask 10000000
-} _StencilPlane;
+    _kTpFillRasterStencilPlane = 0x1F, //binary mask    00011111
+    _kTpClipStencilPlaneOne = 1 << 5, //binary mask     00100000
+    _kTpClipStencilPlaneTwo = 1 << 6, //binary mask     01000000
+    _kTpStrokeRasterStencilPlane = 1 << 7 //binary mask 10000000
+} _tpStencilPlane;
+
+struct _tpHandleData
+{
+    void * pointer;
+};
+
+#define _TARP_ARRAY_T _tpFloatArray
+#define _TARP_ITEM_T tpFloat
+#include <Tarp/TarpArray.h>
+
+#define _TARP_ARRAY_T _tpBoolArray
+#define _TARP_ITEM_T tpBool
+#include <Tarp/TarpArray.h>
+
+#define _TARP_ARRAY_T _tpSegmentArray
+#define _TARP_ITEM_T tpSegment
+#define _TARP_COMPARATOR_T 0
+#include <Tarp/TarpArray.h>
 
 typedef struct
 {
-    char message[TARP_GL_ERROR_MESSAGE_SIZE];
-    int length;
-} _ErrorMessage;
+    _tpSegmentArray segments;
+    tpBool bDirty;
+    int lastSegmentIndex;
+    tpBool bIsClosed;
+} _tpGLContour;
+
+#define _TARP_ARRAY_T _tpGLContourArray
+#define _TARP_ITEM_T _tpGLContour
+#define _TARP_COMPARATOR_T 0
+#include <Tarp/TarpArray.h>
 
 typedef struct
 {
-    Float minX, minY, maxX, maxY;
-} _Rect;
+    _tpGLContourArray contours;
+    int currentContourIndex;
+    char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
+    tpMat3 transform;
 
-typedef struct
-{
-    char * array;
-    int count;
-    int capacity;
-    int elementSize;
-} _DataArray;
-
-typedef struct
-{
-    _DataArray geometryCache;
-    _DataArray jointCache;
-    _DataArray strokeGeometryCache;
+    //rendering specific data/caches
+    _tpFloatArray geometryCache;
+    _tpBoolArray jointCache;
+    _tpFloatArray strokeGeometryCache;
     tpBool bGeometryCacheDirty;
-    Float lastTransformScale;
+    tpFloat lastTransformScale;
     tpMat4 renderTransform;
-} _GLPathData;
+
+    //holds a pointer to the context that owns this path
+    tpContext * context;
+} _tpGLPath;
 
 typedef struct
+{
+    tpVec2 origin;
+    tpVec2 destination;
+    tpColorStop stops[TARP_MAX_COLOR_STOPS];
+    int stopCount;
+    tpGradientType type;
+    //rendering specific data/caches
+} _tpGLGradient;
+
+typedef union
+{
+    tpGradient gradient;
+    tpColor color;
+} _tpGLPaintUnion;
+
+typedef struct
+{
+    _tpGLPaintUnion data;
+    tpPaintType type;
+} _tpGLPaint;
+
+typedef struct
+{
+    _tpGLPaint fill;
+    _tpGLPaint stroke;
+    tpFloat strokeWidth;
+    tpStrokeCap strokeCap;
+    tpStrokeJoin strokeJoin;
+    tpFillType fillType;
+    tpFloat dashArray[TARP_MAX_DASH_ARRAY_SIZE];
+    int dashCount;
+    tpFloat dashOffset;
+    tpContext * context;
+} _tpGLStyle;
+
+#define _TARP_ARRAY_T _tpGLPathPtrArray
+#define _TARP_ITEM_T _tpGLPath *
+#include <Tarp/TarpArray.h>
+
+#define _TARP_ARRAY_T _tpGLStylePtrArray
+#define _TARP_ITEM_T _tpGLStyle *
+#include <Tarp/TarpArray.h>
+
+struct _tpContextData
 {
     GLuint program;
     GLuint textureProgram;
@@ -165,76 +230,19 @@ typedef struct
     GLuint currentClipStencilPlane;
     tpPath clippingStack[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
     int clippingStackDepth;
-
-    // Float * geometryCache;
-    // int geometryCacheCapacity;
-    // int geometryCacheCount;
-    _Rect boundsCache;
     tpMat4 projection;
-} _GLContext;
+    _tpGLPathPtrArray paths;
+    _tpGLStylePtrArray styles;
+    char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
+};
 
 typedef struct
 {
-    Float x, y;
-} _GLVertex;
+    char message[TARP_GL_ERROR_MESSAGE_SIZE];
+    int length;
+} _ErrorMessage;
 
-typedef struct
-{
-    Float x, y, s;
-} _GLTextureVertex;
-
-typedef struct
-{
-    Float x0, y0, h0x, h0y, h1x, h1y, x1, y1;
-} _Curve;
-
-typedef struct
-{
-    _Curve first, second;
-} _CurvePair;
-
-void _data_array_init(_DataArray * _array, int _capacity, int _elementSize)
-{
-    _array->array = malloc(_elementSize * _capacity);
-    assert(_array->array);
-    _array->capacity = _capacity;
-    _array->count = 0;
-    _array->elementSize = _elementSize;
-    printf("INIT ARR\n");
-}
-
-void _data_array_deallocate(_DataArray * _array)
-{
-    if (_array->array)
-    {
-        free(_array->array);
-        _array->capacity = 0;
-        _array->count = 0;
-        _array->elementSize = 0;
-    }
-}
-
-void _data_array_append_array(_DataArray * _array, void * _elements, int _count)
-{
-    assert(_array->array);
-    printf("APPEND %i %i %i\n", _array->capacity, _array->count, _count);
-    if (_array->capacity - _array->count < _count)
-    {
-        int c = _array->capacity * 2;
-        _array->array = realloc(_array->array, c * _array->elementSize);
-        assert(_array->array);
-        _array->capacity = c;
-    }
-    memcpy(_array->array + _array->count * _array->elementSize, _elements, _count * _array->elementSize);
-    _array->count += _count;
-}
-
-void _data_array_clear(_DataArray * _array)
-{
-    _array->count = 0;
-}
-
-static int _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint * _outHandle, _ErrorMessage * _outError)
+static tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint * _outHandle, _ErrorMessage * _outError)
 {
     GLenum glHandle = glCreateShader(_shaderType);
     GLint len = strlen(_shaderCode);
@@ -256,19 +264,19 @@ static int _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint *
         }
 
         glDeleteShader(glHandle);
-        return 1;
+        return tpTrue;
     }
     else
     {
         *_outHandle = glHandle;
     }
-    return 0;
+    return tpFalse;
 }
 
-static int _createProgram(const char * _vertexShader, const char * _fragmentShader, int _bTexProgram, GLuint * _outHandle, _ErrorMessage * _outError)
+static tpBool _createProgram(const char * _vertexShader, const char * _fragmentShader, int _bTexProgram, GLuint * _outHandle, _ErrorMessage * _outError)
 {
     GLuint vertexShader, fragmentShader;
-    int err = _compileShader(_vertexShader, GL_VERTEX_SHADER, &vertexShader, _outError);
+    tpBool err = _compileShader(_vertexShader, GL_VERTEX_SHADER, &vertexShader, _outError);
     if (!err)
     {
         err = _compileShader(_fragmentShader, GL_FRAGMENT_SHADER, &fragmentShader, _outError);
@@ -309,7 +317,7 @@ static int _createProgram(const char * _vertexShader, const char * _fragmentShad
             _outError->length = infologLength;
         }
 
-        return 1;
+        return tpTrue;
     }
 
     ASSERT_NO_GL_ERROR(glDeleteShader(vertexShader));
@@ -321,762 +329,447 @@ static int _createProgram(const char * _vertexShader, const char * _fragmentShad
     }
     else
     {
-        printf("DA PROG %i\n", program);
         *_outHandle = program;
     }
 
-    return 0;
+    return tpFalse;
 }
 
-int tpContextInit(tpContext * _ctx)
+tpBool tpContextInit(tpContext * _ctx)
 {
     int ret = 0;
-    _GLContext * glctx = (_GLContext *)malloc(sizeof(_GLContext));
-
     _ErrorMessage msg;
 
-    ret = _createProgram(_vertexShaderCode, _fragmentShaderCode, 0, &glctx->program, &msg);
+    ret = _createProgram(_vertexShaderCode, _fragmentShaderCode, 0, &_ctx->program, &msg);
     if (ret)
     {
-        strcpy(_ctx->lastErrorMessage, msg.message);
+        strcpy(_ctx->errorMessage, msg.message);
         return ret;
     }
-    ret = _createProgram(_vertexShaderCodeTexture, _fragmentShaderCodeTexture, 1, &glctx->textureProgram, &msg);
+    ret = _createProgram(_vertexShaderCodeTexture, _fragmentShaderCodeTexture, 1, &_ctx->textureProgram, &msg);
     if (ret)
     {
-        strcpy(_ctx->lastErrorMessage, msg.message);
+        strcpy(_ctx->errorMessage, msg.message);
         return ret;
     }
 
-    ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &glctx->vao));
-    ASSERT_NO_GL_ERROR(glGenBuffers(1, &glctx->vbo));
-    ASSERT_NO_GL_ERROR(glBindVertexArray(glctx->vao));
-    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, glctx->vbo));
+    ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &_ctx->vao));
+    ASSERT_NO_GL_ERROR(glGenBuffers(1, &_ctx->vbo));
+    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao));
+    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
     ASSERT_NO_GL_ERROR(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), ((char *)0)));
 
-    ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &glctx->textureVao));
-    ASSERT_NO_GL_ERROR(glGenBuffers(1, &glctx->textureVbo));
-    ASSERT_NO_GL_ERROR(glBindVertexArray(glctx->textureVao));
-    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, glctx->textureVbo));
+    ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &_ctx->textureVao));
+    ASSERT_NO_GL_ERROR(glGenBuffers(1, &_ctx->textureVbo));
+    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao));
+    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVbo));
     ASSERT_NO_GL_ERROR(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float), ((char *)0)));
     ASSERT_NO_GL_ERROR(glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 3 * sizeof(float), ((char *)(2 * sizeof(float)))));
 
-    glctx->currentClipStencilPlane = kClipStencilPlaneOne;
-    glctx->clippingStackDepth = 0;
-    // glctx->geometryCache = NULL;
-    // glctx->geometryCacheCapacity = 0;
-    // glctx->geometryCacheCount = 0;
-    // _data_array_init(&glctx->geometryCache, 1024, sizeof(Float));
-    // _data_array_init(&glctx->jointCache, 1024, sizeof(int));
-    glctx->projection = tpMat4Identity();
+    _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
+    _ctx->clippingStackDepth = 0;
+    _ctx->projection = tpMat4Identity();
 
-    printf("DA PROG3 %i\n", glctx->program);
-    _ctx->_implData = glctx;
+    _tpGLPathPtrArrayInit(&_ctx->paths, 32);
 
     return ret;
 }
 
-int toContextDeallocate(tpContext * _ctx)
+tpBool tpContextDeallocate(tpContext * _ctx)
 {
-    _GLContext * glctx = (_GLContext *)_ctx->_implData;
-    assert(_ctx->_implData);
+    glDeleteProgram(_ctx->program);
+    glDeleteBuffers(1, &_ctx->vbo);
+    glDeleteVertexArrays(1, &_ctx->vao);
+    glDeleteProgram(_ctx->textureProgram);
+    glDeleteBuffers(1, &_ctx->textureVbo);
+    glDeleteVertexArrays(1, &_ctx->textureVao);
 
-    glDeleteProgram(glctx->program);
-    glDeleteBuffers(1, &glctx->vbo);
-    glDeleteVertexArrays(1, &glctx->vao);
-    glDeleteProgram(glctx->textureProgram);
-    glDeleteBuffers(1, &glctx->textureVbo);
-    glDeleteVertexArrays(1, &glctx->textureVao);
+    // deallocate all paths
+    for (int i = 0; i < _ctx->paths.count; ++i)
+    {
+        // _tpGLPathPtrArrayAt(&_ctx->paths, i);
+    }
 
-    // _data_array_deallocate(&glctx->geometryCache);
-    // _data_array_deallocate(&glctx->jointCache);
+    _tpGLPathPtrArrayDeallocate(&_ctx->paths);
 
-    free(glctx);
-    return 0;
+    return tpFalse;
 }
 
-// void _geometry_cache_append(_GLContext * _ctx, const Float * _data, int _count)
-// {
-//     printf("APPEND %i %i %i\n", _count, _ctx->geometryCacheCapacity, _ctx->geometryCacheCount);
+tpBool _tpGLIsValidPath(_tpGLPath * _path)
+{
+    return _tpGLPathPtrArrayFind(&_path->context->paths, _path) != -1;
+}
 
-//     printf("DATA %i\n", _count);
-//     for (int i = 0; i < _count; ++i)
-//     {
-//         printf("DAT %f\n", _data[i]);
-//     }
-//     if (!_ctx->geometryCache)
-//     {
-//         printf("MALLOC\n");
-//         int c = _ctx->geometryCacheCapacity ? _ctx->geometryCacheCapacity * 2 : 1024;
-//         _ctx->geometryCache = malloc(c * sizeof(Float));
-//         _ctx->geometryCacheCapacity = c;
-//     }
-//     else if (_ctx->geometryCacheCapacity - _ctx->geometryCacheCount < _count)
-//     {
-//         printf("REALLOC\n");
-//         int c = _ctx->geometryCacheCapacity ? _ctx->geometryCacheCapacity * 2 : 1024;
-//         _ctx->geometryCache = realloc(_ctx->geometryCache, c * sizeof(Float));
-//         _ctx->geometryCacheCapacity = c;
-//     }
-//     printf("DA FUCK %p %i\n", _ctx->geometryCache, _count * sizeof(Float));
-//     memcpy(_ctx->geometryCache + _ctx->geometryCacheCount, _data, _count * sizeof(Float));
-//     _ctx->geometryCacheCount += _count;
-//     for (int i = 0; i < _ctx->geometryCacheCount; ++i)
-//     {
-//         printf("CAHCE %f\n", _ctx->geometryCache[i]);
-//     }
+tpBool _tpGLIsValidStyle(_tpGLStyle * _style)
+{
+    return _tpGLStylePtrArrayFind(&_style->context->styles, _style) != -1;
+}
+
+tpPath tpPathCreate(tpContext * _ctx)
+{
+    _tpGLPath * path = malloc(sizeof(_tpGLPath));
+    _tpGLContourArrayInit(&path->contours, 4);
+    path->currentContourIndex = -1;
+    memset(path->errorMessage, 0, sizeof(path->errorMessage));
+    path->transform = tpMat3Identity();
+
+    _tpFloatArrayInit(&path->geometryCache, 128);
+    _tpFloatArrayInit(&path->strokeGeometryCache, 256);
+    _tpBoolArrayInit(&path->jointCache, 128);
+    path->bGeometryCacheDirty = tpTrue;
+    path->lastTransformScale = 1.0;
+    path->renderTransform = tpMat4Identity();
+
+    path->context = _ctx;
+    _tpGLPathPtrArrayAppend(&_ctx->paths, path);
+
+    return (tpPath) {path};
+}
+
+void tpPathDestroy(tpPath _path)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+
+    _tpGLPathPtrArrayRemoveValue(&p->context->paths, p);
+
+    _tpFloatArrayDeallocate(&p->geometryCache);
+    _tpFloatArrayDeallocate(&p->strokeGeometryCache);
+    _tpBoolArrayDeallocate(&p->jointCache);
+    for (int i = 0; i < p->contours.count; ++i)
+    {
+        _tpSegmentArrayDeallocate(&_tpGLContourArrayAtPtr(&p->contours, i)->segments);
+    }
+    _tpGLContourArrayDeallocate(&p->contours);
+    free(p);
+}
+
+_tpGLContour * _tpGLPathCreateNextContour(_tpGLPath * _p)
+{
+    _tpGLContour contour;
+    _tpSegmentArrayInit(&contour.segments, 8);
+    contour.bDirty = tpTrue;
+    contour.lastSegmentIndex = -1;
+    contour.bIsClosed = tpFalse;
+    _p->currentContourIndex = _p->contours.count;
+    _tpGLContourArrayAppend(&_p->contours, contour);
+    return _tpGLContourArrayAtPtr(&_p->contours, _p->currentContourIndex);
+}
+
+_tpGLContour * _tpGLCurrentContour(_tpGLPath * _p)
+{
+    if (_p->currentContourIndex != -1)
+        return _tpGLContourArrayAtPtr(&_p->contours, _p->currentContourIndex);
+    return NULL;
+}
+
+tpBool _tpGLContourAddSegment(_tpGLPath * _p, _tpGLContour * _c,
+                              tpFloat _h0x, tpFloat _h0y,
+                              tpFloat _px, tpFloat _py,
+                              tpFloat _h1x, tpFloat _h1y)
+{
+    _c->lastSegmentIndex = _c->segments.count;
+    _c->bDirty = tpTrue;
+    _p->bGeometryCacheDirty = tpTrue;
+    int err = _tpSegmentArrayAppend(&_c->segments, (tpSegment)
+    {
+        {_h0x, _h0y},
+        {_px, _py},
+        {_h1x, _h1y}
+    });
+    if (err)
+    {
+        strcpy(_p->errorMessage, "Could not allocate memory for segments.");
+        return tpTrue;
+    }
+    return tpFalse;
+}
+
+tpBool tpPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    _tpGLContour * c = _tpGLCurrentContour(p);
+    if (!c)
+    {
+        c = _tpGLPathCreateNextContour(p);
+        assert(c);
+    }
+
+    if (!c)
+        return tpTrue;
+
+    return _tpGLContourAddSegment(p, c, _h0x, _h0y, _px, _py, _h1x, _h1y);
+}
+
+tpBool tpPathLineTo(tpPath _path, tpFloat _x, tpFloat _y)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    _tpGLContour * c = _tpGLCurrentContour(p);
+    if (!c || c->lastSegmentIndex == -1)
+    {
+        strcpy(p->errorMessage, "You have to start a contour before issuing this command (see tpPathMoveTo).");
+        return tpTrue;
+    }
+
+    return _tpGLContourAddSegment(p, c, _x, _y, _x, _y, _x, _y);
+}
+
+tpBool tpPathMoveTo(tpPath _path, tpFloat _x, tpFloat _y)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    _tpGLContour * c = _tpGLCurrentContour(p);
+
+    if (!c || c->segments.count)
+    {
+        c = _tpGLPathCreateNextContour(p);
+    }
+
+    return _tpGLContourAddSegment(p, c, _x, _y, _x, _y, _x, _y);
+}
+
+tpBool tpPathClear(tpPath _path)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    p->currentContourIndex = -1;
+    for (int i = 0; i < p->contours.count; ++i)
+    {
+        _tpSegmentArrayDeallocate(&_tpGLContourArrayAtPtr(&p->contours, i)->segments);
+    }
+    _tpGLContourArrayClear(&p->contours);
+    p->bGeometryCacheDirty = tpTrue;
+
+    return tpFalse;
+}
+
+tpBool tpPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _h1x, tpFloat _h1y, tpFloat _px, tpFloat _py)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    _tpGLContour * c = _tpGLCurrentContour(p);
+    if (!c || c->lastSegmentIndex == -1)
+    {
+        strcpy(p->errorMessage, "You have to start a contour before issuing this command (see tpPathMoveTo).");
+        return tpTrue;
+    }
+
+    _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->handleOut = (tpVec2) {_h0x, _h0y};
+    return _tpGLContourAddSegment(p, c, _h1x, _h1y, _px, _py, _px, _py);
+}
+
+tpBool tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, tpFloat _px, tpFloat _py)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    _tpGLContour * c = _tpGLCurrentContour(p);
+    if (!c || c->lastSegmentIndex == -1)
+    {
+        strcpy(p->errorMessage, "You have to start a contour before issuing this command (see tpPathMoveTo).");
+        return tpTrue;
+    }
+
+    _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->handleOut = (tpVec2) {_hx, _hy};
+    return _tpGLContourAddSegment(p, c, _hx, _hy, _px, _py, _px, _py);
+}
+
+tpBool tpPathClose(tpPath _path)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    _tpGLContour * c = _tpGLCurrentContour(p);
+    if (c->segments.count > 1)
+    {
+        c->bIsClosed = tpTrue;
+        c->bDirty = tpTrue;
+        p->currentContourIndex = -1;
+        p->bGeometryCacheDirty = tpTrue;
+    }
+    return tpFalse;
+}
+
+tpBool tpPathRemoveContour(tpPath _path, int _index)
+{
+    return tpFalse;
+}
+
+tpBool _tpGLPathAddSegmentsToCurrentContour(_tpGLPath * _p, _tpGLContour * _c, tpSegment * _segments, int _count)
+{
+    int err = _tpSegmentArrayAppendArray(&_c->segments, _segments, _count);
+    if (err)
+    {
+        strcpy(_p->errorMessage, "Could not allocate memory for segments.");
+        return tpTrue;
+    }
+
+    _c->lastSegmentIndex = _c->segments.count - 1;
+    _c->bDirty = tpTrue;
+    _p->bGeometryCacheDirty = tpTrue;
+    return tpFalse;
+}
+
+tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _count)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    _tpGLContour * c = _tpGLCurrentContour(p);
+    if (!c)
+    {
+        c = _tpGLPathCreateNextContour(p);
+        assert(c);
+    }
+
+    return _tpGLPathAddSegmentsToCurrentContour(p, c, _segments, _count);
+}
+
+tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    _tpGLContour * c = _tpGLPathCreateNextContour(p);
+    assert(c);
+
+    tpBool ret = _tpGLPathAddSegmentsToCurrentContour(p, c, _segments, _count);
+    if (ret) return ret;
+
+    if (_bClosed)
+        return tpPathClose(_path);
+    return tpFalse;
+}
+
+tpStyle tpStyleCreate(tpContext * _ctx)
+{
+    _tpGLStyle * style = malloc(sizeof(_tpGLStyle));
+
+    style->fill.data.color = tpColorMake(1, 1, 1, 1);
+    style->fill.type = kTpPaintTypeColor;
+    style->stroke.data.color = tpColorMake(0, 0, 0, 1);
+    style->stroke.type = kTpPaintTypeColor;
+    style->strokeWidth = 1.0;
+    style->strokeJoin = kTpStrokeJoinMiter;
+    style->strokeCap = kTpStrokeCapButt;
+    style->fillType = kTpFillTypeEvenOdd;
+    style->dashCount = 0;
+    style->dashOffset = 0;
+
+    style->context = _ctx;
+
+    _tpGLStylePtrArrayAppend(&_ctx->styles, style);
+
+    return (tpStyle) {style};
+}
+
+void tpStyleDestroy(tpStyle _style)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+    _tpGLStylePtrArrayRemoveValue(&s->context->styles, s);
+    free(s);
+}
+
+void tpStyleSetDash(tpStyle _style, tpFloat * _dashArray, int _count, tpFloat _offset)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    assert(_count < TARP_MAX_DASH_ARRAY_SIZE);
+
+    s->dashOffset = _offset;
+    for (int i = 0; i < _count; ++i)
+    {
+        s->dashArray[i] = _dashArray[i];
+    }
+    s->dashCount = _count;
+}
+
+void tpStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->fill.data.color = tpColorMake(_r, _g, _b, _a);
+    s->fill.type = kTpPaintTypeColor;
+}
+
+void tpStyleSetStrokeColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->stroke.data.color = tpColorMake(_r, _g, _b, _a);
+    s->stroke.type = kTpPaintTypeColor;
+}
+
+void tpStyleSetFillGradient(tpStyle _style, const tpGradient _gradient)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->fill.data.gradient = _gradient;
+    s->fill.type = kTpPaintTypeGradient;
+}
+
+void tpStyleSetStrokeGradient(tpStyle _style, const tpGradient _gradient)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->stroke.data.gradient = _gradient;
+    s->stroke.type = kTpPaintTypeGradient;
+}
+
+void tpStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->strokeWidth = _strokeWidth;
+}
+
+void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->strokeJoin = _join;
+}
+
+void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->strokeCap = _cap;
+}
+
+void tpStyleSetFillType(tpStyle _style, tpFillType _fillType)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->fillType = _fillType;
+}
+
+// tpGradient * tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
+// {
+//     tpGradient * ret = (tpGradient *)malloc(sizeof(tpGradient));
+//     ret->type = kGtLinear;
+//     ret->origin = tpVec2Make(_x0, _y0);
+//     ret->destination = tpVec2Make(_x1, _y1);
+//     ret->stopCount = 0;
+//     return ret;
 // }
 
-// void _geometry_cache_clear(_GLContext * _ctx)
+// void tpGradientAddColorStop(tpGradient * _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset)
 // {
-//     _ctx->geometryCacheCount = 0;
+//     _gradient->stops[_gradient->stopCount++] = (tpColorStop) {tpColorMake(_r, _g, _b, _a), _offset};
 // }
 
-Float _length_squared(Float _x, Float _y)
-{
-    return _x * _x + _y * _y;
-}
-
-Float _distance_squared(Float _x0, Float _y0, Float _x1, Float _y1)
-{
-    return _length_squared(_x1 - _x0, _y1 - _y0);
-}
-
-
-typedef struct
-{
-    Float values[3];
-    int count;
-} _SolveResult;
-
-void _solve_quadratic(Float _a, Float _b, Float _c, Float _min, Float _max, _SolveResult * _outResult)
-{
-    //@TODO: These epsilons most likely need adjustment!
-    Float eMin = _min - FLT_EPSILON;
-    Float eMax = _max + FLT_EPSILON;
-    Float x1, x2;
-    x1 = x2 = INFINITY;
-    Float B = _b;
-    Float D;
-
-    if (fabs(_a) < FLT_EPSILON)
-    {
-        // This could just be a linear equation
-        if (fabs(B) < FLT_EPSILON)
-        {
-            _outResult->count = 0;
-            if (fabs(_c) < FLT_EPSILON)
-                _outResult->count = -1;
-            return;
-        }
-        x1 = -_c / B;
-    }
-    else
-    {
-        // a, b, c are expected to be the coefficients of the equation:
-        // Ax² - 2Bx + C == 0, so we take b = -B/2:
-        _b *= -0.5;
-        D = _b * _b - _a * _c; // Discriminant
-
-        // If the discriminant is very small, we can try to pre-condition
-        // the coefficients, so that we may get better accuracy
-        if (D != 0 && fabs(D) < FLT_EPSILON)
-        {
-            // If the geometric mean of the coefficients is small enough
-            Float gmC = pow(fabs(_a * _b * _c), 1.0 / 3.0);
-            if (gmC < 1e-8)
-            {
-                // We multiply with a factor to normalize the coefficients.
-                // The factor is just the nearest exponent of 10, big enough
-                // to raise all the coefficients to nearly [-1, +1] range.
-                Float mult = pow(10, fabs(floor(log(gmC) * 0.4342944819032518))); //number is LOG10E
-                if (!isfinite(mult))
-                    mult = 0;
-                _a *= mult;
-                _b *= mult;
-                _c *= mult;
-                // Recalculate the discriminant
-                D = _b * _b - _a * _c;
-            }
-        }
-
-        if (D >= -FLT_EPSILON)    // No real roots if D < 0
-        {
-            Float Q = D < 0 ? 0 : sqrtf(D);
-            Float R = _b + (_b < 0 ? -Q : Q);
-
-            // Try to minimize floating point noise.
-            if (R == 0)
-            {
-                x1 = _c / _a;
-                x2 = -x1;
-            }
-            else
-            {
-                x1 = R / _a;
-                x2 = _c / R;
-            }
-        }
-    }
-
-    // We need to include EPSILON in the comparisons with min / max,
-    // as some solutions are ever so lightly out of bounds.
-    _outResult->count = 0;
-    if (isfinite(x1) && (x1 > eMin && x1 < eMax))
-        _outResult->values[_outResult->count++] = TARP_MAX(TARP_MIN(x1, _min), _max);
-    if (x2 != x1 && isfinite(x2) && (x2 > eMin && x2 < eMax))
-        _outResult->values[_outResult->count++] = TARP_MAX(TARP_MIN(x2, _min), _max);
-}
-
-void _set_min_max(Float _value, Float _padding, Float * _inOutMin, Float * _inOutMax)
-{
-    Float l = _value - _padding;
-    Float r = _value + _padding;
-
-    if (l < *_inOutMin)
-        *_inOutMin = l;
-
-    if (l > *_inOutMax)
-        *_inOutMax = r;
-}
-
-//@TODO: write a separate horizontal/vertical function for
-//this so that we can save some extra cyles for when
-//it is called from the bounds calculation?
-void _curve_position_at(Float _x0, Float _y0,
-                        Float _h0x, Float _h0y,
-                        Float _h1x, Float _h1y,
-                        Float _x1, Float _y1,
-                        Float _t,
-                        Float * _outX, Float * _outY)
-{
-    if (_t == 0)
-    {
-        *_outX = _x0;
-        *_outY = _y0;
-        return;
-    }
-    if (_t == 1)
-    {
-        *_outX = _x1;
-        *_outY = _y1;
-        return;
-    }
-
-    Float u = 1.0 - _t;
-    Float tt = _t * _t;
-    Float uu = u * u;
-    Float uuu = uu * u;
-    Float ttt = tt * _t;
-
-    //first term
-    Float px = _x0 * uuu;
-    Float py = _y0 * uuu;
-
-    //second term
-    px += _h0x * 3 * uu * _t;
-    py += _h0y * 3 * uu * _t;
-
-    //third term
-    px += _h1x * 3 * u * tt;
-    py += _h1y * 3 * u * tt;
-
-    //fourth term
-    px += _x1 * ttt;
-    py += _y1 * ttt;
-
-    *_outX = px;
-    *_outY = py;
-}
-
-void _curve_bounds(Float _x0, Float _y0,
-                   Float _h0x, Float _h0y,
-                   Float _h1x, Float _h1y,
-                   Float _x1, Float _y1,
-                   Float _padding,
-                   _Rect * _outRect)
-{
-    printf("CURVE BOUNDS\n");
-    Float ax = (_h0x - _h1x) * 3.0 - _x0 + _x1;
-    Float ay = (_h0y - _h1y) * 3.0 - _y0 + _y1;
-    Float bx = (_x0 + _h1x) * 2.0 - _h0x * 4.0;
-    Float by = (_y0 + _h1y) * 2.0 - _h0y * 4.0;
-    Float cx = _h0x - _x0;
-    Float cy = _h0y - _y0;
-
-    _SolveResult xRoots, yRoots;
-    _solve_quadratic(ax, bx, cx, 0, 1, &xRoots);
-    _solve_quadratic(ay, by, cy, 0, 1, &yRoots);
-
-    printf("CURVE BOUNDS2\n");
-
-    Float tMin = 4e-4;
-    Float tMax = 1.0 - 4e-4;
-
-    Float minX = _x0;
-    Float minY = _y0;
-    Float maxX = minX;
-    Float maxY = minY;
-
-    _set_min_max(_x1, 0, &minX, &maxX);
-    _set_min_max(_y1, 0, &minY, &maxY);
-
-    printf("ROOTS %i %i\n", xRoots.count, yRoots.count);
-
-    Float tmpX, tmpY;
-    for (int i = 0; i < xRoots.count; ++i)
-    {
-        if (tMin < xRoots.values[i] && xRoots.values[i] < tMax)
-        {
-            _curve_position_at(_x0, _y0, _h0x, _h0y, _h1x, _h1y, _x1, _y1,
-                               xRoots.values[i], &tmpX, &tmpY);
-            printf("TMPX %f %f\n", tmpX, tmpY);
-            _set_min_max(tmpX, _padding, &minX, &maxX);
-        }
-    }
-
-    for (int i = 0; i < yRoots.count; ++i)
-    {
-        if (tMin < yRoots.values[i] && yRoots.values[i] < tMax)
-        {
-            _curve_position_at(_x0, _y0, _h0x, _h0y, _h1x, _h1y, _x1, _y1,
-                               yRoots.values[i], &tmpX, &tmpY);
-            printf("TMPY %f %f\n", tmpX, tmpY);
-            _set_min_max(tmpY, _padding, &minY, &maxY);
-        }
-    }
-
-    printf("CURVE BOUNDS 3\n");
-    _outRect->minX = minX;
-    _outRect->minY = minY;
-    _outRect->maxX = maxX;
-    _outRect->maxY = maxY;
-}
-
-int _absolute_tolerance_compare(Float _x, Float _y, Float _epsilon)
-{
-    return fabs(_x - _y) <= _epsilon;
-}
-
-int _relative_tolerance_compare(Float _x, Float _y, Float _epsilon)
-{
-    Float maxXY = TARP_MAX(fabs(_x) , fabs(_y));
-    return fabs(_x - _y) <= _epsilon * maxXY;
-}
-
-int _combined_tolerance_compare(Float _x, Float _y, Float _epsilon)
-{
-    Float maxXYOne = TARP_MAX(1.0, TARP_MAX(fabs(_x), fabs(_y)));
-    return fabs(_x - _y) <= _epsilon * maxXYOne;
-}
-
-int _is_close(Float _a, Float _b, Float _epsilon)
-{
-    return _combined_tolerance_compare(_a, _b, _epsilon);
-}
-
-int _is_linear(Float _x0, Float _y0, Float _h0x, Float _h0y, Float _h1x, Float _h1y, Float _x1, Float _y1)
-{
-    return _is_close(_x0, _h0x, FLT_EPSILON) && _is_close(_y0, _h0y, FLT_EPSILON) &&
-           _is_close(_x1, _h1x, FLT_EPSILON) && _is_close(_y1, _h1x, FLT_EPSILON);
-}
-
-int _is_flat_enough(Float _x0, Float _y0, Float _h0x, Float _h0y, Float _h1x, Float _h1y, Float _x1, Float _y1, Float _tolerance)
-{
-    if (_is_linear(_x0, _y0, _h0x, _h0y, _h1x, _h1y, _x1, _y1))
-        return 1;
-
-    // Comment from paper.js source in Curve.js:
-    // Thanks to Kaspar Fischer and Roger Willcocks for the following:
-    // http://hcklbrrfnn.files.wordpress.com/2012/08/bez.pdf
-    Float ux = _h0x * 3.0 - _x0 * 2.0 - _x1;
-    Float uy = _h0y * 3.0 - _y0 * 2.0 - _y1;
-    Float vx = _h1x * 3.0 - _x1 * 2.0 - _x0;
-    Float vy = _h1y * 3.0 - _y1 * 2.0 - _y0;
-
-    return TARP_MAX(ux * ux, vx * vx) + TARP_MAX(uy * uy, vy * vy) < 10 * _tolerance * _tolerance;
-}
-
-void _subdivide_curve(Float _x0, Float _y0,
-                      Float _h0x, Float _h0y,
-                      Float _h1x, Float _h1y,
-                      Float _x1, Float _y1,
-                      Float _t,
-                      _CurvePair * _result)
-{
-    Float v1x, v2x, v3x, v4x, v5x, v6x, v1y, v2y, v3y, v4y, v5y, v6y;
-
-    Float u = 1 - _t;
-
-    v1x = _x0 * u + _h0x * _t;
-    v1y = _y0 * u + _h0y * _t;
-    v2x = _h0x * u + _h1x * _t;
-    v2y = _h0y * u + _h1y * _t;
-    v3x = _h1x * u + _x1 * _t;
-    v3y = _h1y * u + _y1 * _t;
-    v4x = v1x * u + v2x * _t;
-    v4y = v1y * u + v2y * _t;
-    v5x = v2x * u + v3x * _t;
-    v5y = v2y * u + v3y * _t;
-    v6x = v4x * u + v5x * _t;
-    v6y = v4y * u + v5y * _t;
-
-    *_result = (_CurvePair)
-    {
-        {_x0, _y0, v1x, v1y, v4x, v4y, v6x, v6y},
-        {v6x, v6y, v5x, v5y, v3x, v3y, _x1, _y1}
-    };
-}
-
-void _evaluate_point_for_bounds(Float _x, Float _y, _Rect * _bounds)
-{
-    _bounds->minX = TARP_MIN(_x, _bounds->minX);
-    _bounds->minY = TARP_MIN(_y, _bounds->minY);
-    _bounds->maxX = TARP_MAX(_x, _bounds->maxX);
-    _bounds->maxY = TARP_MAX(_y, _bounds->maxY);
-}
-
-void _flatten_curve(_GLPathData * _pdata,
-                    Float _x0, Float _y0,
-                    Float _h0x, Float _h0y,
-                    Float _h1x, Float _h1y,
-                    Float _x1, Float _y1,
-                    const _Curve * _initialCurve,
-                    Float _angleTolerance,
-                    Float _minDistance,
-                    int _recursionDepth,
-                    int _maxRecursionDepth,
-                    int _bIsClosed,
-                    int _bLastCurve,
-                    _Rect * _bounds)
-{
-
-    if (_recursionDepth < _maxRecursionDepth && !_is_flat_enough(_x0, _y0, _h0x, _h0y, _h1x, _h1y, _x1, _y1, _angleTolerance))
-    {
-        printf("FLATTEN MORE %i\n", _recursionDepth);
-        int rd = _recursionDepth + 1;
-        _CurvePair p;
-        _subdivide_curve(_x0, _y0, _h0x, _h0y, _h1x, _h1y, _x1, _y1, 0.5, &p);
-        _flatten_curve(_pdata,
-                       p.first.x0, p.first.y0,
-                       p.first.h0x, p.first.h0y,
-                       p.first.h1x, p.first.h1y,
-                       p.first.x1, p.first.y1,
-                       _initialCurve,
-                       _angleTolerance, _minDistance,
-                       rd, _maxRecursionDepth,
-                       _bIsClosed, _bLastCurve, _bounds);
-        _flatten_curve(_pdata,
-                       p.second.x0, p.second.y0,
-                       p.second.h0x, p.second.h0y,
-                       p.second.h1x, p.second.h1y,
-                       p.second.x1, p.second.y1,
-                       _initialCurve,
-                       _angleTolerance, _minDistance,
-                       rd, _maxRecursionDepth,
-                       _bIsClosed, _bLastCurve, _bounds);
-
-    }
-    else
-    {
-        printf("ADD TO CACHE\n");
-        //for the first curve we also add its first segment
-        if (!_pdata->geometryCache.count)
-        {
-            Float data[] = {_x0, _y0, _x1, _y1};
-            _data_array_append_array(&_pdata->geometryCache, data, 4);
-            int isJoint[] = {0, _x1 == _initialCurve->x1 && _y1 == _initialCurve->y1 && !_bLastCurve};
-            _data_array_append_array(&_pdata->jointCache, isJoint, 2);
-            _evaluate_point_for_bounds(_x0, _y0, _bounds);
-            _evaluate_point_for_bounds(_x1, _y1, _bounds);
-        }
-        else
-        {
-            Float data[] = {_x1, _y1};
-            _data_array_append_array(&_pdata->geometryCache, data, 2);
-            int isJoint = _bIsClosed ? (_x1 == _initialCurve->x1 && _y1 == _initialCurve->y1) :
-                          (_x1 == _initialCurve->x1 && _y1 == _initialCurve->y1 && !_bLastCurve);
-            _data_array_append_array(&_pdata->jointCache, &isJoint, 1);
-            _evaluate_point_for_bounds(_x1, _y1, _bounds);
-        }
-
-
-        // Float mds = _minDistance * _minDistance;
-        // Float minDistSquared = _minDistance * _minDistance;
-        // if (_outPositions.count())
-        // {
-        //     if (crunch::distanceSquared(_curve.positionTwo(), _outPositions.last()) >= minDistSquared)
-        //     {
-        //         _outPositions.append(_curve.positionTwo());
-        //         if (_outJoins)
-        //         {
-        //             if (_bIsClosed)
-        //                 _outJoins->append(_curve.positionTwo() == _initialCurve.positionTwo());
-        //             else
-        //                 _outJoins->append(_curve.positionTwo() == _initialCurve.positionTwo() && !_bLastCurve);
-        //         }
-        //     }
-        // }
-        // else
-        // {
-        //     //for the first curve we also add its first segment
-        //     _outPositions.append(_curve.positionOne());
-        //     if (_outJoins)
-        //         _outJoins->append(false);
-        //     _outPositions.append(_curve.positionTwo());
-        //     if (_outJoins)
-        //     {
-        //         _outJoins->append(_curve.positionTwo() == _initialCurve.positionTwo() && !_bLastCurve);
-        //     }
-        // }
-    }
-}
-
-int _flatten_path(_GLContext * _ctx,
-                  tpPath * _path,
-                  _GLPathData * _pdata,
-                  Float _angleTolerance,
-                  Float _minDistance,
-                  int _maxRecursionDepth)
-{
-    printf("====================================\n");
-    int i = 0;
-    int j = 0;
-    tpSegmentChunk * chunk;
-    tpSegment * last = NULL, *current = NULL;
-    int recursionDepth = 0;
-    _Rect tmpBounds;
-    tmpBounds.minX = FLT_MAX;
-    tmpBounds.minY = FLT_MAX;
-    tmpBounds.maxX = -FLT_MAX;
-    tmpBounds.maxY = -FLT_MAX;
-    _Rect curveBounds;
-
-    _data_array_clear(&_pdata->geometryCache);
-    _data_array_clear(&_pdata->jointCache);
-
-    for (; i < _path->segmentChunks.count; ++i)
-    {
-        chunk = (tpSegmentChunk *)_path->segmentChunks.array[i];
-        for (j = 0; j < chunk->count; ++j)
-        {
-            if (!last)
-            {
-                last = &chunk->array[j];
-            }
-            else
-            {
-                current = &chunk->array[j];
-
-                // _curve_bounds(last->position.x, last->position.y,
-                //               last->handleOut.x, last->handleOut.y,
-                //               current->handleIn.x, current->handleIn.y,
-                //               current->position.x, current->position.y,
-                //               0,
-                //               &curveBounds);
-
-                // tmpBounds.minX = TARP_MIN(curveBounds.minX, tmpBounds.minX);
-                // tmpBounds.minY = TARP_MIN(curveBounds.minY, tmpBounds.minY);
-                // tmpBounds.maxX = TARP_MAX(curveBounds.maxX, tmpBounds.maxX);
-                // tmpBounds.maxY = TARP_MAX(curveBounds.maxY, tmpBounds.maxY);
-
-                // printf("TMP BOUNDS\n");
-                // printf("MIN %f %f\n", curveBounds.minX, curveBounds.minY);
-                // printf("MAX %f %f\n", curveBounds.maxX, curveBounds.maxY);
-
-                _Curve _initialCurve = {last->position.x, last->position.y,
-                                        last->handleOut.x, last->handleOut.y,
-                                        current->handleIn.x, current->handleIn.y,
-                                        current->position.x, current->position.y
-                                       };
-
-                _flatten_curve(_pdata,
-                               last->position.x, last->position.y,
-                               last->handleOut.x, last->handleOut.y,
-                               current->handleIn.x, current->handleIn.y,
-                               current->position.x, current->position.y,
-                               &_initialCurve,
-                               _angleTolerance,
-                               _minDistance,
-                               recursionDepth,
-                               _maxRecursionDepth,
-                               _path->bIsClosed,
-                               i == _path->segmentChunks.count - 1 && j == chunk->count - 1,
-                               &tmpBounds);
-            }
-        }
-    }
-
-    // Float bw = tmpBounds.maxX - tmpBounds.minX;
-    // Float bh = tmpBounds.maxY - tmpBounds.minY;
-    // _ctx->geometryCache[0] = tmpBounds.minX + bw * 0.5;
-    // _ctx->geometryCache[1] = tmpBounds.minY + bh * 0.5;
-    _ctx->boundsCache = tmpBounds;
-
-    //we add the bounds geometry to the and of the vertex data
-    Float boundsData[] = {tmpBounds.minX, tmpBounds.minY, tmpBounds.minX, tmpBounds.maxY,
-                          tmpBounds.maxX, tmpBounds.minY, tmpBounds.maxX, tmpBounds.maxY
-                         };
-    _data_array_append_array(&_pdata->geometryCache, boundsData, 8);
-
-    printf("EEEEND\n");
-    return 0;
-}
-
-int _draw_paint(_GLContext * _ctx, tpPath * _path, _GLPathData * _pdata, const tpPaint * _paint)
-{
-    if (_paint->type == kPtColor)
-    {
-        //@TODO: Cache the uniform loc
-        ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->program, "meshColor"), 1, &_paint->data.color.r));
-        ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, (_pdata->geometryCache.count - 8) / 2, 4));
-    }
-}
-
-int _recursively_draw_even_odd(_GLContext * _ctx, tpPath * _path, const tpStyle * _style, const tpMat3 * _transform)
-{
-
-}
-
-int _draw_fill_even_odd(_GLContext * _ctx, tpPath * _path, _GLPathData * _pdata, const tpStyle * _style)
-{
-    ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
-    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
-    ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, kClipStencilPlaneOne));
-    ASSERT_NO_GL_ERROR(glStencilMask(kFillRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
-
-    //_transform ? & (*_transform).v[0] : NULL
-    //@TODO: Cache the uniform loc
-    // ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &mat.v[0]));
-    // printf("COUNT %i\n", _ctx->geometryCache.count);
-    ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(Float) * _pdata->geometryCache.count, _pdata->geometryCache.array, GL_DYNAMIC_DRAW));
-    ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, 0, (_pdata->geometryCache.count - 8) / 2));
-
-    ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 255, kFillRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glStencilMask(kFillRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO));
-    ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
-
-    _draw_paint(_ctx, _path, _pdata, &_style->fill);
-}
-
-int _draw_fill_non_zero(_GLContext * _ctx, tpPath * _path, _GLPathData * _pdata, const tpStyle * _style)
-{
-    
-}
-
-int _recursively_draw_stroke(_GLContext * _ctx, tpPath * _path, _GLPathData * _pdata, const tpStyle * _style)
-{
-
-}
-
-int _tpPathInit(tpPath * _path)
-{
-    _GLPathData * pdata = malloc(sizeof(_GLPathData));
-    _data_array_init(&pdata->geometryCache, 128, sizeof(Float));
-    _data_array_init(&pdata->strokeGeometryCache, 128, sizeof(Float));
-    _data_array_init(&pdata->jointCache, 128, sizeof(int));
-    pdata->bGeometryCacheDirty = tpTrue;
-    pdata->lastTransformScale = 1.0;
-
-    _path->_implData = pdata;
-    return 0;
-}
-
-int _tpPathDeallocate(tpPath * _path)
-{
-    _GLPathData * pdata = (_GLPathData *) _path->_implData;
-    _data_array_deallocate(&pdata->geometryCache);
-    _data_array_deallocate(&pdata->strokeGeometryCache);
-    _data_array_deallocate(&pdata->jointCache);
-    free(pdata);
-}
-
-int _tpPathGeometryChanged(tpPath * _path)
-{
-    ((_GLPathData *)_path->_implData)->bGeometryCacheDirty = tpTrue;
-    return 0;
-}
-
-int _tpPathTransformChanged(tpPath * _path, const tpMat3 * _old, const tpMat3 * _new)
-{
-    _GLPathData * pdata = (_GLPathData *)_path->_implData;
-    if (!tpMat3Equals(_old, _new))
-    {
-        tpVec2 scale, skew, translation;
-        Float rotation;
-        tpMat3Decompose(_new, &translation, &scale, &skew, &rotation);
-        if (pdata->lastTransformScale < scale.x || pdata->lastTransformScale < scale.y)
-        {
-            pdata->lastTransformScale = TARP_MAX(scale.x, scale.y);
-            pdata->bGeometryCacheDirty = tpTrue;
-        }
-        pdata->renderTransform = tpMat4MakeFrom2DTransform(_new);
-    }
-    return 0;
-}
-
-int tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
-{
-    ((_GLContext *)_ctx->_implData)->projection = *_projection;
-    return 0;
-}
-
-int tpDrawPath(tpContext * _ctx, tpPath * _path, const tpStyle * _style)
-{
-    _GLContext * ctx = (_GLContext *)_ctx->_implData;
-    _GLPathData * pdata = (_GLPathData *)_path->_implData;
-    assert(ctx && pdata);
-
-    // _data_array_clear(&ctx->geometryCache);
-    // _data_array_clear(&ctx->jointCache);
-    // Float tmp[2] = {0, 0};
-    // _geometry_cache_append(ctx, tmp, 2);
-    // Float tmp2[2] = {10, 30};
-    // _geometry_cache_append(ctx, tmp2, 2);
-
-    if (pdata->bGeometryCacheDirty)
-    {
-        pdata->bGeometryCacheDirty = tpFalse;
-        _flatten_path(ctx, _path, pdata, 0.15, 0, 32);
-    }
-    printf("BOUNDS\n");
-    printf("MIN %f %f\n", ctx->boundsCache.minX, ctx->boundsCache.minY);
-    printf("MAX %f %f\n", ctx->boundsCache.maxX, ctx->boundsCache.maxY);
-    // printf("GEOM CACHE %i\n", ctx->geometryCacheCount);
-
-    // for (int i = 0; i < ctx->geometryCacheCount; ++i)
-    // {
-    //     printf("CACHE %f\n", ctx->geometryCache[i]);
-    // }
-
-    ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
-    ASSERT_NO_GL_ERROR(glDepthMask(GL_FALSE));
-    ASSERT_NO_GL_ERROR(glEnable(GL_MULTISAMPLE));
-    ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
-    ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-    ASSERT_NO_GL_ERROR(glEnable(GL_STENCIL_TEST));
-    ASSERT_NO_GL_ERROR(glStencilMask(kFillRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glClearStencil(0));
-    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
-    ASSERT_NO_GL_ERROR(glStencilMask(kClipStencilPlaneOne | kClipStencilPlaneTwo | kStrokeRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glClearStencil(255));
-    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
-
-    ASSERT_NO_GL_ERROR(glUseProgram(ctx->program));
-
-    //@TODO: Cache the uniform loc
-    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(ctx->program, "transform"), 1, GL_FALSE, &pdata->renderTransform.v[0]));
-    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(ctx->program, "projection"), 1, GL_FALSE, &ctx->projection.v[0]));
-    ASSERT_NO_GL_ERROR(glBindVertexArray(ctx->vao));
-    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, ctx->vbo));
-    ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(0));
-    // ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(1));
-    // ASSERT_NO_GL_ERROR(glUniform4f(glGetUniformLocation(ctx->program, "meshColor"), 1.0, 0.0, 0.0, 1.0));
-    _draw_fill_even_odd(ctx, _path, pdata, _style);
-
-    return 0;
-}
+// void tpGradientDestroy(tpGradient * _gradient)
+// {
+//     free(_gradient);
+// }
 
 #endif //TARP_TARPGL_H
