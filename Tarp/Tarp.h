@@ -208,9 +208,9 @@ void tpPathDestroy(tpPath _path);
 
 tpBool tpPathClear(tpPath _path);
 
-tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r);
-
 tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform);
+
+tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r);
 
 tpBool tpPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y);
 
@@ -256,7 +256,7 @@ void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap);
 
 void tpStyleSetFillType(tpStyle _style, tpFillType _fillType);
 
-tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
+tpGradient tpGradientCreateLinear(tpContext * _ctx, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
 void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset);
 
@@ -268,7 +268,7 @@ void tpGradientDestroy(tpGradient _gradient);
 
 tpBool tpContextInit(tpContext * _ctx);
 
-tpBool toContextDeallocate(tpContext * _ctx);
+tpBool tpContextDeallocate(tpContext * _ctx);
 
 tpBool tpPrepareDrawing(tpContext * _ctx);
 

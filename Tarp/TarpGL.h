@@ -67,6 +67,11 @@ exit(EXIT_FAILURE); \
 #define TARP_GL_MAX_CLIPPING_STACK_DEPTH 64
 #define TARP_GL_ERROR_MESSAGE_SIZE 512
 
+#define TARP_PI 3.14159265358979323846
+#define TARP_HALF_PI TARP_PI * 0.5
+
+#define TARP_MAX_CURVE_SUBDIVISIONS 16
+
 //The shader programs used by the renderer
 static const char * _vertexShaderCode =
     "#version 150 \n"
@@ -113,6 +118,11 @@ static const char * _fragmentShaderCodeTexture =
     "pixelColor = texture(tex, itc); \n"
     "} \n";
 
+#define _TARP_STACK_BUFFER_T _tpFloatStackBuffer
+#define _TARP_STACK_BUFFER_ITEM_T tpFloat
+#define _TARP_STACK_BUFFER_SIZE 512
+#include <Tarp/TarpStackBuffer.h>
+
 typedef enum
 {
     //The mask values are important! FillRaster needs to have at least
@@ -130,6 +140,21 @@ struct _tpHandleData
     void * pointer;
 };
 
+typedef struct
+{
+    tpVec2 min, max;
+} _tpGLRect;
+
+typedef struct
+{
+    tpVec2 p0, h0, h1, p1;
+} _tpGLCurve;
+
+typedef struct
+{
+    _tpGLCurve first, second;
+} _tpGLCurvePair;
+
 #define _TARP_ARRAY_T _tpFloatArray
 #define _TARP_ITEM_T tpFloat
 #include <Tarp/TarpArray.h>
@@ -143,12 +168,23 @@ struct _tpHandleData
 #define _TARP_COMPARATOR_T 0
 #include <Tarp/TarpArray.h>
 
+#define _TARP_ARRAY_T _tpVec2Array
+#define _TARP_ITEM_T tpVec2
+#define _TARP_COMPARATOR_T 0
+#include <Tarp/TarpArray.h>
+
 typedef struct
 {
     _tpSegmentArray segments;
     tpBool bDirty;
     int lastSegmentIndex;
     tpBool bIsClosed;
+
+    //some rendering specific data
+    int fillVertexOffset;
+    int fillVertexCount;
+    int strokeVertexOffset;
+    int strokeVertexCount;
 } _tpGLContour;
 
 #define _TARP_ARRAY_T _tpGLContourArray
@@ -164,12 +200,13 @@ typedef struct
     tpMat3 transform;
 
     //rendering specific data/caches
-    _tpFloatArray geometryCache;
+    _tpVec2Array geometryCache;
     _tpBoolArray jointCache;
-    _tpFloatArray strokeGeometryCache;
+    // _tpFloatArray strokeGeometryCache;
     tpBool bGeometryCacheDirty;
     tpFloat lastTransformScale;
     tpMat4 renderTransform;
+    _tpGLRect boundsCache;
 
     //holds a pointer to the context that owns this path
     tpContext * context;
@@ -182,6 +219,7 @@ typedef struct
     tpColorStop stops[TARP_MAX_COLOR_STOPS];
     int stopCount;
     tpGradientType type;
+    tpContext * context;
     //rendering specific data/caches
 } _tpGLGradient;
 
@@ -219,6 +257,10 @@ typedef struct
 #define _TARP_ITEM_T _tpGLStyle *
 #include <Tarp/TarpArray.h>
 
+#define _TARP_ARRAY_T _tpGLGradientPtrArray
+#define _TARP_ITEM_T _tpGLGradient *
+#include <Tarp/TarpArray.h>
+
 struct _tpContextData
 {
     GLuint program;
@@ -233,6 +275,10 @@ struct _tpContextData
     tpMat4 projection;
     _tpGLPathPtrArray paths;
     _tpGLStylePtrArray styles;
+    _tpGLGradientPtrArray gradients;
+    //used to temporarily store vertex/stroke data (think double buffering)
+    _tpVec2Array tmpVertexBuffer;
+    _tpBoolArray tmpJointBuffer;
     char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
 };
 
@@ -371,12 +417,15 @@ tpBool tpContextInit(tpContext * _ctx)
     _ctx->projection = tpMat4Identity();
 
     _tpGLPathPtrArrayInit(&_ctx->paths, 32);
+    _tpVec2ArrayInit(&_ctx->tmpVertexBuffer, 512);
+    _tpBoolArrayInit(&_ctx->tmpJointBuffer, 256);
 
     return ret;
 }
 
 tpBool tpContextDeallocate(tpContext * _ctx)
 {
+    //free all opengl resources
     glDeleteProgram(_ctx->program);
     glDeleteBuffers(1, &_ctx->vbo);
     glDeleteVertexArrays(1, &_ctx->vao);
@@ -384,13 +433,28 @@ tpBool tpContextDeallocate(tpContext * _ctx)
     glDeleteBuffers(1, &_ctx->textureVbo);
     glDeleteVertexArrays(1, &_ctx->textureVao);
 
+    // deallocate all gradients
+    for (int i = 0; i < _ctx->gradients.count; ++i)
+    {
+        tpGradientDestroy((tpGradient) {_tpGLGradientPtrArrayAt(&_ctx->gradients, i)});
+    }
+    _tpGLGradientPtrArrayDeallocate(&_ctx->gradients);
+
+    // deallocate all styles
+    for (int i = 0; i < _ctx->styles.count; ++i)
+    {
+        tpStyleDestroy((tpStyle) {_tpGLStylePtrArrayAt(&_ctx->styles, i)});
+    }
+    _tpGLStylePtrArrayDeallocate(&_ctx->styles);
+
     // deallocate all paths
     for (int i = 0; i < _ctx->paths.count; ++i)
     {
-        // _tpGLPathPtrArrayAt(&_ctx->paths, i);
+        tpPathDestroy((tpPath) {_tpGLPathPtrArrayAt(&_ctx->paths, i)});
     }
-
     _tpGLPathPtrArrayDeallocate(&_ctx->paths);
+    _tpBoolArrayDeallocate(&_ctx->tmpJointBuffer);
+    _tpVec2ArrayDeallocate(&_ctx->tmpVertexBuffer);
 
     return tpFalse;
 }
@@ -405,6 +469,11 @@ tpBool _tpGLIsValidStyle(_tpGLStyle * _style)
     return _tpGLStylePtrArrayFind(&_style->context->styles, _style) != -1;
 }
 
+tpBool _tpGLIsValidGradient(_tpGLGradient * _gradient)
+{
+    return _tpGLGradientPtrArrayFind(&_gradient->context->gradients, _gradient) != -1;
+}
+
 tpPath tpPathCreate(tpContext * _ctx)
 {
     _tpGLPath * path = malloc(sizeof(_tpGLPath));
@@ -413,8 +482,7 @@ tpPath tpPathCreate(tpContext * _ctx)
     memset(path->errorMessage, 0, sizeof(path->errorMessage));
     path->transform = tpMat3Identity();
 
-    _tpFloatArrayInit(&path->geometryCache, 128);
-    _tpFloatArrayInit(&path->strokeGeometryCache, 256);
+    _tpVec2ArrayInit(&path->geometryCache, 128);
     _tpBoolArrayInit(&path->jointCache, 128);
     path->bGeometryCacheDirty = tpTrue;
     path->lastTransformScale = 1.0;
@@ -433,8 +501,8 @@ void tpPathDestroy(tpPath _path)
 
     _tpGLPathPtrArrayRemoveValue(&p->context->paths, p);
 
-    _tpFloatArrayDeallocate(&p->geometryCache);
-    _tpFloatArrayDeallocate(&p->strokeGeometryCache);
+    _tpVec2ArrayDeallocate(&p->geometryCache);
+    // _tpFloatArrayDeallocate(&p->strokeGeometryCache);
     _tpBoolArrayDeallocate(&p->jointCache);
     for (int i = 0; i < p->contours.count; ++i)
     {
@@ -451,6 +519,10 @@ _tpGLContour * _tpGLPathCreateNextContour(_tpGLPath * _p)
     contour.bDirty = tpTrue;
     contour.lastSegmentIndex = -1;
     contour.bIsClosed = tpFalse;
+    contour.fillVertexOffset = 0;
+    contour.fillVertexCount = 0;
+    contour.strokeVertexOffset = 0;
+    contour.strokeVertexCount = 0;
     _p->currentContourIndex = _p->contours.count;
     _tpGLContourArrayAppend(&_p->contours, contour);
     return _tpGLContourArrayAtPtr(&_p->contours, _p->currentContourIndex);
@@ -639,6 +711,30 @@ tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool 
     return tpFalse;
 }
 
+tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+    if (!tpMat3Equals(&p->transform, _transform))
+    {
+        tpVec2 scale, skew, translation;
+        tpFloat rotation;
+        tpMat3Decompose(_transform, &translation, &scale, &skew, &rotation);
+        if (p->lastTransformScale < scale.x || p->lastTransformScale < scale.y)
+        {
+            p->lastTransformScale = TARP_MAX(scale.x, scale.y);
+            p->bGeometryCacheDirty = tpTrue;
+            for (int i = 0; i < p->contours.count; ++i)
+            {
+                _tpGLContourArrayAtPtr(&p->contours, i)->bDirty = tpTrue;
+            }
+        }
+        p->renderTransform = tpMat4MakeFrom2DTransform(_transform);
+    }
+
+    return tpFalse;
+}
+
 tpStyle tpStyleCreate(tpContext * _ctx)
 {
     _tpGLStyle * style = malloc(sizeof(_tpGLStyle));
@@ -752,24 +848,553 @@ void tpStyleSetFillType(tpStyle _style, tpFillType _fillType)
     s->fillType = _fillType;
 }
 
-// tpGradient * tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
+tpGradient tpGradientCreateLinear(tpContext * _ctx, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
+{
+    _tpGLGradient * ret = malloc(sizeof(_tpGLGradient));
+    ret->type = kTpGradientTypeLinear;
+    ret->origin = tpVec2Make(_x0, _y0);
+    ret->destination = tpVec2Make(_x1, _y1);
+    ret->stopCount = 0;
+    ret->context = _ctx;
+
+    _tpGLGradientPtrArrayAppend(&_ctx->gradients, ret);
+
+    return (tpGradient) {ret};
+}
+
+void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset)
+{
+    _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
+    assert(_tpGLIsValidGradient(g));
+    g->stops[g->stopCount++] = (tpColorStop) {tpColorMake(_r, _g, _b, _a), _offset};
+}
+
+void tpGradientDestroy(tpGradient _gradient)
+{
+    _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
+    assert(_tpGLIsValidGradient(g));
+    _tpGLGradientPtrArrayRemoveValue(&g->context->gradients, g);
+    free(g);
+}
+
+int _absolute_tolerance_compare(tpFloat _x, tpFloat _y, tpFloat _epsilon)
+{
+    return fabs(_x - _y) <= _epsilon;
+}
+
+int _relative_tolerance_compare(tpFloat _x, tpFloat _y, tpFloat _epsilon)
+{
+    tpFloat maxXY = TARP_MAX(fabs(_x) , fabs(_y));
+    return fabs(_x - _y) <= _epsilon * maxXY;
+}
+
+int _combined_tolerance_compare(tpFloat _x, tpFloat _y, tpFloat _epsilon)
+{
+    tpFloat maxXYOne = TARP_MAX(1.0, TARP_MAX(fabs(_x), fabs(_y)));
+    return fabs(_x - _y) <= _epsilon * maxXYOne;
+}
+
+int _is_close(tpFloat _a, tpFloat _b, tpFloat _epsilon)
+{
+    return _combined_tolerance_compare(_a, _b, _epsilon);
+}
+
+int _is_linear(const _tpGLCurve * _curve)
+{
+    return _is_close(_curve->p0.x, _curve->h0.x, FLT_EPSILON) && _is_close(_curve->p0.y, _curve->h0.y, FLT_EPSILON) &&
+           _is_close(_curve->p1.x, _curve->h1.x, FLT_EPSILON) && _is_close(_curve->p1.y, _curve->h1.y, FLT_EPSILON);
+}
+
+int _is_flat_enough(const _tpGLCurve * _curve, tpFloat _tolerance)
+{
+    if (_is_linear(_curve))
+        return 1;
+
+    // Comment from paper.js source in Curve.js:
+    // Thanks to Kaspar Fischer and Roger Willcocks for the following:
+    // http://hcklbrrfnn.files.wordpress.com/2012/08/bez.pdf
+    tpFloat ux = _curve->h0.x * 3.0 - _curve->p0.x * 2.0 - _curve->p1.x;
+    tpFloat uy = _curve->h0.y * 3.0 - _curve->p0.y * 2.0 - _curve->p1.y;
+    tpFloat vx = _curve->h1.x * 3.0 - _curve->p1.x * 2.0 - _curve->p0.x;
+    tpFloat vy = _curve->h1.y * 3.0 - _curve->p1.y * 2.0 - _curve->p0.y;
+
+    return TARP_MAX(ux * ux, vx * vx) + TARP_MAX(uy * uy, vy * vy) < 10 * _tolerance * _tolerance;
+}
+
+void _subdivide_curve(const _tpGLCurve * _curve,
+                      tpFloat _t,
+                      _tpGLCurvePair * _result)
+{
+    tpFloat v1x, v2x, v3x, v4x, v5x, v6x, v1y, v2y, v3y, v4y, v5y, v6y;
+    tpFloat u = 1 - _t;
+
+    v1x = _curve->p0.x * u + _curve->h0.x * _t;
+    v1y = _curve->p0.y * u + _curve->h0.y * _t;
+    v2x = _curve->h0.x * u + _curve->h1.x * _t;
+    v2y = _curve->h0.y * u + _curve->h1.y * _t;
+    v3x = _curve->h1.x * u + _curve->p1.x * _t;
+    v3y = _curve->h1.y * u + _curve->p1.y * _t;
+    v4x = v1x * u + v2x * _t;
+    v4y = v1y * u + v2y * _t;
+    v5x = v2x * u + v3x * _t;
+    v5y = v2y * u + v3y * _t;
+    v6x = v4x * u + v5x * _t;
+    v6y = v4y * u + v5y * _t;
+
+    *_result = (_tpGLCurvePair)
+    {
+        {_curve->p0, {v1x, v1y}, {v4x, v4y}, {v6x, v6y}},
+        {{v6x, v6y}, {v5x, v5y}, {v3x, v3y}, _curve->p1}
+    };
+}
+
+void _evaluate_point_for_bounds(const tpVec2 * _vec, _tpGLRect * _bounds)
+{
+    _bounds->min.x = TARP_MIN(_vec->x, _bounds->min.x);
+    _bounds->min.y = TARP_MIN(_vec->y, _bounds->min.y);
+    _bounds->max.x = TARP_MAX(_vec->x, _bounds->max.x);
+    _bounds->max.y = TARP_MAX(_vec->y, _bounds->max.y);
+}
+
+void _flatten_curve(_tpGLPath * _path,
+                    const _tpGLCurve * _curve,
+                    tpFloat _angleTolerance,
+                    int _bIsClosed,
+                    int _bLastCurve,
+                    _tpVec2Array * _vertexBuffer,
+                    _tpBoolArray * _jointBuffer,
+                    _tpGLRect * _bounds,
+                    int * _vertexCount)
+{
+    _tpGLCurve stack[TARP_MAX_CURVE_SUBDIVISIONS];
+    _tpGLCurvePair cp;
+    _tpGLCurve * current;
+    int stackIndex = 0;
+    stack[0] = *_curve;
+
+    while (stackIndex >= 0)
+    {
+        current = &stack[stackIndex];
+
+        if (stackIndex < TARP_MAX_CURVE_SUBDIVISIONS - 1 && !_is_flat_enough(current, _angleTolerance))
+        {
+            //subdivide curve and add continue with the left of the two curves by putting it on top
+            //of the stack.
+            _subdivide_curve(current, 0.5, &cp);
+            *current = cp.second;
+            stack[++stackIndex] = cp.first;
+        }
+        else
+        {
+            printf("ADD TO CACHE\n");
+            //for the first curve we also add its first segment
+            if (!_path->geometryCache.count)
+            {
+                _tpVec2ArrayAppendPtr(_vertexBuffer, &current->p0);
+                _tpVec2ArrayAppendPtr(_vertexBuffer, &current->p1);
+
+                _tpBoolArrayAppend(_jointBuffer, tpFalse);
+                _tpBoolArrayAppend(_jointBuffer, tpVec2Equals(&current->p1, &_curve->p1) && !_bLastCurve);
+                _evaluate_point_for_bounds(&current->p0, _bounds);
+                _evaluate_point_for_bounds(&current->p1, _bounds);
+                *_vertexCount += 2;
+            }
+            else
+            {
+                _tpVec2ArrayAppendPtr(_vertexBuffer, &current->p1);
+
+                _tpBoolArrayAppend(_jointBuffer, _bIsClosed ? tpVec2Equals(&current->p1, &_curve->p1) :
+                                   (tpVec2Equals(&current->p1, &_curve->p1) && !_bLastCurve));
+                _evaluate_point_for_bounds(&current->p1, _bounds);
+                (*_vertexCount)++;
+            }
+            stackIndex--;
+        }
+    }
+}
+
+tpFloat _tpGLShortestAngle(const tpVec2 * _d0, const tpVec2 * _d1)
+{
+    tpFloat theta = acos(_d0->x * _d1->x + _d0->y * _d1->y);
+
+    //make sure we have the shortest angle
+    if (theta > TARP_HALF_PI)
+        theta = TARP_PI - theta;
+
+    return theta;
+}
+
+void _tpGLMakeCapOrJoinRound(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, _tpVec2Array * _outVertices)
+{
+    tpFloat cosa, sina;
+    tpVec2 perp, last, current;
+    int circleSubdivisionCount, i;
+    tpFloat currentAngle, radStep;
+
+    perp.x = -_d->y;
+    perp.y = _d->x;
+
+    //@TODO: Make this based on the stroke width and theta?
+    circleSubdivisionCount = 12;
+    currentAngle = 0;
+    radStep = _theta / (tpFloat)(circleSubdivisionCount);
+
+    for (i = 0; i <= circleSubdivisionCount; ++i)
+    {
+        currentAngle = radStep * i;
+
+        cosa = cos(-currentAngle);
+        sina = sin(-currentAngle);
+
+        current.x = _p->x + perp.x * cosa - perp.y * sina;
+        current.y = _p->y + perp.x * sina - perp.y * cosa;
+
+        if (i > 0)
+        {
+            _tpVec2ArrayAppendPtr(_outVertices, &last);
+            _tpVec2ArrayAppendPtr(_outVertices, &current);
+            _tpVec2ArrayAppendPtr(_outVertices, _p);
+        }
+
+        last = current;
+    }
+}
+
+void _tpGLMakeCapSquare(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, tpBool _bStart, _tpVec2Array * _outVertices)
+{
+    tpVec2 dir, perp, a, b, c, d;
+
+    dir = *_d;
+
+    if (_bStart)
+    {
+        dir.x = -dir.x;
+        dir.y = -dir.y;
+    }
+
+    perp.x = -dir.y;
+    perp.y = dir.x;
+    a = tpVec2Add(_p, &perp);
+    b = tpVec2Sub(_p, &perp);
+    c = tpVec2Add(&b, &dir);
+    d = tpVec2Add(&a, &dir);
+
+    //this makes sure that the triangles are counter clockwise
+    if (_bStart)
+    {
+        _tpVec2ArrayAppendPtr(_outVertices, &d);
+        _tpVec2ArrayAppendPtr(_outVertices, &b);
+        _tpVec2ArrayAppendPtr(_outVertices, &a);
+        _tpVec2ArrayAppendPtr(_outVertices, &b);
+        _tpVec2ArrayAppendPtr(_outVertices, &d);
+        _tpVec2ArrayAppendPtr(_outVertices, &c);
+    }
+    else
+    {
+        _tpVec2ArrayAppendPtr(_outVertices, &a);
+        _tpVec2ArrayAppendPtr(_outVertices, &b);
+        _tpVec2ArrayAppendPtr(_outVertices, &d);
+        _tpVec2ArrayAppendPtr(_outVertices, &b);
+        _tpVec2ArrayAppendPtr(_outVertices, &a);
+        _tpVec2ArrayAppendPtr(_outVertices, &d);
+    }
+}
+
+// void _tpGLMiterTip(const tpVec2 * _pos,
+//                    const tpVec2 * _ep0,
+//                    const tpVec2 * _ed0,
+//                    const tpVec2 * _ep1,
+//                    const tpVec2 * _ed1,
+//                    tpFloat _miterLimit,
+//                    tpVec2 * _outPos,
+//                    tpFloat * _outMiterLen)
 // {
-//     tpGradient * ret = (tpGradient *)malloc(sizeof(tpGradient));
-//     ret->type = kGtLinear;
-//     ret->origin = tpVec2Make(_x0, _y0);
-//     ret->destination = tpVec2Make(_x1, _y1);
-//     ret->stopCount = 0;
-//     return ret;
+//     tpFloat theta, cross, t;
+
+//     theta = _tpGLShortestAngle(_ed0, _ed1);
+//     *_outMiterLen = 1.0 / sin(theta / 2.0);
+
+//     if (*_outMiterLen > _miterLimit)
+//         return;
+
+//     //compute the intersection
+//     cross = _ed0->x * _ed1->y - _ed0->y * _ed1->x;
+
+//     //parallel case
+//     if(cross == 0)
+//         return;
+
+
 // }
 
-// void tpGradientAddColorStop(tpGradient * _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset)
+// void _tpGLMakeJoinMiter(const tpVec2 * _p,
+//                         const tpVec2 * _d0, const tpVec2 * _d1,
+//                         const tpVec2 * _ep0, const tpVec2 * _ep1,
+//                         const tpVec2 * _ep2, const tpVec2 * _ep3,
+//                         _tpVec2Array * _outVertices)
 // {
-//     _gradient->stops[_gradient->stopCount++] = (tpColorStop) {tpColorMake(_r, _g, _b, _a), _offset};
+//     tpFloat cross, miterLen;
+//     tpVec2 miterTip;
+
+//     //to know which side of the stroke is outside
+//     cross = _lastDir.x * _dir.y - _dir.x * _lastDir.y;
+
+//     //compute the miter
+//     if (cross >= 0.0)
+//         miterTip = detail::joinMiter(_point, _lastLeftEdgePoint, _lastDir, _leftEdgePoint, _dir, miterLen);
+//     else
+//         miterTip = detail::joinMiter(_point, _lastRightEdgePoint, _lastDir, _rightEdgePoint, _dir, miterLen);
 // }
 
-// void tpGradientDestroy(tpGradient * _gradient)
-// {
-//     free(_gradient);
-// }
+tpBool _tpGLStrokeGeometry(const _tpGLStyle * _style, const _tpFloatArray * _pathVertices,
+                           const _tpBoolArray * _pathJoints, _tpFloatArray * _outVertices)
+{
+
+    return tpFalse;
+}
+
+int _flatten_path(_tpGLPath * _path,
+                  tpFloat _angleTolerance)
+{
+    printf("====================================\n");
+    int i = 0;
+    int j = 0;
+    _tpGLContour * c = NULL;
+    tpSegment * last = NULL, *current = NULL;
+    int recursionDepth = 0;
+    _tpGLRect tmpBounds;
+    tmpBounds.min.x = FLT_MAX;
+    tmpBounds.min.y = FLT_MAX;
+    tmpBounds.max.x = -FLT_MAX;
+    tmpBounds.max.y = -FLT_MAX;
+    _tpGLRect curveBounds;
+
+    printf("CONTOURS %i\n", _path->contours.count);
+
+    int off = 0;
+    for (i = 0; i < _path->contours.count; ++i)
+    {
+        c = _tpGLContourArrayAtPtr(&_path->contours, i);
+
+        if (c->bDirty)
+        {
+            //if the contour is dirty, flatten it
+            c->bDirty = tpFalse;
+            last = _tpSegmentArrayAtPtr(&c->segments, 0);
+            printf("DIRTY SEGMENTS %i\n", c->segments.count);
+
+            int vcount = 0;
+            for (j = 1; j < c->segments.count; ++j)
+            {
+                current = _tpSegmentArrayAtPtr(&c->segments, j);
+                _tpGLCurve curve = {last->position.x, last->position.y,
+                                    last->handleOut.x, last->handleOut.y,
+                                    current->handleIn.x, current->handleIn.y,
+                                    current->position.x, current->position.y
+                                   };
+
+                _flatten_curve(_path,
+                               &curve,
+                               _angleTolerance,
+                               c->bIsClosed,
+                               j == c->segments.count - 1,
+                               &_path->context->tmpVertexBuffer,
+                               &_path->context->tmpJointBuffer,
+                               &tmpBounds, &vcount);
+
+
+                last = current;
+            }
+
+            if (c->bIsClosed && c->segments.count)
+            {
+                tpSegment * fs = _tpSegmentArrayAtPtr(&c->segments, 0);
+                _tpVec2ArrayAppendPtr(&_path->context->tmpVertexBuffer, &fs->position);
+                vcount++;
+            }
+            c->fillVertexOffset = off;
+            c->fillVertexCount = vcount;
+            off += vcount;
+        }
+        else
+        {
+            //otherwise we just copy the contour to the tmpbuffer
+            _tpVec2ArrayAppendArray(&_path->context->tmpVertexBuffer, _tpVec2ArrayAtPtr(&_path->geometryCache, c->fillVertexOffset), c->fillVertexCount);
+            _tpBoolArrayAppendArray(&_path->context->tmpJointBuffer, _tpBoolArrayAtPtr(&_path->jointCache, c->fillVertexOffset), c->fillVertexCount);
+        }
+    }
+
+    _tpVec2ArrayClear(&_path->geometryCache);
+    _tpBoolArrayClear(&_path->jointCache);
+
+    _tpVec2ArraySwap(&_path->geometryCache, &_path->context->tmpVertexBuffer);
+    _tpBoolArraySwap(&_path->jointCache, &_path->context->tmpJointBuffer);
+
+    // for (; i < _path->segmentChunks.count; ++i)
+    // {
+    //     chunk = (tpSegmentChunk *)_path->segmentChunks.array[i];
+    //     for (j = 0; j < chunk->count; ++j)
+    //     {
+    //         if (!last)
+    //         {
+    //             last = &chunk->array[j];
+    //         }
+    //         else
+    //         {
+    //             current = &chunk->array[j];
+
+    //             // _curve_bounds(last->position.x, last->position.y,
+    //             //               last->handleOut.x, last->handleOut.y,
+    //             //               current->handleIn.x, current->handleIn.y,
+    //             //               current->position.x, current->position.y,
+    //             //               0,
+    //             //               &curveBounds);
+
+    //             // tmpBounds.minX = TARP_MIN(curveBounds.minX, tmpBounds.minX);
+    //             // tmpBounds.minY = TARP_MIN(curveBounds.minY, tmpBounds.minY);
+    //             // tmpBounds.maxX = TARP_MAX(curveBounds.maxX, tmpBounds.maxX);
+    //             // tmpBounds.maxY = TARP_MAX(curveBounds.maxY, tmpBounds.maxY);
+
+    //             // printf("TMP BOUNDS\n");
+    //             // printf("MIN %f %f\n", curveBounds.minX, curveBounds.minY);
+    //             // printf("MAX %f %f\n", curveBounds.maxX, curveBounds.maxY);
+
+    //             _Curve _initialCurve = {last->position.x, last->position.y,
+    //                                     last->handleOut.x, last->handleOut.y,
+    //                                     current->handleIn.x, current->handleIn.y,
+    //                                     current->position.x, current->position.y
+    //                                    };
+
+    //             _flatten_curve(_pdata,
+    //                            last->position.x, last->position.y,
+    //                            last->handleOut.x, last->handleOut.y,
+    //                            current->handleIn.x, current->handleIn.y,
+    //                            current->position.x, current->position.y,
+    //                            &_initialCurve,
+    //                            _angleTolerance,
+    //                            _minDistance,
+    //                            recursionDepth,
+    //                            _maxRecursionDepth,
+    //                            _path->bIsClosed,
+    //                            i == _path->segmentChunks.count - 1 && j == chunk->count - 1,
+    //                            &tmpBounds);
+    //         }
+    //     }
+    // }
+
+    // tpFloat bw = tmpBounds.maxX - tmpBounds.minX;
+    // tpFloat bh = tmpBounds.maxY - tmpBounds.minY;
+    // _ctx->geometryCache[0] = tmpBounds.minX + bw * 0.5;
+    // _ctx->geometryCache[1] = tmpBounds.minY + bh * 0.5;
+    // _ctx->boundsCache = tmpBounds;
+
+    //we add the bounds geometry to the and of the vertex data
+    tpVec2 boundsData[] = {tmpBounds.min,
+        {tmpBounds.min.x, tmpBounds.max.y},
+        {tmpBounds.max.x, tmpBounds.min.y},
+        tmpBounds.max
+    };
+
+    _tpVec2ArrayAppendArray(&_path->geometryCache, boundsData, 4);
+
+    printf("EEEEND\n");
+    return 0;
+}
+
+void _draw_paint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _paint)
+{
+    if (_paint->type == kTpPaintTypeColor)
+    {
+        //@TODO: Cache the uniform loc
+        ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->program, "meshColor"), 1, &_paint->data.color.r));
+        ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, (_path->geometryCache.count - 4), 4));
+    }
+}
+
+void _draw_fill_even_odd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle * _style)
+{
+    ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
+    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
+    ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _kTpClipStencilPlaneOne));
+    ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
+
+    //_transform ? & (*_transform).v[0] : NULL
+    //@TODO: Cache the uniform loc
+    // ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &mat.v[0]));
+    printf("COUNT %i\n", _path->geometryCache.count);
+    ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(tpVec2) * _path->geometryCache.count, _path->geometryCache.array, GL_DYNAMIC_DRAW));
+    for (int i = 0; i < _path->contours.count; ++i)
+    {
+        _tpGLContour * c = _tpGLContourArrayAtPtr(&_path->contours, i);
+        printf("VC %i %i\n", c->fillVertexOffset, c->fillVertexCount);
+        ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
+    }
+
+    ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 255, _kTpFillRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO));
+    ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+
+    _draw_paint(_ctx, _path, &_style->fill);
+}
+
+tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
+{
+    assert(_ctx);
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(p && s);
+    assert(_tpGLIsValidPath(p));
+    assert(_tpGLIsValidStyle(s));
+
+    if (p->bGeometryCacheDirty)
+    {
+        p->bGeometryCacheDirty = tpFalse;
+        _flatten_path(p, 0.15);
+    }
+    // printf("BOUNDS\n");
+    // printf("MIN %f %f\n", _ctx->boundsCache.minX, _ctx->boundsCache.minY);
+    // printf("MAX %f %f\n", _ctx->boundsCache.maxX, _ctx->boundsCache.maxY);
+    // printf("GEOM CACHE %i\n", ctx->geometryCacheCount);
+
+    // for (int i = 0; i < ctx->geometryCacheCount; ++i)
+    // {
+    //     printf("CACHE %f\n", ctx->geometryCache[i]);
+    // }
+
+    ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
+    ASSERT_NO_GL_ERROR(glDepthMask(GL_FALSE));
+    ASSERT_NO_GL_ERROR(glEnable(GL_MULTISAMPLE));
+    ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
+    ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    ASSERT_NO_GL_ERROR(glEnable(GL_STENCIL_TEST));
+    ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glClearStencil(0));
+    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+    ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo | _kTpStrokeRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glClearStencil(255));
+    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+
+    ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
+
+    //@TODO: Cache the uniform loc
+    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transform"), 1, GL_FALSE, &p->renderTransform.v[0]));
+    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "projection"), 1, GL_FALSE, &_ctx->projection.v[0]));
+    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao));
+    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
+    ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(0));
+    // ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(1));
+    // ASSERT_NO_GL_ERROR(glUniform4f(glGetUniformLocation(_ctx->program, "meshColor"), 1.0, 0.0, 0.0, 1.0));
+    _draw_fill_even_odd(_ctx, p, s);
+
+    return tpFalse;
+}
+
+tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
+{
+    _ctx->projection = *_projection;
+    return tpFalse;
+}
 
 #endif //TARP_TARPGL_H
