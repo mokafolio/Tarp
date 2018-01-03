@@ -50,6 +50,7 @@ typedef enum
 
 typedef enum
 {
+    kTpPaintTypeNone,
     kTpPaintTypeColor,
     kTpPaintTypeGradient
 } tpPaintType;
@@ -160,9 +161,17 @@ tpVec2 tpVec2Sub(const tpVec2 * _a, const tpVec2 * _b);
 
 tpVec2 tpVec2Mult(const tpVec2 * _a, const tpVec2 * _b);
 
+tpVec2 tpVec2MultScalar(const tpVec2 * _a, tpFloat _b);
+
 tpVec2 tpVec2Div(const tpVec2 * _a, const tpVec2 * _b);
 
 tpBool tpVec2Equals(const tpVec2 * _a, const tpVec2 * _b);
+
+tpFloat tpVec2Length(const tpVec2 * _vec);
+
+void tpVec2NormalizeSelf(tpVec2 * _vec);
+
+tpVec2 tpVec2Normalize(const tpVec2 * _vec);
 
 
 // Matrix Functions
@@ -318,6 +327,11 @@ tpVec2 tpVec2Mult(const tpVec2 * _a, const tpVec2 * _b)
     return (tpVec2) {_a->x * _b->x, _a->y * _b->y};
 }
 
+tpVec2 tpVec2MultScalar(const tpVec2 * _a, tpFloat _b)
+{
+    return (tpVec2) {_a->x * _b, _a->y * _b};
+}
+
 tpVec2 tpVec2Div(const tpVec2 * _a, const tpVec2 * _b)
 {
     return (tpVec2) {_a->x / _b->x, _a->y / _b->y};
@@ -326,6 +340,25 @@ tpVec2 tpVec2Div(const tpVec2 * _a, const tpVec2 * _b)
 tpBool tpVec2Equals(const tpVec2 * _a, const tpVec2 * _b)
 {
     return _a->x == _b->x && _a->y == _b->y;
+}
+
+tpFloat tpVec2Length(const tpVec2 * _vec)
+{
+    return sqrt(_vec->x * _vec->x + _vec->y * _vec->y);
+}
+
+void tpVec2NormalizeSelf(tpVec2 * _vec)
+{
+    tpFloat s = 1.0 / tpVec2Length(_vec);
+    _vec->x *= s;
+    _vec->y *= s;
+}
+
+tpVec2 tpVec2Normalize(const tpVec2 * _vec)
+{
+    tpVec2 ret = {_vec->x, _vec->y};
+    tpVec2NormalizeSelf(&ret);
+    return ret;
 }
 
 tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2,
