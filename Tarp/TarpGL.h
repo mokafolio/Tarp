@@ -748,7 +748,7 @@ tpStyle tpStyleCreate(tpContext * _ctx)
     style->stroke.data.color = tpColorMake(0, 0, 0, 1);
     style->stroke.type = kTpPaintTypeColor;
     style->strokeWidth = 1.0;
-    style->strokeJoin = kTpStrokeJoinMiter;
+    style->strokeJoin = kTpStrokeJoinBevel;
     style->strokeCap = kTpStrokeCapButt;
     style->fillType = kTpFillTypeEvenOdd;
     style->dashCount = 0;
@@ -1047,6 +1047,24 @@ void _tpGLMakeCapSquare(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, tp
     }
 }
 
+void _tpGLMakeJoinBevel(const tpVec2 * _lePrev, const tpVec2 * _rePrev,
+                        const tpVec2 * _le, const tpVec2 * _re,
+                        tpFloat _cross, _tpVec2Array * _outVertices)
+{
+    if (_cross < 0)
+    {
+        _tpVec2ArrayAppendPtr(_outVertices, _lePrev);
+        _tpVec2ArrayAppendPtr(_outVertices, _le);
+        _tpVec2ArrayAppendPtr(_outVertices, _rePrev);
+    }
+    else
+    {
+        _tpVec2ArrayAppendPtr(_outVertices, _re);
+        _tpVec2ArrayAppendPtr(_outVertices, _rePrev);
+        _tpVec2ArrayAppendPtr(_outVertices, _lePrev);
+    }
+}
+
 // void _tpGLMiterTip(const tpVec2 * _pos,
 //                    const tpVec2 * _ep0,
 //                    const tpVec2 * _ed0,
@@ -1103,13 +1121,31 @@ void _tpGLPushQuad(_tpVec2Array * _vertices, tpVec2 * _a, tpVec2 * _b, tpVec2 * 
     _tpVec2ArrayAppendPtr(_vertices, _a);
 }
 
+void _tpGLMakeJoin(tpStrokeJoin _type,
+                   const tpVec2 * _p,
+                   const tpVec2 * _d0, const tpVec2 * _d1,
+                   const tpVec2 * _lePrev, const tpVec2 * _rePrev,
+                   const tpVec2 * _le, const tpVec2 * _re,
+                   tpFloat _cross,
+                   _tpVec2Array * _outVertices)
+{
+    switch (_type)
+    {
+        case kTpStrokeJoinBevel:
+            _tpGLMakeJoinBevel(_lePrev, _rePrev, _le, _re, _cross, _outVertices);
+            break;
+        default: break;
+    }
+}
+
 tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
     int i, j, voff;
     tpBool bIsClosed;
     _tpGLContour * c;
-    tpVec2 p0, p1, d0, d1, perp0, perp1;
+    tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
     tpVec2 le0, le1, re0, re1, edgeDelta, lePrev, rePrev;
+    tpFloat cross;
 
     printf("LKSJGKL %i %i\n", _vertices->count, _joints->count);
     assert(_vertices->count == _joints->count);
@@ -1125,11 +1161,12 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
         {
             p0 = _tpVec2ArrayAt(_vertices, j);
             p1 = _tpVec2ArrayAt(_vertices, j + 1);
-            d1 = tpVec2Sub(&p1, &p0);
-            tpVec2NormalizeSelf(&d1);
-            perp1.x = -d1.y;
-            perp1.y = d1.x;
-            edgeDelta = tpVec2MultScalar(&perp1, _style->strokeWidth * 0.5);
+            dir = tpVec2Sub(&p1, &p0);
+            tpVec2NormalizeSelf(&dir);
+            perp.x = -dir.y;
+            perp.y = dir.x;
+            cross = perp.x * perpPrev.y - perp.y * perpPrev.x;
+            edgeDelta = tpVec2MultScalar(&perp, _style->strokeWidth * 0.5);
 
             le0 = tpVec2Sub(&p0, &edgeDelta);
             re0 = tpVec2Add(&p0, &edgeDelta);
@@ -1146,13 +1183,14 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                 //check if this is a joint
                 if (_tpBoolArrayAt(_joints, j))
                 {
-                    //joint
+                    printf("MAKING DA JOIIIIIIN \n");
+                    _tpGLMakeJoin(_style->strokeJoin, &p0, &dirPrev, &dir,
+                                  &lePrev, &rePrev, &le0, &re0, cross, _vertices);
                 }
                 else
                 {
-                    _tpVec2ArrayAppendPtr(_vertices, &lePrev);
-                    _tpVec2ArrayAppendPtr(_vertices, &le0);
-                    _tpVec2ArrayAppendPtr(_vertices, &re0);
+                    //by default we join consecutive segment quads with a bevel
+                    _tpGLMakeJoinBevel(&lePrev, &rePrev, &le0, &re0, cross, _vertices);
                 }
 
                 //add the quad for the current segment
@@ -1164,7 +1202,9 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                     printf("PRE DEAD\n");
                     if (_tpBoolArrayAt(_joints, j + 1))
                     {
-                        //last join
+                        // //last join
+                        // _tpGLMakeJoin(_style->strokeJoin, &p1, &dirPrev, &dir,
+                        //               &lePrev, &rePrev, &le0, &re0, cross, _vertices);
                     }
                     else
                     {
@@ -1173,8 +1213,8 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                 }
             }
 
-            d0 = d1;
-            perp0 = perp1;
+            perpPrev = perp;
+            dirPrev = dir;
             lePrev = le1;
             rePrev = re1;
         }

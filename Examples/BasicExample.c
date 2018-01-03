@@ -283,7 +283,7 @@ int main(int argc, char * argv[])
         tpPath path = tpPathCreate(&ctx);
         tpPathMoveTo(path, 10, 10);
         tpPathCubicCurveTo(path, 40, 40, 100, 15, 100, 100);
-        // tpPathCubicCurveTo(path, 115, 115, 50, 150, 50, 150);
+        tpPathCubicCurveTo(path, 115, 115, 50, 150, 50, 150);
         tpPathClose(path);
         // tpPathMoveTo(path, 50, 50);
         // tpPathLineTo(path, 50, 70);
@@ -293,6 +293,7 @@ int main(int argc, char * argv[])
 
         tpStyle style = tpStyleCreate(&ctx);
         tpStyleSetStrokeWidth(style, 10);
+        tpStyleSetStrokeJoin(style, kTpStrokeJoinBevel);
         tpStyleSetFillColor(style, 1.0, 1.0, 0.0, 1.0);
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
