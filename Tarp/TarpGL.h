@@ -269,6 +269,7 @@ struct _tpContextData
     GLuint vao;
     GLuint textureVao;
     GLuint vbo;
+    GLuint vboSize;
     GLuint textureVbo;
     GLuint currentClipStencilPlane;
     tpPath clippingStack[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
@@ -416,6 +417,7 @@ tpBool tpContextInit(tpContext * _ctx)
     _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
     _ctx->clippingStackDepth = 0;
     _ctx->projection = tpMat4Identity();
+    _ctx->vboSize = 0;
 
     _tpGLPathPtrArrayInit(&_ctx->paths, 32);
     _tpVec2ArrayInit(&_ctx->tmpVertices, 512);
@@ -1107,7 +1109,7 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
     tpBool bIsClosed;
     _tpGLContour * c;
     tpVec2 p0, p1, d0, d1, perp0, perp1;
-    tpVec2 le0, le1, re0, re1, edgeDelta;
+    tpVec2 le0, le1, re0, re1, edgeDelta, lePrev, rePrev;
 
     printf("LKSJGKL %i %i\n", _vertices->count, _joints->count);
     assert(_vertices->count == _joints->count);
@@ -1127,8 +1129,10 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
             tpVec2NormalizeSelf(&d1);
             perp1.x = -d1.y;
             perp1.y = d1.x;
-            edgeDelta = tpVec2MultScalar(&perp1, _style->strokeWidth);
+            edgeDelta = tpVec2MultScalar(&perp1, _style->strokeWidth * 0.5);
 
+            le0 = tpVec2Sub(&p0, &edgeDelta);
+            re0 = tpVec2Add(&p0, &edgeDelta);
             le1 = tpVec2Sub(&p1, &edgeDelta);
             re1 = tpVec2Add(&p1, &edgeDelta);
 
@@ -1143,6 +1147,12 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                 if (_tpBoolArrayAt(_joints, j))
                 {
                     //joint
+                }
+                else
+                {
+                    _tpVec2ArrayAppendPtr(_vertices, &lePrev);
+                    _tpVec2ArrayAppendPtr(_vertices, &le0);
+                    _tpVec2ArrayAppendPtr(_vertices, &re0);
                 }
 
                 //add the quad for the current segment
@@ -1165,8 +1175,8 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
 
             d0 = d1;
             perp0 = perp1;
-            le0 = le1;
-            re0 = re1;
+            lePrev = le1;
+            rePrev = re1;
         }
 
         c->strokeVertexCount = _vertices->count - voff;
@@ -1349,7 +1359,8 @@ void _draw_fill_even_odd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle *
 
 tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 {
-    GLint bufferSize, currentSize;
+    GLint bufferSize, currentSize, i;
+    _tpGLContour * c;
 
     assert(_ctx);
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
@@ -1427,16 +1438,41 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     // ASSERT_NO_GL_ERROR(glUniform4f(glGetUniformLocation(_ctx->program, "meshColor"), 1.0, 0.0, 0.0, 1.0));
 
     //upload the paths geometry cache to the gpu
-    currentSize = sizeof(tpVec2) * p->geometryCache.count;
     //not sure if this buffer orphaning style data upload makes a difference these days anymore.
-    ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, currentSize, NULL, GL_DYNAMIC_DRAW));
-    ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, currentSize, p->geometryCache.array));
-
+    currentSize = sizeof(tpVec2) * p->geometryCache.count;
+    if (currentSize > _ctx->vboSize)
+    {
+        printf("NEW BUFFER DATA\n");
+        ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, currentSize, NULL, GL_DYNAMIC_DRAW));
+        _ctx->vboSize = currentSize;
+    }
+    else
+    {
+        printf("ORPH BUFFER\n");
+        ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _ctx->vboSize, NULL, GL_DYNAMIC_DRAW));
+        ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, currentSize, p->geometryCache.array));
+    }
 
     //draw the fill
     _draw_fill_even_odd(_ctx, p, s);
 
     //draw the stroke
+    ASSERT_NO_GL_ERROR(glStencilMask(_kTpStrokeRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
+    ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _kTpClipStencilPlaneOne));
+    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
+
+    for (i = 0; i < p->contours.count; ++i)
+    {
+        c = _tpGLContourArrayAtPtr(&p->contours, i);
+        ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, c->strokeVertexOffset, c->strokeVertexCount));
+    }
+
+    ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+    ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpStrokeRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
+
+    _draw_paint(_ctx, p, &s->stroke);
 
     return tpFalse;
 }
