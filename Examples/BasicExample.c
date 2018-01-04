@@ -294,7 +294,7 @@ int main(int argc, char * argv[])
         tpStyle style = tpStyleCreate(&ctx);
         tpStyleSetStrokeWidth(style, 10);
         tpStyleSetStrokeJoin(style, kTpStrokeJoinBevel);
-        tpStyleSetFillColor(style, 1.0, 1.0, 0.0, 1.0);
+        tpStyleSetFillColor(style, 1.0, 0.0, 0.0, 1.0);
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
 

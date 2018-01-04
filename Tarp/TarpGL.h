@@ -1145,6 +1145,7 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
     _tpGLContour * c;
     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
     tpVec2 le0, le1, re0, re1, edgeDelta, lePrev, rePrev;
+    tpVec2 firstDir, firstPerp, firstLe, firstRe;
     tpFloat cross;
 
     printf("LKSJGKL %i %i\n", _vertices->count, _joints->count);
@@ -1173,10 +1174,26 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
             le1 = tpVec2Sub(&p1, &edgeDelta);
             re1 = tpVec2Add(&p1, &edgeDelta);
 
-            //check if we need to do a starting cap
+            //check if this is the first segment as we need to do things
+            //slightly differently in that case :)
             if (j == c->fillVertexOffset)
             {
-                //start cap
+                //start cap?
+
+
+                //add the quad for the current segment
+                _tpGLPushQuad(_vertices, &le1, &le0, &re0, &re1);
+
+                //if the path is closed, we cache the directions and edges
+                //to be used for the last segments stroke calculations
+                if (c->bIsClosed)
+                {
+                    printf("CACHING\n");
+                    firstDir = dir;
+                    firstPerp = perp;
+                    firstLe = le0;
+                    firstRe = re0;
+                }
             }
             else
             {
@@ -1197,14 +1214,16 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                 _tpGLPushQuad(_vertices, &le1, &le0, &re0, &re1);
 
                 //check if we need to do the end cap / join
-                if (j == c->fillVertexOffset + c->fillVertexCount - 1)
+                if (j == c->fillVertexOffset + c->fillVertexCount - 2)
                 {
                     printf("PRE DEAD\n");
                     if (_tpBoolArrayAt(_joints, j + 1))
                     {
-                        // //last join
-                        // _tpGLMakeJoin(_style->strokeJoin, &p1, &dirPrev, &dir,
-                        //               &lePrev, &rePrev, &le0, &re0, cross, _vertices);
+                        printf("MAKING DA LAST JOIN\n");
+                        //last join
+                        cross = firstPerp.x * perp.y - firstPerp.y * perp.x;
+                        _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
+                                      &le1, &re1, &firstLe, &firstRe, cross, _vertices);
                     }
                     else
                     {
