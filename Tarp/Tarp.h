@@ -169,9 +169,15 @@ tpBool tpVec2Equals(const tpVec2 * _a, const tpVec2 * _b);
 
 tpFloat tpVec2Length(const tpVec2 * _vec);
 
+tpFloat tpVec2Dot(const tpVec2 * _a, const tpVec2 * _b);
+
+tpFloat tpVec2Cross(const tpVec2 * _a, const tpVec2 * _b);
+
 void tpVec2NormalizeSelf(tpVec2 * _vec);
 
 tpVec2 tpVec2Normalize(const tpVec2 * _vec);
+
+tpVec2 tpVec2Perp(const tpVec2 * _a);
 
 
 // Matrix Functions
@@ -260,6 +266,8 @@ void tpStyleSetStrokeGradient(tpStyle _style, const tpGradient _gradient);
 void tpStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth);
 
 void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join);
+
+void tpStyleSetMiterLimit(tpStyle _style, tpFloat _limit);
 
 void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap);
 
@@ -359,6 +367,21 @@ tpVec2 tpVec2Normalize(const tpVec2 * _vec)
     tpVec2 ret = {_vec->x, _vec->y};
     tpVec2NormalizeSelf(&ret);
     return ret;
+}
+
+tpVec2 tpVec2Perp(const tpVec2 * _a)
+{
+    return (tpVec2){_a->y, -_a->x};
+}
+
+tpFloat tpVec2Dot(const tpVec2 * _a, const tpVec2 * _b)
+{
+    return _a->x * _b->x + _a->y * _b->y;
+}
+
+tpFloat tpVec2Cross(const tpVec2 * _a, const tpVec2 * _b)
+{
+    return _a->x * _b->y - _a->y * _b->x;
 }
 
 tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2,

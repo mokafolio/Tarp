@@ -61,6 +61,7 @@ exit(EXIT_FAILURE); \
 
 #define TARP_MIN(a,b) (((a)<(b))?(a):(b))
 #define TARP_MAX(a,b) (((a)>(b))?(a):(b))
+#define TARP_CLAMP(a,l,h) TARP_MAX(TARP_MIN(a, h),l)
 
 //some tarp related opengl related settings
 #define TARP_GL_RAMP_TEXTURE_SIZE 1024
@@ -247,6 +248,7 @@ typedef struct
     tpFloat dashArray[TARP_MAX_DASH_ARRAY_SIZE];
     int dashCount;
     tpFloat dashOffset;
+    tpFloat miterLimit;
     tpContext * context;
 } _tpGLStyle;
 
@@ -753,6 +755,7 @@ tpStyle tpStyleCreate(tpContext * _ctx)
     style->fillType = kTpFillTypeEvenOdd;
     style->dashCount = 0;
     style->dashOffset = 0;
+    style->miterLimit = 4;
 
     style->context = _ctx;
 
@@ -834,6 +837,14 @@ void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join)
     assert(_tpGLIsValidStyle(s));
 
     s->strokeJoin = _join;
+}
+
+void tpStyleSetMiterLimit(tpStyle _style, tpFloat _limit)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->miterLimit = _limit;
 }
 
 void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap)
@@ -971,15 +982,27 @@ tpFloat _tpGLShortestAngle(const tpVec2 * _d0, const tpVec2 * _d1)
     return theta;
 }
 
-void _tpGLMakeCapOrJoinRound(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, _tpVec2Array * _outVertices)
+void _tpGLPushQuad(_tpVec2Array * _vertices, tpVec2 * _a, tpVec2 * _b, tpVec2 * _c, tpVec2 * _d)
 {
+    _tpVec2ArrayAppendPtr(_vertices, _a);
+    _tpVec2ArrayAppendPtr(_vertices, _b);
+    _tpVec2ArrayAppendPtr(_vertices, _c);
+    _tpVec2ArrayAppendPtr(_vertices, _c);
+    _tpVec2ArrayAppendPtr(_vertices, _d);
+    _tpVec2ArrayAppendPtr(_vertices, _a);
+}
+
+void _tpGLMakeCapOrJoinRound2(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, tpFloat _radius, _tpVec2Array * _outVertices)
+{
+    printf("MAKE IT ROUND BB\n");
     tpFloat cosa, sina;
-    tpVec2 perp, last, current;
+    tpVec2 dir, perp, last, current;
     int circleSubdivisionCount, i;
     tpFloat currentAngle, radStep;
 
-    perp.x = -_d->y;
-    perp.y = _d->x;
+    dir = tpVec2MultScalar(_d, _radius);
+    perp.x = -dir.y;
+    perp.y = dir.x;
 
     //@TODO: Make this based on the stroke width and theta?
     circleSubdivisionCount = 12;
@@ -993,8 +1016,8 @@ void _tpGLMakeCapOrJoinRound(const tpVec2 * _p, const tpVec2 * _d, tpFloat _thet
         cosa = cos(-currentAngle);
         sina = sin(-currentAngle);
 
-        current.x = _p->x + perp.x * cosa - perp.y * sina;
-        current.y = _p->y + perp.x * sina - perp.y * cosa;
+        current.x = _p->x + (perp.x * cosa - perp.y * sina);
+        current.y = _p->y + (perp.x * sina - perp.y * cosa);
 
         if (i > 0)
         {
@@ -1005,6 +1028,47 @@ void _tpGLMakeCapOrJoinRound(const tpVec2 * _p, const tpVec2 * _d, tpFloat _thet
 
         last = current;
     }
+}
+
+void _tpGLMakeJoinRound(const tpVec2 * _p,
+                        const tpVec2 * _e0, const tpVec2 * _e1,
+                        const tpVec2 * _perp0, const tpVec2 * _perp1,
+                        _tpVec2Array * _outVertices)
+{
+    tpVec2 nperp0, nperp1, last, current;
+    tpFloat angle, theta, stepSize, cosa, sina;
+
+    //@TODO: We could avoid these normalize/sqrt calls by either passing in
+    //the directions (that are normalized) and getting the normalized
+    //perp from there
+    nperp0 = tpVec2Normalize(_perp0);
+    nperp1 = tpVec2Normalize(_perp1);
+
+    theta = acos(tpVec2Dot(&nperp0, &nperp1));
+
+    //@TODO: The stepsize should most likely take the stroke width in user space into account
+    //(i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
+    stepSize = TARP_PI / 16;
+
+    last = *_e0;
+    for (angle = stepSize; angle < theta; angle += stepSize)
+    {
+        cosa = cos(angle);
+        sina = sin(angle);
+
+        current.x = _p->x + (_perp0->x * cosa - _perp0->y * sina);
+        current.y = _p->y + (_perp0->x * sina + _perp0->y * cosa);
+
+        _tpVec2ArrayAppendPtr(_outVertices, &last);
+        _tpVec2ArrayAppendPtr(_outVertices, &current);
+        _tpVec2ArrayAppendPtr(_outVertices, _p);
+
+        last = current;
+    }
+
+    _tpVec2ArrayAppendPtr(_outVertices, &last);
+    _tpVec2ArrayAppendPtr(_outVertices, _e1);
+    _tpVec2ArrayAppendPtr(_outVertices, _p);
 }
 
 void _tpGLMakeCapSquare(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, tpBool _bStart, _tpVec2Array * _outVertices)
@@ -1027,6 +1091,8 @@ void _tpGLMakeCapSquare(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, tp
     d = tpVec2Add(&a, &dir);
 
     //this makes sure that the triangles are counter clockwise
+    //@TODO: I don't think we should care about triangle order as
+    //that does not matter if we always disable face culling
     if (_bStart)
     {
         _tpVec2ArrayAppendPtr(_outVertices, &d);
@@ -1059,10 +1125,54 @@ void _tpGLMakeJoinBevel(const tpVec2 * _lePrev, const tpVec2 * _rePrev,
     }
     else
     {
+
         _tpVec2ArrayAppendPtr(_outVertices, _re);
         _tpVec2ArrayAppendPtr(_outVertices, _rePrev);
         _tpVec2ArrayAppendPtr(_outVertices, _lePrev);
     }
+}
+
+tpBool _tpGLIntersectLines(const tpVec2 * _p0, const tpVec2 * _d0,
+                           const tpVec2 * _p1, const tpVec2 * _d1,
+                           tpVec2 * _outResult)
+{
+    tpFloat cross, t;
+    tpVec2 delta, doff;
+
+    delta = tpVec2Sub(_p0, _p1);
+    cross = tpVec2Cross(_d0, _d1);
+
+    //lines are parallel
+    if (cross == 0.0)
+        return tpFalse;
+
+    t = tpVec2Cross(_d1, &delta) / cross;
+    doff = tpVec2MultScalar(_d0, t);
+    *_outResult = tpVec2Add(_p0, &doff);
+
+    return tpTrue;
+}
+
+void _tpGLMakeJoinMiter(const tpVec2 * _p,
+                        const tpVec2 * _e0, const tpVec2 * _e1,
+                        const tpVec2 * _dir0, const tpVec2 * _dir1,
+                        tpFloat _cross,
+                        _tpVec2Array * _outVertices)
+{
+    tpFloat t;
+    tpVec2 intersection;
+
+    printf("MITER BABY!\n");
+    tpVec2 inv = tpVec2MultScalar(_dir1, -1);
+    _tpGLIntersectLines(_e0, _dir0, _e1, _dir1, &intersection);
+
+    printf("INTER %f %f\n", intersection.x, intersection.y);
+
+    _tpGLPushQuad(_outVertices, (tpVec2 *)_p, (tpVec2 *)_e0, &intersection, (tpVec2 *)_e1);
+
+    // _tpVec2ArrayAppendPtr(_outVertices, (tpVec2 *)_p);
+    // _tpVec2ArrayAppendPtr(_outVertices, (tpVec2 *)_e0);
+    // _tpVec2ArrayAppendPtr(_outVertices, &intersection);
 }
 
 // void _tpGLMiterTip(const tpVec2 * _pos,
@@ -1092,49 +1202,56 @@ void _tpGLMakeJoinBevel(const tpVec2 * _lePrev, const tpVec2 * _rePrev,
 
 // }
 
-// void _tpGLMakeJoinMiter(const tpVec2 * _p,
-//                         const tpVec2 * _d0, const tpVec2 * _d1,
-//                         const tpVec2 * _ep0, const tpVec2 * _ep1,
-//                         const tpVec2 * _ep2, const tpVec2 * _ep3,
-//                         _tpVec2Array * _outVertices)
-// {
-//     tpFloat cross, miterLen;
-//     tpVec2 miterTip;
-
-//     //to know which side of the stroke is outside
-//     cross = _lastDir.x * _dir.y - _dir.x * _lastDir.y;
-
-//     //compute the miter
-//     if (cross >= 0.0)
-//         miterTip = detail::joinMiter(_point, _lastLeftEdgePoint, _lastDir, _leftEdgePoint, _dir, miterLen);
-//     else
-//         miterTip = detail::joinMiter(_point, _lastRightEdgePoint, _lastDir, _rightEdgePoint, _dir, miterLen);
-// }
-
-void _tpGLPushQuad(_tpVec2Array * _vertices, tpVec2 * _a, tpVec2 * _b, tpVec2 * _c, tpVec2 * _d)
-{
-    _tpVec2ArrayAppendPtr(_vertices, _a);
-    _tpVec2ArrayAppendPtr(_vertices, _b);
-    _tpVec2ArrayAppendPtr(_vertices, _c);
-    _tpVec2ArrayAppendPtr(_vertices, _c);
-    _tpVec2ArrayAppendPtr(_vertices, _d);
-    _tpVec2ArrayAppendPtr(_vertices, _a);
-}
-
 void _tpGLMakeJoin(tpStrokeJoin _type,
                    const tpVec2 * _p,
-                   const tpVec2 * _d0, const tpVec2 * _d1,
+                   const tpVec2 * _dir0, const tpVec2 * _dir1,
+                   const tpVec2 * _perp0, const tpVec2 * _perp1,
                    const tpVec2 * _lePrev, const tpVec2 * _rePrev,
                    const tpVec2 * _le, const tpVec2 * _re,
-                   tpFloat _cross,
+                   tpFloat _cross, tpFloat _miterLimit,
                    _tpVec2Array * _outVertices)
 {
+    tpVec2 nperp0, nperp1;
+    tpFloat miterLen, theta;
+
     switch (_type)
     {
+        case kTpStrokeJoinRound:
+            if (_cross < 0.0f)
+            {
+                _tpGLMakeJoinRound(_p, _lePrev, _le, _perp0, _perp1, _outVertices);
+            }
+            else
+            {
+                //negate the perpendicular vectors and reorder function arguments
+                tpVec2 flippedPerp0, flippedPerp1;
+                flippedPerp0 = tpVec2Make(-_perp0->x, -_perp0->y);
+                flippedPerp1 = tpVec2Make(-_perp1->x, -_perp1->y);
+                _tpGLMakeJoinRound(_p, _re, _rePrev, &flippedPerp1, &flippedPerp0, _outVertices);
+            }
+            break;
+        case kTpStrokeJoinMiter:
+            nperp0 = tpVec2Perp(_dir0);
+            nperp1 = tpVec2Perp(_dir1);
+            theta = acos(tpVec2Dot(&nperp0, &nperp1));
+            miterLen = 1.0 / sin(theta / 2.0);
+            if (miterLen < _miterLimit)
+            {
+                if (_cross < 0.0f)
+                {
+                    _tpGLMakeJoinMiter(_p, _lePrev, _le, _dir0, _dir1, _cross, _outVertices);
+                }
+                else
+                {
+                    _tpGLMakeJoinMiter(_p, _rePrev, _re, _dir0, _dir1, _cross, _outVertices);
+                }
+                break;
+            }
+        //fall back to bevel
         case kTpStrokeJoinBevel:
+        default:
             _tpGLMakeJoinBevel(_lePrev, _rePrev, _le, _re, _cross, _outVertices);
             break;
-        default: break;
     }
 }
 
@@ -1144,7 +1261,7 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
     tpBool bIsClosed;
     _tpGLContour * c;
     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
-    tpVec2 le0, le1, re0, re1, edgeDelta, lePrev, rePrev;
+    tpVec2 le0, le1, re0, re1, lePrev, rePrev;
     tpVec2 firstDir, firstPerp, firstLe, firstRe;
     tpFloat cross;
 
@@ -1164,15 +1281,14 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
             p1 = _tpVec2ArrayAt(_vertices, j + 1);
             dir = tpVec2Sub(&p1, &p0);
             tpVec2NormalizeSelf(&dir);
-            perp.x = -dir.y;
-            perp.y = dir.x;
-            cross = perp.x * perpPrev.y - perp.y * perpPrev.x;
-            edgeDelta = tpVec2MultScalar(&perp, _style->strokeWidth * 0.5);
+            perp.x = dir.y * _style->strokeWidth * 0.5;
+            perp.y = -dir.x * _style->strokeWidth * 0.5;
+            cross = tpVec2Cross(&perp, &perpPrev);
 
-            le0 = tpVec2Sub(&p0, &edgeDelta);
-            re0 = tpVec2Add(&p0, &edgeDelta);
-            le1 = tpVec2Sub(&p1, &edgeDelta);
-            re1 = tpVec2Add(&p1, &edgeDelta);
+            le0 = tpVec2Add(&p0, &perp);
+            re0 = tpVec2Sub(&p0, &perp);
+            le1 = tpVec2Add(&p1, &perp);
+            re1 = tpVec2Sub(&p1, &perp);
 
             //check if this is the first segment as we need to do things
             //slightly differently in that case :)
@@ -1201,8 +1317,11 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                 if (_tpBoolArrayAt(_joints, j))
                 {
                     printf("MAKING DA JOIIIIIIN \n");
-                    _tpGLMakeJoin(_style->strokeJoin, &p0, &dirPrev, &dir,
-                                  &lePrev, &rePrev, &le0, &re0, cross, _vertices);
+                    _tpGLMakeJoin(_style->strokeJoin, &p0,
+                                  &dirPrev, &dir,
+                                  &perpPrev, &perp,
+                                  &lePrev, &rePrev, &le0, &re0,
+                                  cross, _style->miterLimit, _vertices);
                 }
                 else
                 {
@@ -1221,9 +1340,11 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                     {
                         printf("MAKING DA LAST JOIN\n");
                         //last join
-                        cross = firstPerp.x * perp.y - firstPerp.y * perp.x;
+                        cross = tpVec2Cross(&firstPerp, &perp);
                         _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
-                                      &le1, &re1, &firstLe, &firstRe, cross, _vertices);
+                                      &perpPrev, &perp,
+                                      &le1, &re1, &firstLe, &firstRe, cross,
+                                      _style->miterLimit, _vertices);
                     }
                     else
                     {
@@ -1399,12 +1520,12 @@ void _draw_fill_even_odd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle *
     //_transform ? & (*_transform).v[0] : NULL
     //@TODO: Cache the uniform loc
     // ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &mat.v[0]));
-    printf("COUNT %i\n", _path->geometryCache.count);
+    // printf("COUNT %i\n", _path->geometryCache.count);
     // ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(tpVec2) * _path->geometryCache.count, _path->geometryCache.array, GL_DYNAMIC_DRAW));
     for (int i = 0; i < _path->contours.count; ++i)
     {
         _tpGLContour * c = _tpGLContourArrayAtPtr(&_path->contours, i);
-        printf("VC %i %i\n", c->fillVertexOffset, c->fillVertexCount);
+        // printf("VC %i %i\n", c->fillVertexOffset, c->fillVertexCount);
         ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
     }
 
@@ -1501,13 +1622,13 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     currentSize = sizeof(tpVec2) * p->geometryCache.count;
     if (currentSize > _ctx->vboSize)
     {
-        printf("NEW BUFFER DATA\n");
+        // printf("NEW BUFFER DATA\n");
         ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, currentSize, NULL, GL_DYNAMIC_DRAW));
         _ctx->vboSize = currentSize;
     }
     else
     {
-        printf("ORPH BUFFER\n");
+        // printf("ORPH BUFFER\n");
         ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _ctx->vboSize, NULL, GL_DYNAMIC_DRAW));
         ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, currentSize, p->geometryCache.array));
     }
