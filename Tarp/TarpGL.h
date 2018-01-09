@@ -1447,6 +1447,7 @@ void _flatten_curve(_tpGLPath * _path,
                     const _tpGLCurve * _curve,
                     tpFloat _angleTolerance,
                     int _bIsClosed,
+                    int _bFirstCurve,
                     int _bLastCurve,
                     _tpVec2Array * _outVertices,
                     _tpBoolArray * _outJoints,
@@ -1475,7 +1476,7 @@ void _flatten_curve(_tpGLPath * _path,
         {
             // printf("ADD TO CACHE\n");
             //for the first curve we also add its first segment
-            if (!_outVertices->count)
+            if (_bFirstCurve)
             {
                 _tpVec2ArrayAppendPtr(_outVertices, &current->p0);
                 _tpVec2ArrayAppendPtr(_outVertices, &current->p1);
@@ -1485,6 +1486,9 @@ void _flatten_curve(_tpGLPath * _path,
                 _evaluate_point_for_bounds(&current->p0, _bounds);
                 _evaluate_point_for_bounds(&current->p1, _bounds);
                 *_vertexCount += 2;
+
+                //we don't want to do this for the following subdivisions
+                _bFirstCurve = 0;
             }
             else
             {
@@ -1535,6 +1539,8 @@ int _flatten_path(_tpGLPath * _path,
             for (j = 1; j < c->segments.count; ++j)
             {
                 current = _tpSegmentArrayAtPtr(&c->segments, j);
+                printf("%f %f\n", last->position.x, last->position.y);
+                printf("%f %f\n", current->position.x, current->position.y);
                 _tpGLCurve curve = {last->position.x, last->position.y,
                                     last->handleOut.x, last->handleOut.y,
                                     current->handleIn.x, current->handleIn.y,
@@ -1545,6 +1551,7 @@ int _flatten_path(_tpGLPath * _path,
                                &curve,
                                _angleTolerance,
                                c->bIsClosed,
+                               j == 1,
                                j == c->segments.count - 1,
                                _outVertices,
                                _outJoints,

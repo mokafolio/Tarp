@@ -280,20 +280,29 @@ int main(int argc, char * argv[])
             return EXIT_FAILURE;
         }
 
+        // tpPath path = tpPathCreate(&ctx);
+        // tpPathMoveTo(path, 100, 105);
+        // tpPathLineTo(path, 200, 110);
+        // tpPathLineTo(path, 200, 200);
+        // tpPathLineTo(path, 300, 170);
+        // tpPathClose(path);
+
+
         tpPath path = tpPathCreate(&ctx);
-        tpPathMoveTo(path, 100, 105);
+        tpPathMoveTo(path, 100, 100);
         tpPathLineTo(path, 200, 110);
-        tpPathLineTo(path, 200, 200);
-        tpPathLineTo(path, 300, 170);
+        tpPathLineTo(path, 200, 220);
+        tpPathLineTo(path, 90, 200);
         tpPathClose(path);
-        // tpPathCubicCurveTo(path, 40, 40, 100, 15, 100, 100);
-        // tpPathCubicCurveTo(path, 115, 115, 50, 150, 50, 150);
-        // tpPathClose(path);
-        // tpPathMoveTo(path, 50, 50);
-        // tpPathLineTo(path, 50, 70);
-        // tpPathLineTo(path, 30, 70);
-        // tpPathLineTo(path, 30, 50);
-        // tpPathClose(path);
+
+        tpPathMoveTo(path, 150, 150);
+        // tpPathCubicCurveTo(path, 155, 144, 160, 170, 165, 150);
+        tpPathLineTo(path, 165, 150);
+        tpPathLineTo(path, 180, 180);
+        tpPathLineTo(path, 140, 180);
+        tpPathClose(path);
+
+
 
         tpStyle style = tpStyleCreate(&ctx);
         tpStyleSetStrokeWidth(style, 8);
