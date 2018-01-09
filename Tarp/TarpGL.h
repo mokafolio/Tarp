@@ -1071,47 +1071,47 @@ void _tpGLMakeJoinRound(const tpVec2 * _p,
     _tpVec2ArrayAppendPtr(_outVertices, _p);
 }
 
-void _tpGLMakeCapSquare(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, tpBool _bStart, _tpVec2Array * _outVertices)
-{
-    tpVec2 dir, perp, a, b, c, d;
+// void _tpGLMakeCapSquare(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, tpBool _bStart, _tpVec2Array * _outVertices)
+// {
+//     tpVec2 dir, perp, a, b, c, d;
 
-    dir = *_d;
+//     dir = *_d;
 
-    if (_bStart)
-    {
-        dir.x = -dir.x;
-        dir.y = -dir.y;
-    }
+//     if (_bStart)
+//     {
+//         dir.x = -dir.x;
+//         dir.y = -dir.y;
+//     }
 
-    perp.x = -dir.y;
-    perp.y = dir.x;
-    a = tpVec2Add(_p, &perp);
-    b = tpVec2Sub(_p, &perp);
-    c = tpVec2Add(&b, &dir);
-    d = tpVec2Add(&a, &dir);
+//     perp.x = -dir.y;
+//     perp.y = dir.x;
+//     a = tpVec2Add(_p, &perp);
+//     b = tpVec2Sub(_p, &perp);
+//     c = tpVec2Add(&b, &dir);
+//     d = tpVec2Add(&a, &dir);
 
-    //this makes sure that the triangles are counter clockwise
-    //@TODO: I don't think we should care about triangle order as
-    //that does not matter if we always disable face culling
-    if (_bStart)
-    {
-        _tpVec2ArrayAppendPtr(_outVertices, &d);
-        _tpVec2ArrayAppendPtr(_outVertices, &b);
-        _tpVec2ArrayAppendPtr(_outVertices, &a);
-        _tpVec2ArrayAppendPtr(_outVertices, &b);
-        _tpVec2ArrayAppendPtr(_outVertices, &d);
-        _tpVec2ArrayAppendPtr(_outVertices, &c);
-    }
-    else
-    {
-        _tpVec2ArrayAppendPtr(_outVertices, &a);
-        _tpVec2ArrayAppendPtr(_outVertices, &b);
-        _tpVec2ArrayAppendPtr(_outVertices, &d);
-        _tpVec2ArrayAppendPtr(_outVertices, &b);
-        _tpVec2ArrayAppendPtr(_outVertices, &a);
-        _tpVec2ArrayAppendPtr(_outVertices, &d);
-    }
-}
+//     //this makes sure that the triangles are counter clockwise
+//     //@TODO: I don't think we should care about triangle order as
+//     //that does not matter if we always disable face culling
+//     if (_bStart)
+//     {
+//         _tpVec2ArrayAppendPtr(_outVertices, &d);
+//         _tpVec2ArrayAppendPtr(_outVertices, &b);
+//         _tpVec2ArrayAppendPtr(_outVertices, &a);
+//         _tpVec2ArrayAppendPtr(_outVertices, &b);
+//         _tpVec2ArrayAppendPtr(_outVertices, &d);
+//         _tpVec2ArrayAppendPtr(_outVertices, &c);
+//     }
+//     else
+//     {
+//         _tpVec2ArrayAppendPtr(_outVertices, &a);
+//         _tpVec2ArrayAppendPtr(_outVertices, &b);
+//         _tpVec2ArrayAppendPtr(_outVertices, &d);
+//         _tpVec2ArrayAppendPtr(_outVertices, &b);
+//         _tpVec2ArrayAppendPtr(_outVertices, &a);
+//         _tpVec2ArrayAppendPtr(_outVertices, &d);
+//     }
+// }
 
 void _tpGLMakeJoinBevel(const tpVec2 * _lePrev, const tpVec2 * _rePrev,
                         const tpVec2 * _le, const tpVec2 * _re,
@@ -1239,10 +1239,12 @@ void _tpGLMakeJoin(tpStrokeJoin _type,
             {
                 if (_cross < 0.0f)
                 {
+                    printf("MITER A\n");
                     _tpGLMakeJoinMiter(_p, _lePrev, _le, _dir0, _dir1, _cross, _outVertices);
                 }
                 else
                 {
+                    printf("MITER B\n");
                     _tpGLMakeJoinMiter(_p, _rePrev, _re, _dir0, _dir1, _cross, _outVertices);
                 }
                 break;
@@ -1255,6 +1257,74 @@ void _tpGLMakeJoin(tpStrokeJoin _type,
     }
 }
 
+void _tpGLMakeCapSquare(const tpVec2 * _p,
+                        const tpVec2 * _dir,
+                        const tpVec2 * _le, const tpVec2 * _re,
+                        _tpVec2Array * _outVertices)
+{
+    tpVec2 a, b;
+    a = tpVec2Add(_re, _dir);
+    b = tpVec2Add(_le, _dir);
+
+    _tpGLPushQuad(_outVertices, (tpVec2 *)_re, &a, &b, (tpVec2 *)_le);
+}
+
+void _tpGLMakeCapRound(const tpVec2 * _p,
+                       const tpVec2 * _perp,
+                       const tpVec2 * _e0, const tpVec2 * _e1,
+                       _tpVec2Array * _outVertices)
+{
+    tpFloat angle, stepSize, sina, cosa;
+    tpVec2 last, current;
+
+    //@TODO: The stepsize should most likely take the stroke width in user space into account
+    //(i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
+    stepSize = TARP_PI / 16;
+
+    last = *_e0;
+    for (angle = stepSize; angle < TARP_PI; angle += stepSize)
+    {
+        cosa = cos(angle);
+        sina = sin(angle);
+
+        current.x = _p->x + (_perp->x * cosa - _perp->y * sina);
+        current.y = _p->y + (_perp->x * sina + _perp->y * cosa);
+
+        _tpVec2ArrayAppendPtr(_outVertices, &last);
+        _tpVec2ArrayAppendPtr(_outVertices, &current);
+        _tpVec2ArrayAppendPtr(_outVertices, _p);
+
+        last = current;
+    }
+
+    _tpVec2ArrayAppendPtr(_outVertices, &last);
+    _tpVec2ArrayAppendPtr(_outVertices, _e1);
+    _tpVec2ArrayAppendPtr(_outVertices, _p);
+}
+
+void _tpGLMakeCap(tpStrokeCap _type,
+                  const tpVec2 * _p,
+                  const tpVec2 * _dir,
+                  const tpVec2 * _perp,
+                  const tpVec2 * _le, const tpVec2 * _re,
+                  tpBool _bStart,
+                  _tpVec2Array * _outVertices)
+{
+    switch (_type)
+    {
+        case kTpStrokeCapRound:
+            _tpGLMakeCapRound(_p, _perp, _bStart ? _re : _le, _bStart ? _le : _re, _outVertices);
+            break;
+        case kTpStrokeCapSquare:
+            _tpGLMakeCapSquare(_p, _dir, _le, _re, _outVertices);
+            break;
+        //do nothing
+        case kTpStrokeCapButt:
+        default:
+            break;
+    }
+}
+
 tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
     int i, j, voff;
@@ -1263,10 +1333,12 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
     tpVec2 le0, le1, re0, re1, lePrev, rePrev;
     tpVec2 firstDir, firstPerp, firstLe, firstRe;
-    tpFloat cross;
+    tpFloat cross, halfSw;
 
     printf("LKSJGKL %i %i\n", _vertices->count, _joints->count);
     assert(_vertices->count == _joints->count);
+
+    halfSw = _style->strokeWidth * 0.5;
 
     //generate the stroke geometry for each contour
     for (i = 0; i < _path->contours.count; ++i)
@@ -1281,8 +1353,8 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
             p1 = _tpVec2ArrayAt(_vertices, j + 1);
             dir = tpVec2Sub(&p1, &p0);
             tpVec2NormalizeSelf(&dir);
-            perp.x = dir.y * _style->strokeWidth * 0.5;
-            perp.y = -dir.x * _style->strokeWidth * 0.5;
+            perp.x = dir.y * halfSw;
+            perp.y = -dir.x * halfSw;
             cross = tpVec2Cross(&perp, &perpPrev);
 
             le0 = tpVec2Add(&p0, &perp);
@@ -1295,7 +1367,10 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
             if (j == c->fillVertexOffset)
             {
                 //start cap?
-
+                firstDir = tpVec2MultScalar(&dir, -1 * halfSw);
+                firstPerp.x = firstDir.y;
+                firstPerp.y = -firstDir.x;
+                _tpGLMakeCap(_style->strokeCap, &p0, &firstDir, &firstPerp, &le0, &re0, tpTrue, _vertices);
 
                 //add the quad for the current segment
                 _tpGLPushQuad(_vertices, &le1, &le0, &re0, &re1);
@@ -1349,6 +1424,9 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                     else
                     {
                         //end cap
+                        printf("DA END CAP!!!!!\n");
+                        firstDir = tpVec2MultScalar(&dir, halfSw);
+                        _tpGLMakeCap(_style->strokeCap, &p1, &firstDir, &perp, &le1, &re1, tpFalse, _vertices);
                     }
                 }
             }
@@ -1570,10 +1648,12 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         //add the bounds geometry to the end of the geometry cache
         if (s->stroke.type != kTpPaintTypeNone)
         {
-            bounds.min.x -= s->strokeWidth;
-            bounds.min.y -= s->strokeWidth;
-            bounds.max.x += s->strokeWidth;
-            bounds.max.y += s->strokeWidth;
+            tpFloat adder;
+            adder = TARP_MAX(s->strokeWidth, s->miterLimit);
+            bounds.min.x -= adder;
+            bounds.min.y -= adder;
+            bounds.max.x += adder;
+            bounds.max.y += adder;
         }
         tpVec2 boundsData[] = {bounds.min,
             {bounds.min.x, bounds.max.y},

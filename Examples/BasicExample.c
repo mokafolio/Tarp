@@ -281,11 +281,11 @@ int main(int argc, char * argv[])
         }
 
         tpPath path = tpPathCreate(&ctx);
-        tpPathMoveTo(path, 10, 5);
-        tpPathLineTo(path, 100, 10);
-        tpPathLineTo(path, 100, 100);
-        tpPathLineTo(path, 200, 70);
-        tpPathCubicCurveTo(path, 220, 90, 100, 220, 120, 200);
+        tpPathMoveTo(path, 100, 105);
+        tpPathLineTo(path, 200, 110);
+        tpPathLineTo(path, 200, 200);
+        tpPathLineTo(path, 300, 170);
+        tpPathClose(path);
         // tpPathCubicCurveTo(path, 40, 40, 100, 15, 100, 100);
         // tpPathCubicCurveTo(path, 115, 115, 50, 150, 50, 150);
         // tpPathClose(path);
@@ -297,7 +297,9 @@ int main(int argc, char * argv[])
 
         tpStyle style = tpStyleCreate(&ctx);
         tpStyleSetStrokeWidth(style, 8);
+        // tpStyleSetMiterLimit(style, 64);
         tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
+        // tpStyleSetStrokeCap(style, kTpStrokeCapRound);
         tpStyleSetFillColor(style, 1.0, 0.0, 0.0, 1.0);
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
