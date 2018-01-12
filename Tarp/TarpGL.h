@@ -518,6 +518,13 @@ void tpPathDestroy(tpPath _path)
     free(p);
 }
 
+_tpGLContour * _tpGLCurrentContour(_tpGLPath * _p)
+{
+    if (_p->currentContourIndex != -1)
+        return _tpGLContourArrayAtPtr(&_p->contours, _p->currentContourIndex);
+    return NULL;
+}
+
 _tpGLContour * _tpGLPathCreateNextContour(_tpGLPath * _p)
 {
     _tpGLContour contour;
@@ -534,11 +541,30 @@ _tpGLContour * _tpGLPathCreateNextContour(_tpGLPath * _p)
     return _tpGLContourArrayAtPtr(&_p->contours, _p->currentContourIndex);
 }
 
-_tpGLContour * _tpGLCurrentContour(_tpGLPath * _p)
+_tpGLContour * _tpGLPathNextEmptyContour(_tpGLPath * _path)
 {
-    if (_p->currentContourIndex != -1)
-        return _tpGLContourArrayAtPtr(&_p->contours, _p->currentContourIndex);
-    return NULL;
+    _tpGLContour * c = _tpGLCurrentContour(_path);
+    if (!c || c->segments.count)
+    {
+        c = _tpGLPathCreateNextContour(_path);
+    }
+    return c;
+}
+
+tpBool _tpGLContourAddSegments(_tpGLPath * _p, _tpGLContour * _c, tpSegment * _segments, int count)
+{
+    int err = _tpSegmentArrayAppendArray(&_c->segments, _segments, count);
+    if (err)
+    {
+        strcpy(_p->errorMessage, "Could not allocate memory for segments.");
+        return tpTrue;
+    }
+
+    _c->lastSegmentIndex = _c->segments.count - 1;
+    _c->bDirty = tpTrue;
+    _p->bGeometryCacheDirty = tpTrue;
+
+    return tpFalse;
 }
 
 tpBool _tpGLContourAddSegment(_tpGLPath * _p, _tpGLContour * _c,
@@ -546,21 +572,8 @@ tpBool _tpGLContourAddSegment(_tpGLPath * _p, _tpGLContour * _c,
                               tpFloat _px, tpFloat _py,
                               tpFloat _h1x, tpFloat _h1y)
 {
-    _c->lastSegmentIndex = _c->segments.count;
-    _c->bDirty = tpTrue;
-    _p->bGeometryCacheDirty = tpTrue;
-    int err = _tpSegmentArrayAppend(&_c->segments, (tpSegment)
-    {
-        {_h0x, _h0y},
-        {_px, _py},
-        {_h1x, _h1y}
-    });
-    if (err)
-    {
-        strcpy(_p->errorMessage, "Could not allocate memory for segments.");
-        return tpTrue;
-    }
-    return tpFalse;
+    tpSegment seg = (tpSegment) { {_h0x, _h0y}, {_px, _py}, {_h1x, _h1y}};
+    return _tpGLContourAddSegments(_p, _c, &seg, 1);
 }
 
 tpBool tpPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y)
@@ -598,12 +611,8 @@ tpBool tpPathMoveTo(tpPath _path, tpFloat _x, tpFloat _y)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
     assert(_tpGLIsValidPath(p));
-    _tpGLContour * c = _tpGLCurrentContour(p);
 
-    if (!c || c->segments.count)
-    {
-        c = _tpGLPathCreateNextContour(p);
-    }
+    _tpGLContour * c = _tpGLPathNextEmptyContour(p);
 
     return _tpGLContourAddSegment(p, c, _x, _y, _x, _y, _x, _y);
 }
@@ -717,6 +726,92 @@ tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool 
     return tpFalse;
 }
 
+tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r)
+{
+    tpFloat dr = _r * 2.0;
+    return tpPathAddEllipse(_path, _x, _y, dr, dr);
+}
+
+tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
+{
+    //Original paper values, don't conform with SVG though :(
+    // static tpVec2 s_unitSegments[12] = { tpVec2Make(-1, 0), tpVec2Make(0, s_kappa), tpVec2Make(0, -s_kappa),
+    //                                      tpVec2Make(0, -1), tpVec2Make(-s_kappa, 0), tpVec2Make(s_kappa, 0),
+    //                                      tpVec2Make(1, 0), tpVec2Make(0, -s_kappa), tpVec2Make(0, s_kappa),
+    //                                      tpVec2Make(0, 1), tpVec2Make(s_kappa, 0), tpVec2Make(-s_kappa, 0)
+    //                                    };
+
+    static tpVec2 s_unitSegments[12] =
+    {
+        {1, 0}, {0, -TARP_KAPPA}, {0, TARP_KAPPA},
+        {0, 1}, {TARP_KAPPA, 0}, { -TARP_KAPPA, 0},
+        { -1, 0}, {0, TARP_KAPPA}, {0, -TARP_KAPPA},
+        {0, -1}, { -TARP_KAPPA, 0}, {TARP_KAPPA, 0}
+    };
+
+    tpFloat rw, rh, px, py;
+    tpSegment segs[4];
+
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+
+    _tpGLContour * c = _tpGLPathNextEmptyContour(p);
+
+    rw = _width * 0.5;
+    rh = _height * 0.5;
+    for (int i = 0; i < 4; ++i)
+    {
+        int kappaIdx = i * 3;
+
+        printf("%f %f\n", s_unitSegments[kappaIdx].x, s_unitSegments[kappaIdx].y);
+        printf("%f %f\n", s_unitSegments[kappaIdx + 1].x, s_unitSegments[kappaIdx + 1].y);
+        printf("%f %f\n", s_unitSegments[kappaIdx + 2].x, s_unitSegments[kappaIdx + 2].y);
+
+        printf("COCK %f\n", s_unitSegments[kappaIdx + 1].x * rw + _x);
+        px = s_unitSegments[kappaIdx].x * rw + _x;
+        py = s_unitSegments[kappaIdx].y * rh + _y;
+        segs[i] = tpSegmentMake(s_unitSegments[kappaIdx + 1].x * rw + px, s_unitSegments[kappaIdx + 1].y * rh + py,
+                                px, py,
+                                s_unitSegments[kappaIdx + 2].x * rw + px, s_unitSegments[kappaIdx + 2].y * rh + py);
+
+        printf("HANDLE IN %f %f\n", segs[i].handleIn.x, segs[i].handleIn.y);
+        printf("POS %f %f\n", segs[i].position.x, segs[i].position.y);
+        printf("HANDLE Out %f %f\n", segs[i].handleOut.x, segs[i].handleOut.y);
+    }
+
+    tpBool err = _tpGLContourAddSegments(p, c, segs, 4);
+    if (err) return err;
+
+    tpPathClose(_path);
+
+    return tpFalse;
+}
+
+tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
+{
+    tpSegment segs[4];
+    tpFloat tmpa, tmpb;
+
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    assert(_tpGLIsValidPath(p));
+
+    _tpGLContour * c = _tpGLPathNextEmptyContour(p);
+
+    tmpa = _x + _width;
+    tmpb = _y + _height;
+    segs[0] = tpSegmentMake(_x, _y, _x, _y, _x, _y);
+    segs[1] = tpSegmentMake(tmpa, _y, tmpa, _y, tmpa, _y);
+    segs[2] = tpSegmentMake(tmpa, tmpb, tmpa, tmpb, tmpa, tmpb);
+    segs[3] = tpSegmentMake(_x, tmpb, _x, tmpb, _x, tmpb);
+
+    tpBool err = _tpGLContourAddSegments(p, c, segs, 4);
+    if (err) return err;
+
+    tpPathClose(_path);
+
+    return tpFalse;
+}
+
 tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
@@ -772,19 +867,26 @@ void tpStyleDestroy(tpStyle _style)
     free(s);
 }
 
-void tpStyleSetDash(tpStyle _style, tpFloat * _dashArray, int _count, tpFloat _offset)
+void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
     assert(_tpGLIsValidStyle(s));
 
     assert(_count < TARP_MAX_DASH_ARRAY_SIZE);
 
-    s->dashOffset = _offset;
     for (int i = 0; i < _count; ++i)
     {
         s->dashArray[i] = _dashArray[i];
     }
     s->dashCount = _count;
+}
+
+void tpStyleSetDashOffset(tpStyle _style, tpFloat _offset)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->dashOffset = _offset;
 }
 
 void tpStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
@@ -1046,6 +1148,8 @@ void _tpGLMakeJoinRound(const tpVec2 * _p,
 
     theta = acos(tpVec2Dot(&nperp0, &nperp1));
 
+    printf("ROUND JOIN\n");
+
     //@TODO: The stepsize should most likely take the stroke width in user space into account
     //(i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
     stepSize = TARP_PI / 16;
@@ -1070,48 +1174,6 @@ void _tpGLMakeJoinRound(const tpVec2 * _p,
     _tpVec2ArrayAppendPtr(_outVertices, _e1);
     _tpVec2ArrayAppendPtr(_outVertices, _p);
 }
-
-// void _tpGLMakeCapSquare(const tpVec2 * _p, const tpVec2 * _d, tpFloat _theta, tpBool _bStart, _tpVec2Array * _outVertices)
-// {
-//     tpVec2 dir, perp, a, b, c, d;
-
-//     dir = *_d;
-
-//     if (_bStart)
-//     {
-//         dir.x = -dir.x;
-//         dir.y = -dir.y;
-//     }
-
-//     perp.x = -dir.y;
-//     perp.y = dir.x;
-//     a = tpVec2Add(_p, &perp);
-//     b = tpVec2Sub(_p, &perp);
-//     c = tpVec2Add(&b, &dir);
-//     d = tpVec2Add(&a, &dir);
-
-//     //this makes sure that the triangles are counter clockwise
-//     //@TODO: I don't think we should care about triangle order as
-//     //that does not matter if we always disable face culling
-//     if (_bStart)
-//     {
-//         _tpVec2ArrayAppendPtr(_outVertices, &d);
-//         _tpVec2ArrayAppendPtr(_outVertices, &b);
-//         _tpVec2ArrayAppendPtr(_outVertices, &a);
-//         _tpVec2ArrayAppendPtr(_outVertices, &b);
-//         _tpVec2ArrayAppendPtr(_outVertices, &d);
-//         _tpVec2ArrayAppendPtr(_outVertices, &c);
-//     }
-//     else
-//     {
-//         _tpVec2ArrayAppendPtr(_outVertices, &a);
-//         _tpVec2ArrayAppendPtr(_outVertices, &b);
-//         _tpVec2ArrayAppendPtr(_outVertices, &d);
-//         _tpVec2ArrayAppendPtr(_outVertices, &b);
-//         _tpVec2ArrayAppendPtr(_outVertices, &a);
-//         _tpVec2ArrayAppendPtr(_outVertices, &d);
-//     }
-// }
 
 void _tpGLMakeJoinBevel(const tpVec2 * _lePrev, const tpVec2 * _rePrev,
                         const tpVec2 * _le, const tpVec2 * _re,
@@ -1325,10 +1387,9 @@ void _tpGLMakeCap(tpStrokeCap _type,
     }
 }
 
-tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
+void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
     int i, j, voff;
-    tpBool bIsClosed;
     _tpGLContour * c;
     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
     tpVec2 le0, le1, re0, re1, lePrev, rePrev;
@@ -1343,10 +1404,19 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
     //generate the stroke geometry for each contour
     for (i = 0; i < _path->contours.count; ++i)
     {
+        printf("BLUBB %i\n", i);
+
         voff = _vertices->count;
+        printf("BLUBB1 %i\n", voff);
         c = _tpGLContourArrayAtPtr(&_path->contours, i);
         c->strokeVertexOffset = voff;
+        if (c->fillVertexCount <= 1)
+        {
+            c->strokeVertexCount = 0;
+            continue;
+        }
 
+        printf("A\n");
         for (j = c->fillVertexOffset; j < c->fillVertexOffset + c->fillVertexCount - 1; ++j)
         {
             p0 = _tpVec2ArrayAt(_vertices, j);
@@ -1361,24 +1431,23 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
             re0 = tpVec2Sub(&p0, &perp);
             le1 = tpVec2Add(&p1, &perp);
             re1 = tpVec2Sub(&p1, &perp);
+            printf("B\n");
 
-            //check if this is the first segment as we need to do things
-            //slightly differently in that case :)
+            //check if this is the first segment / dash start
             if (j == c->fillVertexOffset)
             {
-                //start cap?
-                firstDir = tpVec2MultScalar(&dir, -1 * halfSw);
-                firstPerp.x = firstDir.y;
-                firstPerp.y = -firstDir.x;
-                _tpGLMakeCap(_style->strokeCap, &p0, &firstDir, &firstPerp, &le0, &re0, tpTrue, _vertices);
-
-                //add the quad for the current segment
-                _tpGLPushQuad(_vertices, &le1, &le0, &re0, &re1);
-
-                //if the path is closed, we cache the directions and edges
-                //to be used for the last segments stroke calculations
-                if (c->bIsClosed)
+                if (!c->bIsClosed)
                 {
+                    //start cap?
+                    firstDir = tpVec2MultScalar(&dir, -1 * halfSw);
+                    firstPerp.x = firstDir.y;
+                    firstPerp.y = -firstDir.x;
+                    _tpGLMakeCap(_style->strokeCap, &p0, &firstDir, &firstPerp, &le0, &re0, tpTrue, _vertices);
+                }
+                else if (j == c->fillVertexOffset)
+                {
+                    //if the contour is closed, we cache the directions and edges
+                    //to be used for the last segments stroke calculations
                     printf("CACHING\n");
                     firstDir = dir;
                     firstPerp = perp;
@@ -1403,31 +1472,32 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
                     //by default we join consecutive segment quads with a bevel
                     _tpGLMakeJoinBevel(&lePrev, &rePrev, &le0, &re0, cross, _vertices);
                 }
+            }
 
-                //add the quad for the current segment
-                _tpGLPushQuad(_vertices, &le1, &le0, &re0, &re1);
+            //add the quad for the current segment
+            _tpGLPushQuad(_vertices, &le1, &le0, &re0, &re1);
 
-                //check if we need to do the end cap / join
-                if (j == c->fillVertexOffset + c->fillVertexCount - 2)
+            //check if we need to do the end cap / join
+            if (j == c->fillVertexOffset + c->fillVertexCount - 2 ||
+                    c->fillVertexCount == 2)
+            {
+                printf("PRE DEAD\n");
+                if (_tpBoolArrayAt(_joints, j + 1))
                 {
-                    printf("PRE DEAD\n");
-                    if (_tpBoolArrayAt(_joints, j + 1))
-                    {
-                        printf("MAKING DA LAST JOIN\n");
-                        //last join
-                        cross = tpVec2Cross(&firstPerp, &perp);
-                        _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
-                                      &perpPrev, &perp,
-                                      &le1, &re1, &firstLe, &firstRe, cross,
-                                      _style->miterLimit, _vertices);
-                    }
-                    else
-                    {
-                        //end cap
-                        printf("DA END CAP!!!!!\n");
-                        firstDir = tpVec2MultScalar(&dir, halfSw);
-                        _tpGLMakeCap(_style->strokeCap, &p1, &firstDir, &perp, &le1, &re1, tpFalse, _vertices);
-                    }
+                    printf("MAKING DA LAST JOIN\n");
+                    //last join
+                    cross = tpVec2Cross(&firstPerp, &perp);
+                    _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
+                                  &perp, &firstPerp,
+                                  &le1, &re1, &firstLe, &firstRe, cross,
+                                  _style->miterLimit, _vertices);
+                }
+                else
+                {
+                    //end cap
+                    printf("DA END CAP!!!!!\n");
+                    firstDir = tpVec2MultScalar(&dir, halfSw);
+                    _tpGLMakeCap(_style->strokeCap, &p1, &firstDir, &perp, &le1, &re1, tpFalse, _vertices);
                 }
             }
 
@@ -1438,9 +1508,316 @@ tpBool _tpGLStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2
         }
 
         c->strokeVertexCount = _vertices->count - voff;
+        printf("FINISHED CONTOUR STRK %i %i\n", c->strokeVertexOffset, c->strokeVertexCount);
     }
+}
 
-    return tpFalse;
+void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
+{
+    int j, i, dashIndex, voff;
+    tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
+    tpVec2 le0, le1, re0, re1, lePrev, rePrev;
+    tpVec2 firstDir, firstPerp, firstLe, firstRe;
+    tpVec2 current;
+    tpVec2 dirr;
+    tpFloat cross, halfSw, dashOffset, dashLen, segmentOff, segmentLen;
+    tpBool bOnDash, bDashStart, bFirstDashMightNeedJoin, bLastSegment, bAddLastJoin;
+    _tpGLContour * c;
+
+    halfSw = _style->strokeWidth * 0.5;
+
+    //generate the stroke geometry for each contour
+    for (i = 0; i < _path->contours.count; ++i)
+    {
+        voff = _vertices->count;
+        c = _tpGLContourArrayAtPtr(&_path->contours, i);
+        c->strokeVertexOffset = voff;
+
+        dashIndex = 0;
+        dashOffset = 0;
+        j = 0;
+        dashLen = _style->dashArray[0];
+        bOnDash = tpTrue;
+        bDashStart = tpTrue;
+        bFirstDashMightNeedJoin = tpFalse;
+        bAddLastJoin = tpFalse;
+
+        printf("STROK NEXST CON\n");
+        printf("=================\n");
+
+        for (j = c->fillVertexOffset; j < c->fillVertexOffset + c->fillVertexCount - 1; ++j)
+        {
+            bLastSegment = j == c->fillVertexOffset + c->fillVertexCount - 2;
+
+            if (j == c->fillVertexOffset)
+            {
+                printf("FIRST SEG\n");
+            }
+            p0 = _tpVec2ArrayAt(_vertices, j);
+            p1 = _tpVec2ArrayAt(_vertices, j + 1);
+            dir = tpVec2Sub(&p1, &p0);
+            segmentLen = tpVec2Length(&dir);
+            segmentOff = 0;
+            dir.x /= segmentLen; dir.y /= segmentLen;
+
+            perp.x = dir.y * halfSw;
+            perp.y = -dir.x * halfSw;
+            cross = tpVec2Cross(&perp, &perpPrev);
+            printf("NEXT SEG %f\n", tpVec2Length(&dir));
+
+            //check if this is a joint
+            if (bOnDash && _tpBoolArrayAt(_joints, j))
+            {
+                printf("MAKING DA JOIIIIIIN \n");
+                le0 = tpVec2Add(&p0, &perp);
+                re0 = tpVec2Sub(&p0, &perp);
+                _tpGLMakeJoin(_style->strokeJoin, &p0,
+                              &dirPrev, &dir,
+                              &perpPrev, &perp,
+                              &lePrev, &rePrev, &le0, &re0,
+                              cross, _style->miterLimit, _vertices);
+            }
+            // else if(bOnDash && j > c->fillVertexOffset)
+            // {
+            //     //by default we join consecutive segment quads with a bevel
+            //     _tpGLMakeJoinBevel(&lePrev, &rePrev, &le0, &re0, cross, _vertices);
+            // }
+
+            do
+            {
+                tpFloat left = TARP_MIN((segmentLen - segmentOff), dashLen - dashOffset);
+                printf("LEFT %f %i %f\n", left, bOnDash, dashOffset);
+                dirr = tpVec2MultScalar(&dir, left);
+                p1 = tpVec2Add(&p0, &dirr);
+
+                le0 = tpVec2Add(&p0, &perp);
+                re0 = tpVec2Sub(&p0, &perp);
+                le1 = tpVec2Add(&p1, &perp);
+                re1 = tpVec2Sub(&p1, &perp);
+
+                if (bDashStart && bOnDash)
+                {
+                    bDashStart = tpFalse;
+
+                    if (!(c->bIsClosed && j == c->fillVertexOffset && segmentOff == 0))
+                    {
+                        tpVec2 tmpDir, tmpPerp;
+                        tmpDir = tpVec2MultScalar(&dir, -1 * halfSw);
+                        tmpPerp.x = tmpDir.y;
+                        tmpPerp.y = -tmpDir.x;
+                        _tpGLMakeCap(_style->strokeCap, &p0, &tmpDir, &tmpPerp, &le0, &re0, tpTrue, _vertices);
+                    }
+                    else if (j == c->fillVertexOffset)
+                    {
+                        printf("NNEED DA SPECIAL JOIN˜N\n");
+                        bFirstDashMightNeedJoin = tpTrue;
+                        firstDir = dir;
+                        firstPerp = perp;
+                        firstLe = le0;
+                        firstRe = re0;
+                    }
+                }
+                else if (!bDashStart && bOnDash)
+                {
+                    _tpGLMakeJoinBevel(&lePrev, &rePrev, &le0, &re0, cross, _vertices);
+                }
+
+                if (bOnDash)
+                {
+                    printf("ADD QUAD\n");
+                    //add the quad for the current segment
+                    _tpGLPushQuad(_vertices, &le1, &le0, &re0, &re1);
+                }
+
+                dashOffset += left;
+                segmentOff += left;
+                p0 = p1;
+
+                if (dashOffset >= dashLen)
+                {
+                    printf("FINISH DASH\n");
+
+                    if (bOnDash)
+                    {
+                        printf("AKSJH %i %i %i\n", bFirstDashMightNeedJoin, bLastSegment, segmentLen - segmentOff <= 0);
+                        if (!(bFirstDashMightNeedJoin && bLastSegment && segmentLen - segmentOff <= 0))
+                        {
+                            printf("NOO WAYYY CAP\n");
+                            _tpGLMakeCap(_style->strokeCap, &p1, &dir, &perp, &le1, &re1, tpFalse, _vertices);
+                        }
+                        else if (bLastSegment)
+                        {
+                            bAddLastJoin = tpTrue;
+                        }
+                    }
+
+                    dashOffset = 0;
+                    dashIndex = (dashIndex + 1) % _style->dashCount;
+                    dashLen = _style->dashArray[dashIndex];
+                    bDashStart = tpTrue;
+                    bOnDash = !bOnDash;
+                }
+            }
+            while ((segmentLen - segmentOff) > 0);
+
+            if (bLastSegment && bFirstDashMightNeedJoin && bOnDash &&
+                    (dashOffset > 0 || segmentLen - segmentOff == 0))
+            {
+                printf("MAKING LAST DASHED JOIN\n");
+                cross = tpVec2Cross(&firstPerp, &perp);
+                _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
+                              &perp, &firstPerp,
+                              &le1, &re1, &firstLe, &firstRe, cross,
+                              _style->miterLimit, _vertices);
+            }
+            else if (bLastSegment)
+            {
+                printf("MAKING LAST DASHED CAP\n");
+                tpVec2 tmpDir, tmpPerp;
+                tmpDir = tpVec2MultScalar(&firstDir, -1 * halfSw);
+                tmpPerp.x = tmpDir.y;
+                tmpPerp.y = -tmpDir.x;
+                _tpGLMakeCap(_style->strokeCap, &p1, &tmpDir, &tmpPerp, &firstRe, &firstLe, tpFalse, _vertices);
+            }
+
+            dashLen -= dashOffset;
+            dashOffset = 0.0;
+
+            perpPrev = perp;
+            dirPrev = dir;
+            lePrev = le1;
+            rePrev = re1;
+        }
+
+        c->strokeVertexCount = _vertices->count - voff;
+
+        printf("CS %i %i\n", c->strokeVertexOffset, c->strokeVertexCount);
+    }
+}
+
+void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
+{
+    // _tpGLContour * c;
+    // int i, voff;
+
+    // assert(_vertices->count == _joints->count);
+
+    // if (_style->dashCount)
+    // {
+    //     for (i = 0; i < _path->contours.count; ++i)
+    //     {
+    //         c = _tpGLContourArrayAtPtr(&_path->contours, i);
+
+    //         // for dashing we triangulate one dash at a time.
+    //         // most likely not the fastest way but makes the
+    //         // implementation a lot more readable for now :>
+    //         _tpVec2Array tmpVertices;
+    //         _tpBoolArray tmpJoints;
+    //         int dashIndex, j;
+    //         tpFloat dashOff, stepLenLeft, dist, voff;
+    //         tpBool bIsDash, bIsJoin;
+    //         tpVec2 last, * current, dir, end;
+
+    //         bIsDash = tpTrue;
+    //         dashIndex = 0;
+    //         dashOff = 0;
+    //         stepLenLeft = _style->dashArray[0];
+    //         voff = _vertices->count;
+
+    //         c->strokeVertexOffset = voff;
+
+    //         _tpVec2ArrayInit(&tmpVertices, 128);
+    //         _tpBoolArrayInit(&tmpJoints, 128);
+
+    //         last = *_tpVec2ArrayAtPtr(_vertices, c->fillVertexOffset);
+    //         _tpVec2ArrayAppendPtr(&tmpVertices, &last);
+    //         _tpBoolArrayAppend(&tmpJoints, _tpBoolArrayAt(_joints, c->fillVertexOffset));
+
+    //         j = c->fillVertexOffset + 1;
+    //         while (j < c->fillVertexOffset + c->fillVertexCount)
+    //             // for (j = c->fillVertexOffset + 1; j < c->fillVertexOffset + c->fillVertexCount; ++j)
+    //         {
+    //             current = _tpVec2ArrayAtPtr(_vertices, j);
+    //             dir = tpVec2Sub(current, &last);
+    //             dist = tpVec2Length(&dir);
+
+    //             if (dist < stepLenLeft)
+    //             {
+    //                 if (bIsDash)
+    //                 {
+    //                     _tpVec2ArrayAppendPtr(&tmpVertices, current);
+    //                     _tpBoolArrayAppend(&tmpJoints, _tpBoolArrayAt(_joints, j));
+    //                 }
+    //                 stepLenLeft -= dist;
+    //                 last = *current;
+    //                 j++;
+    //             }
+    //             else
+    //             {
+    //                 printf("LERPING\n");
+    //                 //linearly interpolate along the current segment
+    //                 tpVec2NormalizeSelf(&dir);
+    //                 dir = tpVec2MultScalar(&dir, stepLenLeft);
+    //                 end = tpVec2Add(&last, &dir);
+
+    //                 // bIsJoin = stepLenLeft ==
+
+    //                 if (bIsDash)
+    //                 {
+    //                     _tpVec2ArrayAppendPtr(&tmpVertices, &end);
+    //                     _tpBoolArrayAppend(&tmpJoints, tpFalse);
+    //                     printf("MAKING DASH %i\n", tmpVertices.count);
+    //                     //triangulate the current dash
+    //                     _tpGLStrokeGeometry2(_style, &tmpVertices, &tmpJoints,
+    //                                          0, tmpVertices.count, tpFalse, _vertices);
+    //                     _tpVec2ArrayClear(&tmpVertices);
+    //                     _tpBoolArrayClear(&tmpJoints);
+    //                 }
+    //                 else
+    //                 {
+    //                     _tpVec2ArrayAppendPtr(&tmpVertices, &end);
+    //                     _tpBoolArrayAppend(&tmpJoints, tpFalse);
+    //                 }
+
+    //                 bIsDash = !bIsDash;
+    //                 dashIndex = (dashIndex + 1) % _style->dashCount;
+    //                 stepLenLeft = _style->dashArray[dashIndex];
+    //                 last = end;
+    //             }
+    //         }
+
+    //         //triangulate the last dash
+    //         if (tmpVertices.count)
+    //         {
+    //             _tpGLStrokeGeometry2(_style, &tmpVertices, &tmpJoints,
+    //                                  0, tmpVertices.count, tpFalse, _vertices);
+    //         }
+    //         c->strokeVertexCount = _vertices->count - voff;
+    //     }
+    // }
+    // else
+    // {
+    //     //generate the stroke geometry for each contour
+    //     for (i = 0; i < _path->contours.count; ++i)
+    //     {
+    //         voff = _vertices->count;
+    //         c = _tpGLContourArrayAtPtr(&_path->contours, i);
+    //         c->strokeVertexOffset = voff;
+
+    //         _tpGLStrokeGeometry2(_style, _vertices, _joints,
+    //                              c->fillVertexOffset, c->fillVertexCount, c->bIsClosed, _vertices);
+    //         c->strokeVertexCount = _vertices->count - voff;
+    //     }
+    // }
+
+    if (_style->dashCount)
+    {
+        _tpGLDashedStrokeGeometry(_path, _style, _vertices, _joints);
+    }
+    else
+    {
+        _tpGLContinousStrokeGeometry(_path, _style, _vertices, _joints);
+    }
 }
 
 void _flatten_curve(_tpGLPath * _path,
@@ -1552,7 +1929,7 @@ int _flatten_path(_tpGLPath * _path,
                                _angleTolerance,
                                c->bIsClosed,
                                j == 1,
-                               j == c->segments.count - 1,
+                               tpFalse,
                                _outVertices,
                                _outJoints,
                                _outBounds, &vcount);
@@ -1561,13 +1938,27 @@ int _flatten_path(_tpGLPath * _path,
                 last = current;
             }
 
+            // if the contour is closed, flatten the last closing curve
             if (c->bIsClosed && c->segments.count)
             {
                 tpSegment * fs = _tpSegmentArrayAtPtr(&c->segments, 0);
-                _tpVec2ArrayAppendPtr(_outVertices, &fs->position);
-                _tpBoolArrayAppend(_outJoints, tpTrue);
-                vcount++;
+                _tpGLCurve curve = {last->position.x, last->position.y,
+                                    last->handleOut.x, last->handleOut.y,
+                                    fs->handleIn.x, fs->handleIn.y,
+                                    fs->position.x, fs->position.y
+                                   };
+
+                _flatten_curve(_path,
+                               &curve,
+                               _angleTolerance,
+                               c->bIsClosed,
+                               tpFalse,
+                               tpTrue,
+                               _outVertices,
+                               _outJoints,
+                               _outBounds, &vcount);
             }
+
             c->fillVertexOffset = off;
             c->fillVertexCount = vcount;
             off += vcount;
@@ -1644,7 +2035,7 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         _flatten_path(p, 0.15, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
 
         //generate and add the stroke geometry to the tmp buffers
-        _tpGLStrokeGeometry(p, s, &_ctx->tmpVertices, &_ctx->tmpJoints);
+        _tpGLStroke(p, s, &_ctx->tmpVertices, &_ctx->tmpJoints);
 
         //swap the tmp buffers with the path caches
         _tpVec2ArrayClear(&p->geometryCache);
@@ -1729,9 +2120,12 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _kTpClipStencilPlaneOne));
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 
+
+    //@TODO: Draw all stroke triangles at once
     for (i = 0; i < p->contours.count; ++i)
     {
         c = _tpGLContourArrayAtPtr(&p->contours, i);
+        // printf("DRAW DA STROKE %i %i %i\n", i, c->strokeVertexOffset, c->strokeVertexCount);
         ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, c->strokeVertexOffset, c->strokeVertexCount));
     }
 

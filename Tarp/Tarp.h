@@ -36,6 +36,9 @@
 #define TARP_MAX_DASH_ARRAY_SIZE 64
 #define TARP_MAX_ERROR_MESSAGE 256
 
+// some constants
+#define TARP_KAPPA 0.55228474983
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -179,6 +182,8 @@ tpVec2 tpVec2Normalize(const tpVec2 * _vec);
 
 tpVec2 tpVec2Perp(const tpVec2 * _a);
 
+tpFloat tpVec2Distance(const tpVec2 * _a, const tpVec2 * _b);
+
 
 // Matrix Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -227,6 +232,10 @@ tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform);
 
 tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r);
 
+tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height);
+
+tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height);
+
 tpBool tpPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y);
 
 tpBool tpPathMoveTo(tpPath _path, tpFloat _x, tpFloat _y);
@@ -253,7 +262,9 @@ tpStyle tpStyleCreate(tpContext * _ctx);
 
 void tpStyleDestroy(tpStyle _style);
 
-void tpStyleSetDash(tpStyle _style, tpFloat * _dashArray, int _count, tpFloat _offset);
+void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count);
+
+void tpStyleSetDashOffset(tpStyle _style, tpFloat _offset);
 
 void tpStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
 
@@ -371,7 +382,7 @@ tpVec2 tpVec2Normalize(const tpVec2 * _vec)
 
 tpVec2 tpVec2Perp(const tpVec2 * _a)
 {
-    return (tpVec2){_a->y, -_a->x};
+    return (tpVec2) {_a->y, -_a->x};
 }
 
 tpFloat tpVec2Dot(const tpVec2 * _a, const tpVec2 * _b)
@@ -382,6 +393,12 @@ tpFloat tpVec2Dot(const tpVec2 * _a, const tpVec2 * _b)
 tpFloat tpVec2Cross(const tpVec2 * _a, const tpVec2 * _b)
 {
     return _a->x * _b->y - _a->y * _b->x;
+}
+
+tpFloat tpVec2Distance(const tpVec2 * _a, const tpVec2 * _b)
+{
+    tpVec2 tmp = tpVec2Sub(_a, _b);
+    return tpVec2Length(&tmp);
 }
 
 tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2,

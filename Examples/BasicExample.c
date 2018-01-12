@@ -289,18 +289,22 @@ int main(int argc, char * argv[])
 
 
         tpPath path = tpPathCreate(&ctx);
-        tpPathMoveTo(path, 100, 100);
-        tpPathLineTo(path, 200, 110);
-        tpPathLineTo(path, 200, 220);
-        tpPathLineTo(path, 90, 200);
-        tpPathClose(path);
+        // tpPathMoveTo(path, 100, 100);
+        // tpPathLineTo(path, 200, 100);
+        // tpPathLineTo(path, 200, 200);
+        // tpPathLineTo(path, 100, 200);
+        // tpPathClose(path);
 
-        tpPathMoveTo(path, 150, 150);
-        // tpPathCubicCurveTo(path, 155, 144, 160, 170, 165, 150);
-        tpPathLineTo(path, 165, 150);
-        tpPathLineTo(path, 180, 180);
-        tpPathLineTo(path, 140, 180);
-        tpPathClose(path);
+        // tpPathAddRect(path, 100, 100, 200, 100);
+        tpPathAddCircle(path, 100, 100, 50);
+        // tpPathAddCircle(path, 100, 100, 20);
+
+        // tpPathMoveTo(path, 150, 150);
+        // // tpPathCubicCurveTo(path, 155, 144, 160, 170, 165, 150);
+        // tpPathLineTo(path, 165, 150);
+        // tpPathLineTo(path, 180, 180);
+        // tpPathLineTo(path, 140, 180);
+        // tpPathClose(path);
 
 
 
@@ -308,8 +312,13 @@ int main(int argc, char * argv[])
         tpStyleSetStrokeWidth(style, 8);
         // tpStyleSetMiterLimit(style, 64);
         tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
-        // tpStyleSetStrokeCap(style, kTpStrokeCapRound);
+        tpStyleSetStrokeJoin(style, kTpStrokeJoinBevel);
+        tpStyleSetStrokeCap(style, kTpStrokeCapRound);
         tpStyleSetFillColor(style, 1.0, 0.0, 0.0, 1.0);
+
+        tpFloat dashArray[] = {10, 20};
+        tpStyleSetDashArray(style, dashArray, 2);
+
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
 
