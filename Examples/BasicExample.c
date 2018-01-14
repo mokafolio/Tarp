@@ -287,7 +287,6 @@ int main(int argc, char * argv[])
         // tpPathLineTo(path, 300, 170);
         // tpPathClose(path);
 
-
         tpPath path = tpPathCreate(&ctx);
         // tpPathMoveTo(path, 100, 100);
         // tpPathLineTo(path, 200, 100);
@@ -297,7 +296,7 @@ int main(int argc, char * argv[])
 
         // tpPathAddRect(path, 100, 100, 200, 100);
         tpPathAddCircle(path, 100, 100, 50);
-        // tpPathAddCircle(path, 100, 100, 20);
+        tpPathAddCircle(path, 100, 100, 20);
 
         // tpPathMoveTo(path, 150, 150);
         // // tpPathCubicCurveTo(path, 155, 144, 160, 170, 165, 150);
@@ -312,12 +311,14 @@ int main(int argc, char * argv[])
         tpStyleSetStrokeWidth(style, 8);
         // tpStyleSetMiterLimit(style, 64);
         tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinBevel);
+        // tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
         tpStyleSetStrokeCap(style, kTpStrokeCapRound);
         tpStyleSetFillColor(style, 1.0, 0.0, 0.0, 1.0);
 
         tpFloat dashArray[] = {10, 20};
         tpStyleSetDashArray(style, dashArray, 2);
+
+        tpStyleSetDashOffset(style, 10.1f);
 
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
@@ -350,6 +351,7 @@ int main(int argc, char * argv[])
         // tpPath * p = tpPathCreate();
         // tpPathDestroy(p);
 
+        tpFloat off = 0.0;
         // the main loop
         while (!glfwWindowShouldClose(window))
         {
@@ -363,6 +365,9 @@ int main(int argc, char * argv[])
             glfwGetFramebufferSize(window, &width, &height);
 
             glViewport(0, 0, width, height);
+
+            // tpStyleSetDashOffset(style, off);
+            // off += 0.5;
 
             tpMat4 proj = tpMat4Ortho(0, 800, 600, 0, -1, 1);
             tpSetProjection(&ctx, &proj);

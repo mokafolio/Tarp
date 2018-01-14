@@ -1514,17 +1514,43 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
 
 void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
-    int j, i, dashIndex, voff;
+    int j, i, dashIndex, voff, startDashIndex;
     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
     tpVec2 le0, le1, re0, re1, lePrev, rePrev;
     tpVec2 firstDir, firstPerp, firstLe, firstRe;
     tpVec2 current;
     tpVec2 dirr;
     tpFloat cross, halfSw, dashOffset, dashLen, segmentOff, segmentLen;
-    tpBool bOnDash, bDashStart, bFirstDashMightNeedJoin, bLastSegment, bAddLastJoin;
+    tpFloat dashPatternOffset, patternLen, offsetIntoPattern;
+    tpBool bOnDash, bDashStart, bFirstDashMightNeedJoin, bLastSegment;
+    tpBool bStartDashOn, bBarelyJoined;
+    tpFloat startDashLen;
     _tpGLContour * c;
 
     halfSw = _style->strokeWidth * 0.5;
+
+    for (i = 0; i < _style->dashCount; ++i)
+    {
+        patternLen += _style->dashArray[i];
+    }
+
+    offsetIntoPattern = _style->dashOffset;
+    if (fabsf(offsetIntoPattern) >= patternLen)
+        offsetIntoPattern = fmod(offsetIntoPattern, patternLen);
+
+    tpFloat off = 0;
+    startDashIndex = 0;
+    while (off < offsetIntoPattern)
+    {
+        off += _style->dashArray[startDashIndex];
+        startDashIndex++;
+    }
+    startDashIndex = TARP_MAX(0, startDashIndex - 1);
+    bStartDashOn = !(startDashIndex % 2);
+    startDashLen = _style->dashArray[startDashIndex] - (off - offsetIntoPattern);
+
+    printf("DASH STUFF %i %i %f %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
+           offsetIntoPattern, off, _style->dashArray[startDashIndex]);
 
     //generate the stroke geometry for each contour
     for (i = 0; i < _path->contours.count; ++i)
@@ -1533,14 +1559,14 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
         c = _tpGLContourArrayAtPtr(&_path->contours, i);
         c->strokeVertexOffset = voff;
 
-        dashIndex = 0;
+        dashIndex = startDashIndex;
         dashOffset = 0;
         j = 0;
-        dashLen = _style->dashArray[0];
-        bOnDash = tpTrue;
+        dashLen = startDashLen;
+        bOnDash = bStartDashOn;
         bDashStart = tpTrue;
         bFirstDashMightNeedJoin = tpFalse;
-        bAddLastJoin = tpFalse;
+        bBarelyJoined = tpFalse;
 
         printf("STROK NEXST CON\n");
         printf("=================\n");
@@ -1599,7 +1625,9 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
                 {
                     bDashStart = tpFalse;
 
-                    if (!(c->bIsClosed && j == c->fillVertexOffset && segmentOff == 0))
+                    //if the current contour is not closed, or we are not at the beginning
+                    //of the first segment of the contour, add a starting cap to the dash...
+                    if (!c->bIsClosed || j != c->fillVertexOffset || segmentOff > 0)
                     {
                         tpVec2 tmpDir, tmpPerp;
                         tmpDir = tpVec2MultScalar(&dir, -1 * halfSw);
@@ -1607,6 +1635,8 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
                         tmpPerp.y = -tmpDir.x;
                         _tpGLMakeCap(_style->strokeCap, &p0, &tmpDir, &tmpPerp, &le0, &re0, tpTrue, _vertices);
                     }
+                    //...otherwise cache the initial values for the cap computation and mark that the contour
+                    //might need a closing join in case the first and last dash of the contour touch.
                     else if (j == c->fillVertexOffset)
                     {
                         printf("NNEED DA SPECIAL JOIN˜N\n");
@@ -1625,7 +1655,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
                 if (bOnDash)
                 {
                     printf("ADD QUAD\n");
-                    //add the quad for the current segment
+                    //add the quad for the current dash on the current segment
                     _tpGLPushQuad(_vertices, &le1, &le0, &re0, &re1);
                 }
 
@@ -1640,14 +1670,15 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
                     if (bOnDash)
                     {
                         printf("AKSJH %i %i %i\n", bFirstDashMightNeedJoin, bLastSegment, segmentLen - segmentOff <= 0);
-                        if (!(bFirstDashMightNeedJoin && bLastSegment && segmentLen - segmentOff <= 0))
+                        //dont make cap if the first and last dash of the contour touch and the last dash is not finished.
+                        if (!bFirstDashMightNeedJoin || !bLastSegment || segmentLen - segmentOff > 0)
                         {
                             printf("NOO WAYYY CAP\n");
                             _tpGLMakeCap(_style->strokeCap, &p1, &dir, &perp, &le1, &re1, tpFalse, _vertices);
                         }
-                        else if (bLastSegment)
+                        else
                         {
-                            bAddLastJoin = tpTrue;
+                            bBarelyJoined = tpTrue;
                         }
                     }
 
@@ -1660,24 +1691,29 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
             }
             while ((segmentLen - segmentOff) > 0);
 
-            if (bLastSegment && bFirstDashMightNeedJoin && bOnDash &&
-                    (dashOffset > 0 || segmentLen - segmentOff == 0))
+            if (bLastSegment && bFirstDashMightNeedJoin)
             {
-                printf("MAKING LAST DASHED JOIN\n");
-                cross = tpVec2Cross(&firstPerp, &perp);
-                _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
-                              &perp, &firstPerp,
-                              &le1, &re1, &firstLe, &firstRe, cross,
-                              _style->miterLimit, _vertices);
-            }
-            else if (bLastSegment)
-            {
-                printf("MAKING LAST DASHED CAP\n");
-                tpVec2 tmpDir, tmpPerp;
-                tmpDir = tpVec2MultScalar(&firstDir, -1 * halfSw);
-                tmpPerp.x = tmpDir.y;
-                tmpPerp.y = -tmpDir.x;
-                _tpGLMakeCap(_style->strokeCap, &p1, &tmpDir, &tmpPerp, &firstRe, &firstLe, tpFalse, _vertices);
+                //if the first and last dash of the contour touch, we connect them with a join
+                if (bBarelyJoined || (dashOffset > 0 && bOnDash))
+                {
+                    printf("MAKING LAST DASHED JOIN\n");
+                    printf("%f %f %f %i\n", dashOffset, segmentLen, segmentOff, bOnDash);
+                    cross = tpVec2Cross(&firstPerp, &perp);
+                    _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
+                                  &perp, &firstPerp,
+                                  &le1, &re1, &firstLe, &firstRe, cross,
+                                  _style->miterLimit, _vertices);
+                }
+                //otherwise we simply add a starting cap to the first dash of the contour
+                else
+                {
+                    printf("MAKING LAST DASHED CAP\n");
+                    tpVec2 tmpDir, tmpPerp;
+                    tmpDir = tpVec2MultScalar(&firstDir, -1 * halfSw);
+                    tmpPerp.x = tmpDir.y;
+                    tmpPerp.y = -tmpDir.x;
+                    _tpGLMakeCap(_style->strokeCap, &p1, &tmpDir, &tmpPerp, &firstRe, &firstLe, tpFalse, _vertices);
+                }
             }
 
             dashLen -= dashOffset;
