@@ -288,10 +288,10 @@ int main(int argc, char * argv[])
         // tpPathClose(path);
 
         tpPath path = tpPathCreate(&ctx);
-        // tpPathMoveTo(path, 100, 100);
-        // tpPathLineTo(path, 200, 100);
-        // tpPathLineTo(path, 200, 200);
-        // tpPathLineTo(path, 100, 200);
+        // tpPathMoveTo(path, 100, 120);
+        // tpPathLineTo(path, 200, 120);
+        // tpPathLineTo(path, 200, 150);
+        // tpPathLineTo(path, 100, 150);
         // tpPathClose(path);
 
         // tpPathAddRect(path, 100, 100, 200, 100);
@@ -318,7 +318,7 @@ int main(int argc, char * argv[])
         tpFloat dashArray[] = {10, 20};
         tpStyleSetDashArray(style, dashArray, 2);
 
-        tpStyleSetDashOffset(style, 10.1f);
+        // tpStyleSetDashOffset(style, 10.1f);
 
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 

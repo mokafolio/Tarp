@@ -186,12 +186,23 @@ typedef struct
     int fillVertexCount;
     int strokeVertexOffset;
     int strokeVertexCount;
+
+    _tpGLRect bounds;
 } _tpGLContour;
 
 #define _TARP_ARRAY_T _tpGLContourArray
 #define _TARP_ITEM_T _tpGLContour
 #define _TARP_COMPARATOR_T 0
 #include <Tarp/TarpArray.h>
+
+typedef struct
+{
+    tpPaintType strokeType;
+    tpFloat strokeWidth;
+    tpFloat dashOffset;
+    tpFloat dashArray[TARP_MAX_DASH_ARRAY_SIZE];
+    int dashCount;
+} _tpGLStrokeData;
 
 typedef struct
 {
@@ -205,10 +216,17 @@ typedef struct
     _tpVec2Array strokeGeometryCache;
     _tpBoolArray jointCache;
 
-    tpBool bGeometryCacheDirty;
+    tpBool bPathGeometryDirty;
     tpFloat lastTransformScale;
     tpMat4 renderTransform;
     _tpGLRect boundsCache;
+
+    //holds the properties that the stroke geometry
+    //was generated with.
+    _tpGLStrokeData lastStroke;
+
+    int strokeVertexOffset;
+    int strokeVertexCount;
 
     //holds a pointer to the context that owns this path
     tpContext * context;
@@ -490,9 +508,12 @@ tpPath tpPathCreate(tpContext * _ctx)
     _tpVec2ArrayInit(&path->geometryCache, 128);
     _tpVec2ArrayInit(&path->strokeGeometryCache, 256);
     _tpBoolArrayInit(&path->jointCache, 128);
-    path->bGeometryCacheDirty = tpTrue;
+    path->bPathGeometryDirty = tpTrue;
     path->lastTransformScale = 1.0;
     path->renderTransform = tpMat4Identity();
+
+    path->strokeVertexOffset = 0;
+    path->strokeVertexCount = 0;
 
     path->context = _ctx;
     _tpGLPathPtrArrayAppend(&_ctx->paths, path);
@@ -562,7 +583,7 @@ tpBool _tpGLContourAddSegments(_tpGLPath * _p, _tpGLContour * _c, tpSegment * _s
 
     _c->lastSegmentIndex = _c->segments.count - 1;
     _c->bDirty = tpTrue;
-    _p->bGeometryCacheDirty = tpTrue;
+    _p->bPathGeometryDirty = tpTrue;
 
     return tpFalse;
 }
@@ -627,7 +648,7 @@ tpBool tpPathClear(tpPath _path)
         _tpSegmentArrayDeallocate(&_tpGLContourArrayAtPtr(&p->contours, i)->segments);
     }
     _tpGLContourArrayClear(&p->contours);
-    p->bGeometryCacheDirty = tpTrue;
+    p->bPathGeometryDirty = tpTrue;
 
     return tpFalse;
 }
@@ -672,7 +693,7 @@ tpBool tpPathClose(tpPath _path)
         c->bIsClosed = tpTrue;
         c->bDirty = tpTrue;
         p->currentContourIndex = -1;
-        p->bGeometryCacheDirty = tpTrue;
+        p->bPathGeometryDirty = tpTrue;
     }
     return tpFalse;
 }
@@ -693,7 +714,7 @@ tpBool _tpGLPathAddSegmentsToCurrentContour(_tpGLPath * _p, _tpGLContour * _c, t
 
     _c->lastSegmentIndex = _c->segments.count - 1;
     _c->bDirty = tpTrue;
-    _p->bGeometryCacheDirty = tpTrue;
+    _p->bPathGeometryDirty = tpTrue;
     return tpFalse;
 }
 
@@ -824,7 +845,7 @@ tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform)
         if (p->lastTransformScale < scale.x || p->lastTransformScale < scale.y)
         {
             p->lastTransformScale = TARP_MAX(scale.x, scale.y);
-            p->bGeometryCacheDirty = tpTrue;
+            p->bPathGeometryDirty = tpTrue;
             for (int i = 0; i < p->contours.count; ++i)
             {
                 _tpGLContourArrayAtPtr(&p->contours, i)->bDirty = tpTrue;
@@ -1508,6 +1529,7 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
         }
 
         c->strokeVertexCount = _vertices->count - voff;
+        _path->strokeVertexCount += c->strokeVertexCount;
         printf("FINISHED CONTOUR STRK %i %i\n", c->strokeVertexOffset, c->strokeVertexCount);
     }
 }
@@ -1726,126 +1748,13 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
         }
 
         c->strokeVertexCount = _vertices->count - voff;
-
+        _path->strokeVertexCount += c->strokeVertexCount;
         printf("CS %i %i\n", c->strokeVertexOffset, c->strokeVertexCount);
     }
 }
 
 void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
-    // _tpGLContour * c;
-    // int i, voff;
-
-    // assert(_vertices->count == _joints->count);
-
-    // if (_style->dashCount)
-    // {
-    //     for (i = 0; i < _path->contours.count; ++i)
-    //     {
-    //         c = _tpGLContourArrayAtPtr(&_path->contours, i);
-
-    //         // for dashing we triangulate one dash at a time.
-    //         // most likely not the fastest way but makes the
-    //         // implementation a lot more readable for now :>
-    //         _tpVec2Array tmpVertices;
-    //         _tpBoolArray tmpJoints;
-    //         int dashIndex, j;
-    //         tpFloat dashOff, stepLenLeft, dist, voff;
-    //         tpBool bIsDash, bIsJoin;
-    //         tpVec2 last, * current, dir, end;
-
-    //         bIsDash = tpTrue;
-    //         dashIndex = 0;
-    //         dashOff = 0;
-    //         stepLenLeft = _style->dashArray[0];
-    //         voff = _vertices->count;
-
-    //         c->strokeVertexOffset = voff;
-
-    //         _tpVec2ArrayInit(&tmpVertices, 128);
-    //         _tpBoolArrayInit(&tmpJoints, 128);
-
-    //         last = *_tpVec2ArrayAtPtr(_vertices, c->fillVertexOffset);
-    //         _tpVec2ArrayAppendPtr(&tmpVertices, &last);
-    //         _tpBoolArrayAppend(&tmpJoints, _tpBoolArrayAt(_joints, c->fillVertexOffset));
-
-    //         j = c->fillVertexOffset + 1;
-    //         while (j < c->fillVertexOffset + c->fillVertexCount)
-    //             // for (j = c->fillVertexOffset + 1; j < c->fillVertexOffset + c->fillVertexCount; ++j)
-    //         {
-    //             current = _tpVec2ArrayAtPtr(_vertices, j);
-    //             dir = tpVec2Sub(current, &last);
-    //             dist = tpVec2Length(&dir);
-
-    //             if (dist < stepLenLeft)
-    //             {
-    //                 if (bIsDash)
-    //                 {
-    //                     _tpVec2ArrayAppendPtr(&tmpVertices, current);
-    //                     _tpBoolArrayAppend(&tmpJoints, _tpBoolArrayAt(_joints, j));
-    //                 }
-    //                 stepLenLeft -= dist;
-    //                 last = *current;
-    //                 j++;
-    //             }
-    //             else
-    //             {
-    //                 printf("LERPING\n");
-    //                 //linearly interpolate along the current segment
-    //                 tpVec2NormalizeSelf(&dir);
-    //                 dir = tpVec2MultScalar(&dir, stepLenLeft);
-    //                 end = tpVec2Add(&last, &dir);
-
-    //                 // bIsJoin = stepLenLeft ==
-
-    //                 if (bIsDash)
-    //                 {
-    //                     _tpVec2ArrayAppendPtr(&tmpVertices, &end);
-    //                     _tpBoolArrayAppend(&tmpJoints, tpFalse);
-    //                     printf("MAKING DASH %i\n", tmpVertices.count);
-    //                     //triangulate the current dash
-    //                     _tpGLStrokeGeometry2(_style, &tmpVertices, &tmpJoints,
-    //                                          0, tmpVertices.count, tpFalse, _vertices);
-    //                     _tpVec2ArrayClear(&tmpVertices);
-    //                     _tpBoolArrayClear(&tmpJoints);
-    //                 }
-    //                 else
-    //                 {
-    //                     _tpVec2ArrayAppendPtr(&tmpVertices, &end);
-    //                     _tpBoolArrayAppend(&tmpJoints, tpFalse);
-    //                 }
-
-    //                 bIsDash = !bIsDash;
-    //                 dashIndex = (dashIndex + 1) % _style->dashCount;
-    //                 stepLenLeft = _style->dashArray[dashIndex];
-    //                 last = end;
-    //             }
-    //         }
-
-    //         //triangulate the last dash
-    //         if (tmpVertices.count)
-    //         {
-    //             _tpGLStrokeGeometry2(_style, &tmpVertices, &tmpJoints,
-    //                                  0, tmpVertices.count, tpFalse, _vertices);
-    //         }
-    //         c->strokeVertexCount = _vertices->count - voff;
-    //     }
-    // }
-    // else
-    // {
-    //     //generate the stroke geometry for each contour
-    //     for (i = 0; i < _path->contours.count; ++i)
-    //     {
-    //         voff = _vertices->count;
-    //         c = _tpGLContourArrayAtPtr(&_path->contours, i);
-    //         c->strokeVertexOffset = voff;
-
-    //         _tpGLStrokeGeometry2(_style, _vertices, _joints,
-    //                              c->fillVertexOffset, c->fillVertexCount, c->bIsClosed, _vertices);
-    //         c->strokeVertexCount = _vertices->count - voff;
-    //     }
-    // }
-
     if (_style->dashCount)
     {
         _tpGLDashedStrokeGeometry(_path, _style, _vertices, _joints);
@@ -1854,6 +1763,17 @@ void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _v
     {
         _tpGLContinousStrokeGeometry(_path, _style, _vertices, _joints);
     }
+
+    //
+    _path->strokeVertexOffset = _tpGLContourArrayAtPtr(&_path->contours, 0)->strokeVertexOffset;
+    printf("STROKE VERTEX OFF %i\n", _tpGLContourArrayAtPtr(&_path->contours, 0)->strokeVertexOffset);
+
+    // cache with what settings the stroke geometry was generated
+    _path->lastStroke.strokeType = _style->stroke.type;
+    _path->lastStroke.strokeWidth = _style->strokeWidth;
+    _path->lastStroke.dashOffset = _style->dashOffset;
+    memcpy(_path->lastStroke.dashArray, _style->dashArray, sizeof(tpFloat) * _style->dashCount);
+    _path->lastStroke.dashCount = _style->dashCount;
 }
 
 void _flatten_curve(_tpGLPath * _path,
@@ -1917,6 +1837,20 @@ void _flatten_curve(_tpGLPath * _path,
     }
 }
 
+void _tpGLInitBounds(_tpGLRect * _bounds)
+{
+    _bounds->min.x = FLT_MAX;
+    _bounds->min.y = FLT_MAX;
+    _bounds->max.x = -FLT_MAX;
+    _bounds->max.y = -FLT_MAX;
+}
+
+void _tpGLMergeBounds(_tpGLRect * _a, const _tpGLRect * _b)
+{
+    _evaluate_point_for_bounds(&_b->min, _a);
+    _evaluate_point_for_bounds(&_b->max, _a);
+}
+
 int _flatten_path(_tpGLPath * _path,
                   tpFloat _angleTolerance,
                   _tpVec2Array * _outVertices,
@@ -1924,15 +1858,14 @@ int _flatten_path(_tpGLPath * _path,
                   _tpGLRect * _outBounds)
 {
     printf("====================================\n");
+    _tpGLRect contourBounds;
     int i = 0;
     int j = 0;
     _tpGLContour * c = NULL;
     tpSegment * last = NULL, *current = NULL;
     int recursionDepth = 0;
-    _outBounds->min.x = FLT_MAX;
-    _outBounds->min.y = FLT_MAX;
-    _outBounds->max.x = -FLT_MAX;
-    _outBounds->max.y = -FLT_MAX;
+
+    _tpGLInitBounds(_outBounds);
 
     printf("CONTOURS %i\n", _path->contours.count);
 
@@ -1940,6 +1873,7 @@ int _flatten_path(_tpGLPath * _path,
     for (i = 0; i < _path->contours.count; ++i)
     {
         c = _tpGLContourArrayAtPtr(&_path->contours, i);
+        _tpGLInitBounds(&contourBounds);
 
         if (c->bDirty)
         {
@@ -1968,7 +1902,7 @@ int _flatten_path(_tpGLPath * _path,
                                tpFalse,
                                _outVertices,
                                _outJoints,
-                               _outBounds, &vcount);
+                               &contourBounds, &vcount);
 
 
                 last = current;
@@ -1992,18 +1926,34 @@ int _flatten_path(_tpGLPath * _path,
                                tpTrue,
                                _outVertices,
                                _outJoints,
-                               _outBounds, &vcount);
+                               &contourBounds, &vcount);
             }
 
             c->fillVertexOffset = off;
             c->fillVertexCount = vcount;
+            c->bounds = contourBounds;
             off += vcount;
+
+            _tpGLMergeBounds(_outBounds, &contourBounds);
         }
         else
         {
-            //otherwise we just copy the contour to the tmpbuffer
+            printf("APPEND ARRAY\n");
+            c->fillVertexOffset = off;
+            //otherwise we just copy the contour to the tmpbuffer...
             _tpVec2ArrayAppendArray(_outVertices, _tpVec2ArrayAtPtr(&_path->geometryCache, c->fillVertexOffset), c->fillVertexCount);
             _tpBoolArrayAppendArray(_outJoints, _tpBoolArrayAtPtr(&_path->jointCache, c->fillVertexOffset), c->fillVertexCount);
+
+            //...and merge the cached contour bounds with the path bounds
+            _tpGLMergeBounds(_outBounds, &c->bounds);
+
+            // for(int d = c->fillVertexOffset; d < c->fillVertexOffset + c->fillVertexCount; ++d)
+            // {
+            //     _tpVec2ArrayAppendPtr(_outVertices, _tpVec2ArrayAtPtr(&_path->geometryCache, d));
+            //     _tpBoolArrayAppend(_outJoints, _tpBoolArrayAt(&_path->jointCache, d));
+            // }
+
+            off += c->fillVertexCount;
         }
     }
 
@@ -2015,6 +1965,7 @@ void _draw_paint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _paint)
 {
     if (_paint->type == kTpPaintTypeColor)
     {
+        printf("DRAWING COLOR PAINT\n");
         //@TODO: Cache the uniform loc
         ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->program, "meshColor"), 1, &_paint->data.color.r));
         ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, (_path->geometryCache.count - 4), 4));
@@ -2032,12 +1983,12 @@ void _draw_fill_even_odd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle *
     //_transform ? & (*_transform).v[0] : NULL
     //@TODO: Cache the uniform loc
     // ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &mat.v[0]));
-    // printf("COUNT %i\n", _path->geometryCache.count);
+    printf("COUNT %i\n", _path->geometryCache.count);
     // ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(tpVec2) * _path->geometryCache.count, _path->geometryCache.array, GL_DYNAMIC_DRAW));
     for (int i = 0; i < _path->contours.count; ++i)
     {
         _tpGLContour * c = _tpGLContourArrayAtPtr(&_path->contours, i);
-        // printf("VC %i %i\n", c->fillVertexOffset, c->fillVertexCount);
+        printf("VC %i %i\n", c->fillVertexOffset, c->fillVertexCount);
         ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
     }
 
@@ -2061,17 +2012,18 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     assert(_tpGLIsValidPath(p));
     assert(_tpGLIsValidStyle(s));
 
-    if (p->bGeometryCacheDirty)
+    if (p->bPathGeometryDirty)
     {
         printf("RE BUILD STUFF\n");
-        p->bGeometryCacheDirty = tpFalse;
+        // p->bPathGeometryDirty = tpFalse;
 
         //flatten the path into tmp buffers
         _tpGLRect bounds;
         _flatten_path(p, 0.15, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
 
         //generate and add the stroke geometry to the tmp buffers
-        _tpGLStroke(p, s, &_ctx->tmpVertices, &_ctx->tmpJoints);
+        if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0)
+            _tpGLStroke(p, s, &_ctx->tmpVertices, &_ctx->tmpJoints);
 
         //swap the tmp buffers with the path caches
         _tpVec2ArrayClear(&p->geometryCache);
@@ -2079,7 +2031,11 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         _tpVec2ArraySwap(&p->geometryCache, &_ctx->tmpVertices);
         _tpBoolArraySwap(&p->jointCache, &_ctx->tmpJoints);
 
-        //add the bounds geometry to the end of the geometry cache
+        //cache the path bounds
+        p->boundsCache = bounds;
+
+        //add the bounds geometry to the end of the geometry cache.
+        //If there is a stroke, upload the stroke bounds instead
         if (s->stroke.type != kTpPaintTypeNone)
         {
             tpFloat adder;
@@ -2095,8 +2051,32 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
             bounds.max
         };
 
+        printf("BOOUUUUNDS %f %f, %f %f\n", bounds.min.x, bounds.min.y, bounds.max.x, bounds.max.y);
+
         _tpVec2ArrayAppendArray(&p->geometryCache, boundsData, 4);
+        printf("CACHE COUNT %i\n", p->geometryCache.count);
     }
+    //check if the stroke should be removed
+    else if ((s->stroke.type == kTpPaintTypeNone &&
+              p->lastStroke.strokeType != kTpPaintTypeNone) ||
+             (s->strokeWidth == 0 && p->lastStroke.strokeWidth > 0))
+    {
+        printf("REMOVE STROKE\n");
+
+        // p->lastStroke.strokeType = s->stroke.type;
+        // p->lastStroke.strokeWidth = 0;
+        // p->strokeVertexOffset = 0;
+        // p->strokeVertexCount = 0;
+    }
+    //check if the stroke needs to be regenerated
+    else if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0 &&
+             (p->lastStroke.strokeWidth != s->strokeWidth || p->lastStroke.dashCount != s->dashCount ||
+              p->lastStroke.dashOffset != s->dashOffset ||
+              memcmp(p->lastStroke.dashArray, s->dashArray, sizeof(tpFloat) * s->dashCount) != 0))
+    {
+        printf("UPDATE STROKE\n");
+    }
+
     // printf("BOUNDS\n");
     // printf("MIN %f %f\n", _ctx->boundsCache.minX, _ctx->boundsCache.minY);
     // printf("MAX %f %f\n", _ctx->boundsCache.maxX, _ctx->boundsCache.maxY);
@@ -2136,13 +2116,13 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     currentSize = sizeof(tpVec2) * p->geometryCache.count;
     if (currentSize > _ctx->vboSize)
     {
-        // printf("NEW BUFFER DATA\n");
-        ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, currentSize, NULL, GL_DYNAMIC_DRAW));
+        printf("NEW BUFFER DATA\n");
+        ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, currentSize, p->geometryCache.array, GL_DYNAMIC_DRAW));
         _ctx->vboSize = currentSize;
     }
     else
     {
-        // printf("ORPH BUFFER\n");
+        printf("ORPH BUFFER\n");
         ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _ctx->vboSize, NULL, GL_DYNAMIC_DRAW));
         ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, currentSize, p->geometryCache.array));
     }
@@ -2156,12 +2136,11 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _kTpClipStencilPlaneOne));
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 
-
-    //@TODO: Draw all stroke triangles at once
-    for (i = 0; i < p->contours.count; ++i)
+    //Draw all stroke triangles at once
+    // ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, p->strokeVertexOffset, p->strokeVertexCount));
+    for(i = 0; i < p->contours.count; ++i)
     {
         c = _tpGLContourArrayAtPtr(&p->contours, i);
-        // printf("DRAW DA STROKE %i %i %i\n", i, c->strokeVertexOffset, c->strokeVertexCount);
         ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, c->strokeVertexOffset, c->strokeVertexCount));
     }
 
