@@ -288,15 +288,15 @@ int main(int argc, char * argv[])
         // tpPathClose(path);
 
         tpPath path = tpPathCreate(&ctx);
-        // tpPathMoveTo(path, 100, 120);
-        // tpPathLineTo(path, 200, 120);
-        // tpPathLineTo(path, 200, 150);
-        // tpPathLineTo(path, 100, 150);
-        // tpPathClose(path);
+        tpPathMoveTo(path, 100, 100);
+        tpPathLineTo(path, 200, 100);
+        tpPathLineTo(path, 200, 200);
+        tpPathLineTo(path, 100, 200);
+        tpPathClose(path);
 
         // tpPathAddRect(path, 100, 100, 200, 100);
-        tpPathAddCircle(path, 100, 100, 50);
-        tpPathAddCircle(path, 100, 100, 20);
+        // tpPathAddCircle(path, 100, 100, 50);
+        // tpPathAddCircle(path, 100, 100, 20);
 
         // tpPathMoveTo(path, 150, 150);
         // // tpPathCubicCurveTo(path, 155, 144, 160, 170, 165, 150);
@@ -318,7 +318,7 @@ int main(int argc, char * argv[])
         tpFloat dashArray[] = {10, 20};
         tpStyleSetDashArray(style, dashArray, 2);
 
-        // tpStyleSetDashOffset(style, 10.1f);
+        tpStyleSetDashOffset(style, -31);
 
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
@@ -366,8 +366,8 @@ int main(int argc, char * argv[])
 
             glViewport(0, 0, width, height);
 
-            // tpStyleSetDashOffset(style, off);
-            // off += 0.5;
+            tpStyleSetDashOffset(style, off);
+            off -= 0.05;
 
             tpMat4 proj = tpMat4Ortho(0, 800, 600, 0, -1, 1);
             tpSetProjection(&ctx, &proj);

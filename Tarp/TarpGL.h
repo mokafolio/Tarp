@@ -1551,28 +1551,90 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
 
     halfSw = _style->strokeWidth * 0.5;
 
-    for (i = 0; i < _style->dashCount; ++i)
+    // for (i = 0; i < _style->dashCount; ++i)
+    // {
+    //     patternLen += _style->dashArray[i];
+    // }
+
+    // offsetIntoPattern = _style->dashOffset;
+    // if (fabsf(offsetIntoPattern) >= patternLen)
+    //     offsetIntoPattern = fmod(offsetIntoPattern, patternLen);
+
+    // tpFloat off = 0;
+    // startDashIndex = 0;
+    // while (off < offsetIntoPattern)
+    // {
+    //     off += _style->dashArray[startDashIndex];
+    //     startDashIndex++;
+    // }
+    // startDashIndex = TARP_MAX(0, startDashIndex - 1);
+    // bStartDashOn = !(startDashIndex % 2);
+    // startDashLen = _style->dashArray[startDashIndex] - (off - offsetIntoPattern);
+
+    if (_style->dashOffset == 0)
     {
-        patternLen += _style->dashArray[i];
+        startDashIndex = 0;
+        bStartDashOn = tpTrue;
+        startDashLen = _style->dashArray[startDashIndex];
+    }
+    else
+    {
+        patternLen = 0;
+        for (i = 0; i < _style->dashCount; ++i)
+        {
+            patternLen += _style->dashArray[i];
+        }
+
+        offsetIntoPattern = _style->dashOffset;
+        if (fabsf(offsetIntoPattern) >= patternLen)
+        {
+            printf("BIGGER\n");
+            offsetIntoPattern = fmodf(offsetIntoPattern, patternLen);
+        }
+
+        printf("DA OFFSET BROOO %f %f\n", offsetIntoPattern, patternLen);
+
+        tpFloat off = 0;
+        startDashLen = -offsetIntoPattern;
+        printf("START DASH LEN %f\n", startDashLen);
+        if (_style->dashOffset > 0)
+        {
+            startDashIndex = 0;
+            while (startDashLen <= 0.0)
+            {
+                startDashLen += _style->dashArray[startDashIndex];
+                startDashIndex++;
+            }
+            startDashIndex = TARP_MAX(0, startDashIndex - 1);
+            bStartDashOn = !(startDashIndex % 2);
+            // startDashLen = _style->dashArray[startDashIndex] - (_style->dashArray[startDashIndex] - (off - offsetIntoPattern));
+        }
+        else
+        {
+            printf("NEGATIIIIIVE\n");
+            startDashIndex = _style->dashCount;
+            while (startDashLen > 0.0f)
+            {
+                startDashIndex--;
+                startDashLen -= _style->dashArray[startDashIndex];
+            }
+            startDashIndex = TARP_MAX(0, startDashIndex);
+            bStartDashOn = !(startDashIndex % 2);
+            printf("DUUUUDE %f\n", startDashLen);
+            startDashLen = _style->dashArray[startDashIndex] + startDashLen;
+
+            // if(_style->dashArray[startDashIndex] > offsetIntoPattern)
+            //     startDashLen = offsetIntoPattern;
+            // else
+            //     startDashLen = fabsf(_style->dashArray[startDashIndex] - fabsf(_style->dashArray[startDashIndex] - offsetIntoPattern));
+        }
+
+        printf("DASH STUFF %i %i %f %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
+               offsetIntoPattern, off, _style->dashArray[startDashIndex]);
     }
 
-    offsetIntoPattern = _style->dashOffset;
-    if (fabsf(offsetIntoPattern) >= patternLen)
-        offsetIntoPattern = fmod(offsetIntoPattern, patternLen);
-
-    tpFloat off = 0;
-    startDashIndex = 0;
-    while (off < offsetIntoPattern)
-    {
-        off += _style->dashArray[startDashIndex];
-        startDashIndex++;
-    }
-    startDashIndex = TARP_MAX(0, startDashIndex - 1);
-    bStartDashOn = !(startDashIndex % 2);
-    startDashLen = _style->dashArray[startDashIndex] - (off - offsetIntoPattern);
-
-    printf("DASH STUFF %i %i %f %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
-           offsetIntoPattern, off, _style->dashArray[startDashIndex]);
+    // printf("DASH STUFF %i %i %f %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
+    //        offsetIntoPattern, off, _style->dashArray[startDashIndex]);
 
     //generate the stroke geometry for each contour
     for (i = 0; i < _path->contours.count; ++i)
@@ -1713,28 +1775,37 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
             }
             while ((segmentLen - segmentOff) > 0);
 
-            if (bLastSegment && bFirstDashMightNeedJoin)
+            if (bLastSegment)
             {
                 //if the first and last dash of the contour touch, we connect them with a join
-                if (bBarelyJoined || (dashOffset > 0 && bOnDash))
+                if (bFirstDashMightNeedJoin)
                 {
-                    printf("MAKING LAST DASHED JOIN\n");
-                    printf("%f %f %f %i\n", dashOffset, segmentLen, segmentOff, bOnDash);
-                    cross = tpVec2Cross(&firstPerp, &perp);
-                    _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
-                                  &perp, &firstPerp,
-                                  &le1, &re1, &firstLe, &firstRe, cross,
-                                  _style->miterLimit, _vertices);
+                    if ((bBarelyJoined || (dashOffset > 0 && bOnDash)))
+                    {
+                        printf("MAKING LAST DASHED JOIN\n");
+                        printf("%f %f %f %i\n", dashOffset, segmentLen, segmentOff, bOnDash);
+                        cross = tpVec2Cross(&firstPerp, &perp);
+                        _tpGLMakeJoin(_style->strokeJoin, &p1, &dir, &firstDir,
+                                      &perp, &firstPerp,
+                                      &le1, &re1, &firstLe, &firstRe, cross,
+                                      _style->miterLimit, _vertices);
+                    }
+                    else
+                    {
+                        //otherwise we simply add a starting cap to the first dash of the contour...
+                        printf("MAKING LAST DASHED CAP\n");
+                        tpVec2 tmpDir, tmpPerp;
+                        tmpDir = tpVec2MultScalar(&firstDir, -1 * halfSw);
+                        tmpPerp.x = tmpDir.y;
+                        tmpPerp.y = -tmpDir.x;
+                        _tpGLMakeCap(_style->strokeCap, &p1, &tmpDir, &tmpPerp, &firstRe, &firstLe, tpFalse, _vertices);
+
+                    }
                 }
-                //otherwise we simply add a starting cap to the first dash of the contour
-                else
+                else if (dashOffset > 0 && bOnDash)
                 {
-                    printf("MAKING LAST DASHED CAP\n");
-                    tpVec2 tmpDir, tmpPerp;
-                    tmpDir = tpVec2MultScalar(&firstDir, -1 * halfSw);
-                    tmpPerp.x = tmpDir.y;
-                    tmpPerp.y = -tmpDir.x;
-                    _tpGLMakeCap(_style->strokeCap, &p1, &tmpDir, &tmpPerp, &firstRe, &firstLe, tpFalse, _vertices);
+                    printf("LAST CAP\n");
+                    _tpGLMakeCap(_style->strokeCap, &p1, &dir, &perp, &le1, &re1, tpFalse, _vertices);
                 }
             }
 
@@ -1755,6 +1826,8 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
 
 void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
+    _path->strokeVertexCount = 0;
+
     if (_style->dashCount)
     {
         _tpGLDashedStrokeGeometry(_path, _style, _vertices, _joints);
@@ -2063,10 +2136,10 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     {
         printf("REMOVE STROKE\n");
 
-        // p->lastStroke.strokeType = s->stroke.type;
-        // p->lastStroke.strokeWidth = 0;
-        // p->strokeVertexOffset = 0;
-        // p->strokeVertexCount = 0;
+        p->lastStroke.strokeType = s->stroke.type;
+        p->lastStroke.strokeWidth = 0;
+        p->strokeVertexOffset = 0;
+        p->strokeVertexCount = 0;
     }
     //check if the stroke needs to be regenerated
     else if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0 &&
@@ -2137,12 +2210,12 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 
     //Draw all stroke triangles at once
-    // ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, p->strokeVertexOffset, p->strokeVertexCount));
-    for(i = 0; i < p->contours.count; ++i)
-    {
-        c = _tpGLContourArrayAtPtr(&p->contours, i);
-        ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, c->strokeVertexOffset, c->strokeVertexCount));
-    }
+    ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, p->strokeVertexOffset, p->strokeVertexCount));
+    // for(i = 0; i < p->contours.count; ++i)
+    // {
+    //     c = _tpGLContourArrayAtPtr(&p->contours, i);
+    //     ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, c->strokeVertexOffset, c->strokeVertexCount));
+    // }
 
     ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
     ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpStrokeRasterStencilPlane));
