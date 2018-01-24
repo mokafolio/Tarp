@@ -174,6 +174,11 @@ typedef struct
 #define _TARP_COMPARATOR_T 0
 #include <Tarp/TarpArray.h>
 
+#define _TARP_ARRAY_T _tpColorStopArray
+#define _TARP_ITEM_T tpColorStop
+#define _TARP_COMPARATOR_T 0
+#include <Tarp/TarpArray.h>
+
 typedef struct
 {
     _tpSegmentArray segments;
@@ -236,11 +241,13 @@ typedef struct
 {
     tpVec2 origin;
     tpVec2 destination;
-    tpColorStop stops[TARP_MAX_COLOR_STOPS];
-    int stopCount;
+    _tpColorStopArray stops;
     tpGradientType type;
     tpContext * context;
+
     //rendering specific data/caches
+    tpBool bDirty;
+    GLuint rampTexture;
 } _tpGLGradient;
 
 typedef union
@@ -301,6 +308,7 @@ struct _tpContextData
     //used to temporarily store vertex/stroke data (think double buffering)
     _tpVec2Array tmpVertices;
     _tpBoolArray tmpJoints;
+    _tpColorStopArray tmpColorStops;
     char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
 };
 
@@ -440,8 +448,11 @@ tpBool tpContextInit(tpContext * _ctx)
     _ctx->vboSize = 0;
 
     _tpGLPathPtrArrayInit(&_ctx->paths, 32);
+    _tpGLGradientPtrArrayInit(&_ctx->gradients, 8);
+    _tpGLStylePtrArrayInit(&_ctx->styles, 8);
     _tpVec2ArrayInit(&_ctx->tmpVertices, 512);
     _tpBoolArrayInit(&_ctx->tmpJoints, 256);
+    _tpColorStopArrayInit(&_ctx->tmpColorStops, 16);
 
     return ret;
 }
@@ -476,8 +487,10 @@ tpBool tpContextDeallocate(tpContext * _ctx)
         tpPathDestroy((tpPath) {_tpGLPathPtrArrayAt(&_ctx->paths, i)});
     }
     _tpGLPathPtrArrayDeallocate(&_ctx->paths);
+
     _tpBoolArrayDeallocate(&_ctx->tmpJoints);
     _tpVec2ArrayDeallocate(&_ctx->tmpVertices);
+    _tpColorStopArrayDeallocate(&_ctx->tmpColorStops);
 
     return tpFalse;
 }
@@ -992,8 +1005,18 @@ tpGradient tpGradientCreateLinear(tpContext * _ctx, tpFloat _x0, tpFloat _y0, tp
     ret->type = kTpGradientTypeLinear;
     ret->origin = tpVec2Make(_x0, _y0);
     ret->destination = tpVec2Make(_x1, _y1);
-    ret->stopCount = 0;
+    _tpColorStopArrayInit(&ret->stops, 8);
     ret->context = _ctx;
+    ret->bDirty = tpTrue;
+
+    ASSERT_NO_GL_ERROR(glGenTextures(1, &ret->rampTexture));
+    ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, ret->rampTexture));
+    ASSERT_NO_GL_ERROR(glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, TARP_GL_RAMP_TEXTURE_SIZE, 0,
+                                    GL_RGBA, GL_FLOAT, NULL));
+    ASSERT_NO_GL_ERROR(glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    ASSERT_NO_GL_ERROR(glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    ASSERT_NO_GL_ERROR(glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+    ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, 0));
 
     _tpGLGradientPtrArrayAppend(&_ctx->gradients, ret);
 
@@ -1004,48 +1027,34 @@ void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloa
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
     assert(_tpGLIsValidGradient(g));
-    g->stops[g->stopCount++] = (tpColorStop) {tpColorMake(_r, _g, _b, _a), _offset};
+    tpColorStop stop = {tpColorMake(_r, _g, _b, _a), _offset};
+    _tpColorStopArrayAppendPtr(&g->stops, &stop);
 }
 
 void tpGradientDestroy(tpGradient _gradient)
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
+    _tpColorStopArrayDeallocate(&g->stops);
     assert(_tpGLIsValidGradient(g));
     _tpGLGradientPtrArrayRemoveValue(&g->context->gradients, g);
     free(g);
 }
 
-int _absolute_tolerance_compare(tpFloat _x, tpFloat _y, tpFloat _epsilon)
-{
-    return fabs(_x - _y) <= _epsilon;
-}
-
-int _relative_tolerance_compare(tpFloat _x, tpFloat _y, tpFloat _epsilon)
-{
-    tpFloat maxXY = TARP_MAX(fabs(_x) , fabs(_y));
-    return fabs(_x - _y) <= _epsilon * maxXY;
-}
-
-int _combined_tolerance_compare(tpFloat _x, tpFloat _y, tpFloat _epsilon)
+int _tpGLIsClose(tpFloat _x, tpFloat _y, tpFloat _epsilon)
 {
     tpFloat maxXYOne = TARP_MAX(1.0, TARP_MAX(fabs(_x), fabs(_y)));
     return fabs(_x - _y) <= _epsilon * maxXYOne;
 }
 
-int _is_close(tpFloat _a, tpFloat _b, tpFloat _epsilon)
+int _tpGLIsCurveLinear(const _tpGLCurve * _curve)
 {
-    return _combined_tolerance_compare(_a, _b, _epsilon);
+    return _tpGLIsClose(_curve->p0.x, _curve->h0.x, FLT_EPSILON) && _tpGLIsClose(_curve->p0.y, _curve->h0.y, FLT_EPSILON) &&
+           _tpGLIsClose(_curve->p1.x, _curve->h1.x, FLT_EPSILON) && _tpGLIsClose(_curve->p1.y, _curve->h1.y, FLT_EPSILON);
 }
 
-int _is_linear(const _tpGLCurve * _curve)
+int _tpGLIsCurveFlatEnough(const _tpGLCurve * _curve, tpFloat _tolerance)
 {
-    return _is_close(_curve->p0.x, _curve->h0.x, FLT_EPSILON) && _is_close(_curve->p0.y, _curve->h0.y, FLT_EPSILON) &&
-           _is_close(_curve->p1.x, _curve->h1.x, FLT_EPSILON) && _is_close(_curve->p1.y, _curve->h1.y, FLT_EPSILON);
-}
-
-int _is_flat_enough(const _tpGLCurve * _curve, tpFloat _tolerance)
-{
-    if (_is_linear(_curve))
+    if (_tpGLIsCurveLinear(_curve))
         return 1;
 
     // Comment from paper.js source in Curve.js:
@@ -1059,9 +1068,9 @@ int _is_flat_enough(const _tpGLCurve * _curve, tpFloat _tolerance)
     return TARP_MAX(ux * ux, vx * vx) + TARP_MAX(uy * uy, vy * vy) < 10 * _tolerance * _tolerance;
 }
 
-void _subdivide_curve(const _tpGLCurve * _curve,
-                      tpFloat _t,
-                      _tpGLCurvePair * _result)
+void _tpGLSubdivideCurve(const _tpGLCurve * _curve,
+                         tpFloat _t,
+                         _tpGLCurvePair * _result)
 {
     tpFloat v1x, v2x, v3x, v4x, v5x, v6x, v1y, v2y, v3y, v4y, v5y, v6y;
     tpFloat u = 1 - _t;
@@ -1086,7 +1095,7 @@ void _subdivide_curve(const _tpGLCurve * _curve,
     };
 }
 
-void _evaluate_point_for_bounds(const tpVec2 * _vec, _tpGLRect * _bounds)
+void _tpGLEvaluatePointForBounds(const tpVec2 * _vec, _tpGLRect * _bounds)
 {
     _bounds->min.x = TARP_MIN(_vec->x, _bounds->min.x);
     _bounds->min.y = TARP_MIN(_vec->y, _bounds->min.y);
@@ -1551,26 +1560,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
 
     halfSw = _style->strokeWidth * 0.5;
 
-    // for (i = 0; i < _style->dashCount; ++i)
-    // {
-    //     patternLen += _style->dashArray[i];
-    // }
-
-    // offsetIntoPattern = _style->dashOffset;
-    // if (fabsf(offsetIntoPattern) >= patternLen)
-    //     offsetIntoPattern = fmod(offsetIntoPattern, patternLen);
-
-    // tpFloat off = 0;
-    // startDashIndex = 0;
-    // while (off < offsetIntoPattern)
-    // {
-    //     off += _style->dashArray[startDashIndex];
-    //     startDashIndex++;
-    // }
-    // startDashIndex = TARP_MAX(0, startDashIndex - 1);
-    // bStartDashOn = !(startDashIndex % 2);
-    // startDashLen = _style->dashArray[startDashIndex] - (off - offsetIntoPattern);
-
+    //no dash offset
     if (_style->dashOffset == 0)
     {
         startDashIndex = 0;
@@ -1579,6 +1569,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
     }
     else
     {
+        //compute offset into dash pattern
         patternLen = 0;
         for (i = 0; i < _style->dashCount; ++i)
         {
@@ -1588,15 +1579,10 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
         offsetIntoPattern = _style->dashOffset;
         if (fabsf(offsetIntoPattern) >= patternLen)
         {
-            printf("BIGGER\n");
             offsetIntoPattern = fmodf(offsetIntoPattern, patternLen);
         }
 
-        printf("DA OFFSET BROOO %f %f\n", offsetIntoPattern, patternLen);
-
-        tpFloat off = 0;
         startDashLen = -offsetIntoPattern;
-        printf("START DASH LEN %f\n", startDashLen);
         if (_style->dashOffset > 0)
         {
             startDashIndex = 0;
@@ -1607,11 +1593,9 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
             }
             startDashIndex = TARP_MAX(0, startDashIndex - 1);
             bStartDashOn = !(startDashIndex % 2);
-            // startDashLen = _style->dashArray[startDashIndex] - (_style->dashArray[startDashIndex] - (off - offsetIntoPattern));
         }
         else
         {
-            printf("NEGATIIIIIVE\n");
             startDashIndex = _style->dashCount;
             while (startDashLen > 0.0f)
             {
@@ -1620,17 +1604,11 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
             }
             startDashIndex = TARP_MAX(0, startDashIndex);
             bStartDashOn = !(startDashIndex % 2);
-            printf("DUUUUDE %f\n", startDashLen);
             startDashLen = _style->dashArray[startDashIndex] + startDashLen;
-
-            // if(_style->dashArray[startDashIndex] > offsetIntoPattern)
-            //     startDashLen = offsetIntoPattern;
-            // else
-            //     startDashLen = fabsf(_style->dashArray[startDashIndex] - fabsf(_style->dashArray[startDashIndex] - offsetIntoPattern));
         }
 
-        printf("DASH STUFF %i %i %f %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
-               offsetIntoPattern, off, _style->dashArray[startDashIndex]);
+        printf("DASH STUFF %i %i %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
+               offsetIntoPattern, _style->dashArray[startDashIndex]);
     }
 
     // printf("DASH STUFF %i %i %f %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
@@ -1849,16 +1827,16 @@ void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _v
     _path->lastStroke.dashCount = _style->dashCount;
 }
 
-void _flatten_curve(_tpGLPath * _path,
-                    const _tpGLCurve * _curve,
-                    tpFloat _angleTolerance,
-                    int _bIsClosed,
-                    int _bFirstCurve,
-                    int _bLastCurve,
-                    _tpVec2Array * _outVertices,
-                    _tpBoolArray * _outJoints,
-                    _tpGLRect * _bounds,
-                    int * _vertexCount)
+void _tpGLFlattenCurve(_tpGLPath * _path,
+                       const _tpGLCurve * _curve,
+                       tpFloat _angleTolerance,
+                       int _bIsClosed,
+                       int _bFirstCurve,
+                       int _bLastCurve,
+                       _tpVec2Array * _outVertices,
+                       _tpBoolArray * _outJoints,
+                       _tpGLRect * _bounds,
+                       int * _vertexCount)
 {
     _tpGLCurve stack[TARP_MAX_CURVE_SUBDIVISIONS];
     _tpGLCurvePair cp;
@@ -1870,11 +1848,11 @@ void _flatten_curve(_tpGLPath * _path,
     {
         current = &stack[stackIndex];
 
-        if (stackIndex < TARP_MAX_CURVE_SUBDIVISIONS - 1 && !_is_flat_enough(current, _angleTolerance))
+        if (stackIndex < TARP_MAX_CURVE_SUBDIVISIONS - 1 && !_tpGLIsCurveFlatEnough(current, _angleTolerance))
         {
             //subdivide curve and add continue with the left of the two curves by putting it on top
             //of the stack.
-            _subdivide_curve(current, 0.5, &cp);
+            _tpGLSubdivideCurve(current, 0.5, &cp);
             *current = cp.second;
             stack[++stackIndex] = cp.first;
         }
@@ -1889,8 +1867,8 @@ void _flatten_curve(_tpGLPath * _path,
 
                 _tpBoolArrayAppend(_outJoints, tpFalse);
                 _tpBoolArrayAppend(_outJoints, tpVec2Equals(&current->p1, &_curve->p1) && !_bLastCurve);
-                _evaluate_point_for_bounds(&current->p0, _bounds);
-                _evaluate_point_for_bounds(&current->p1, _bounds);
+                _tpGLEvaluatePointForBounds(&current->p0, _bounds);
+                _tpGLEvaluatePointForBounds(&current->p1, _bounds);
                 *_vertexCount += 2;
 
                 //we don't want to do this for the following subdivisions
@@ -1902,7 +1880,7 @@ void _flatten_curve(_tpGLPath * _path,
 
                 _tpBoolArrayAppend(_outJoints, _bIsClosed ? tpVec2Equals(&current->p1, &_curve->p1) :
                                    (tpVec2Equals(&current->p1, &_curve->p1) && !_bLastCurve));
-                _evaluate_point_for_bounds(&current->p1, _bounds);
+                _tpGLEvaluatePointForBounds(&current->p1, _bounds);
                 (*_vertexCount)++;
             }
             stackIndex--;
@@ -1920,15 +1898,15 @@ void _tpGLInitBounds(_tpGLRect * _bounds)
 
 void _tpGLMergeBounds(_tpGLRect * _a, const _tpGLRect * _b)
 {
-    _evaluate_point_for_bounds(&_b->min, _a);
-    _evaluate_point_for_bounds(&_b->max, _a);
+    _tpGLEvaluatePointForBounds(&_b->min, _a);
+    _tpGLEvaluatePointForBounds(&_b->max, _a);
 }
 
-int _flatten_path(_tpGLPath * _path,
-                  tpFloat _angleTolerance,
-                  _tpVec2Array * _outVertices,
-                  _tpBoolArray * _outJoints,
-                  _tpGLRect * _outBounds)
+int _tpGLFlattenPath(_tpGLPath * _path,
+                     tpFloat _angleTolerance,
+                     _tpVec2Array * _outVertices,
+                     _tpBoolArray * _outJoints,
+                     _tpGLRect * _outBounds)
 {
     printf("====================================\n");
     _tpGLRect contourBounds;
@@ -1967,15 +1945,15 @@ int _flatten_path(_tpGLPath * _path,
                                     current->position.x, current->position.y
                                    };
 
-                _flatten_curve(_path,
-                               &curve,
-                               _angleTolerance,
-                               c->bIsClosed,
-                               j == 1,
-                               tpFalse,
-                               _outVertices,
-                               _outJoints,
-                               &contourBounds, &vcount);
+                _tpGLFlattenCurve(_path,
+                                  &curve,
+                                  _angleTolerance,
+                                  c->bIsClosed,
+                                  j == 1,
+                                  tpFalse,
+                                  _outVertices,
+                                  _outJoints,
+                                  &contourBounds, &vcount);
 
 
                 last = current;
@@ -1991,15 +1969,15 @@ int _flatten_path(_tpGLPath * _path,
                                     fs->position.x, fs->position.y
                                    };
 
-                _flatten_curve(_path,
-                               &curve,
-                               _angleTolerance,
-                               c->bIsClosed,
-                               tpFalse,
-                               tpTrue,
-                               _outVertices,
-                               _outJoints,
-                               &contourBounds, &vcount);
+                _tpGLFlattenCurve(_path,
+                                  &curve,
+                                  _angleTolerance,
+                                  c->bIsClosed,
+                                  tpFalse,
+                                  tpTrue,
+                                  _outVertices,
+                                  _outJoints,
+                                  &contourBounds, &vcount);
             }
 
             c->fillVertexOffset = off;
@@ -2034,7 +2012,77 @@ int _flatten_path(_tpGLPath * _path,
     return 0;
 }
 
-void _draw_paint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _paint)
+int _tpGLColorStopComp(const void * _a, const void * _b)
+{
+    return ((tpColorStop *)_a)->offset < ((tpColorStop *)_b)->offset;
+}
+
+void _tpGLFinalizeColorStops(tpContext * _ctx, _tpGLGradient * _grad)
+{
+    int i, j;
+    tpColorStop * current;
+    tpBool bAdd, bHasStartStop, bHasEndStop;
+    _tpColorStopArrayClear(&_ctx->tmpColorStops);
+
+    bHasStartStop = tpFalse;
+    bHasEndStop = tpFalse;
+
+    //remove duplicates
+    for (i = 0; i < _grad->stops.count; ++i)
+    {
+        bAdd = tpTrue;
+        current = _tpColorStopArrayAtPtr(&_grad->stops, i);
+        if (current->offset == 0)
+            bHasStartStop = tpTrue;
+        else if (current->offset == 1)
+            bHasEndStop = tpTrue;
+
+        for (j = 0; i < _ctx->tmpColorStops.count; ++j)
+        {
+            if (current->offset == _tpColorStopArrayAtPtr(&_ctx->tmpColorStops, j)->offset)
+            {
+                bAdd = tpFalse;
+                break;
+            }
+
+            if (bAdd && current->offset >= 0 && current->offset <= 1)
+                _tpColorStopArrayAppendPtr(&_ctx->tmpColorStops, current);
+        }
+    }
+
+    //sort from 0 - 1 by offset
+    qsort(_ctx->tmpColorStops.array, _ctx->tmpColorStops.count, sizeof(tpColorStop), _tpGLColorStopComp);
+
+    //make sure there is a stop at 0 and 1 offset
+    if (!bHasStartStop || !bHasEndStop)
+    {
+        tpColorStop tmp;
+
+        _tpColorStopArrayClear(&_grad->stops);
+        if (!bHasStartStop)
+        {
+            tmp.color = _tpColorStopArrayAtPtr(&_ctx->tmpColorStops, 0)->color;
+            tmp.offset = 0;
+            _tpColorStopArrayAppendPtr(&_grad->stops, &tmp);
+        }
+
+        _tpColorStopArrayAppendArray(&_grad->stops, _ctx->tmpColorStops.array, _ctx->tmpColorStops.count);
+
+        if (!bHasEndStop)
+        {
+            tmp.color = _tpColorStopArrayLastPtr(&_ctx->tmpColorStops)->color;
+            tmp.offset = 1;
+            _tpColorStopArrayAppendPtr(&_grad->stops, &tmp);
+        }
+    }
+    else
+    {
+        //if they are already there, we can simply swap
+        _tpColorStopArraySwap(&_grad->stops, &_ctx->tmpColorStops);
+    }
+}
+
+void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _paint)
 {
     if (_paint->type == kTpPaintTypeColor)
     {
@@ -2043,9 +2091,23 @@ void _draw_paint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _paint)
         ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->program, "meshColor"), 1, &_paint->data.color.r));
         ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, (_path->geometryCache.count - 4), 4));
     }
+    else if (_paint->type == kTpPaintTypeGradient)
+    {
+        _tpGLGradient * grad = (_tpGLGradient *)&_paint->data.gradient;
+
+        if (grad->bDirty)
+        {
+
+        }
+
+        if (grad->type == kTpGradientTypeLinear)
+        {
+
+        }
+    }
 }
 
-void _draw_fill_even_odd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle * _style)
+void _tpGLDrawFillEvenOdd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle * _style)
 {
     ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
@@ -2070,7 +2132,38 @@ void _draw_fill_even_odd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle *
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO));
     ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
 
-    _draw_paint(_ctx, _path, &_style->fill);
+    _tpGLDrawPaint(_ctx, _path, &_style->fill);
+}
+
+void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _style)
+{
+    _tpGLRect bounds;
+    _tpGLRect * bptr;
+
+    //add the bounds geometry to the end of the geometry cache.
+    //If there is a stroke, upload the stroke bounds instead
+    if (_style->stroke.type != kTpPaintTypeNone)
+    {
+        bounds = _path->boundsCache;
+        tpFloat adder;
+        adder = TARP_MAX(_style->strokeWidth, _style->miterLimit);
+        bounds.min.x -= adder;
+        bounds.min.y -= adder;
+        bounds.max.x += adder;
+        bounds.max.y += adder;
+
+        bptr = &bounds;
+    }
+    else
+    {
+        bptr = &_path->boundsCache;
+    }
+    tpVec2 boundsData[] = {bptr->min,
+        {bptr->min.x, bptr->max.y},
+        {bptr->max.x, bptr->min.y},
+        bptr->max
+    };
+    _tpVec2ArrayAppendArray(&_path->geometryCache, boundsData, 4);
 }
 
 tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
@@ -2088,11 +2181,11 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     if (p->bPathGeometryDirty)
     {
         printf("RE BUILD STUFF\n");
-        // p->bPathGeometryDirty = tpFalse;
+        p->bPathGeometryDirty = tpFalse;
 
         //flatten the path into tmp buffers
         _tpGLRect bounds;
-        _flatten_path(p, 0.15, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
+        _tpGLFlattenPath(p, 0.15, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
 
         //generate and add the stroke geometry to the tmp buffers
         if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0)
@@ -2107,27 +2200,8 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         //cache the path bounds
         p->boundsCache = bounds;
 
-        //add the bounds geometry to the end of the geometry cache.
-        //If there is a stroke, upload the stroke bounds instead
-        if (s->stroke.type != kTpPaintTypeNone)
-        {
-            tpFloat adder;
-            adder = TARP_MAX(s->strokeWidth, s->miterLimit);
-            bounds.min.x -= adder;
-            bounds.min.y -= adder;
-            bounds.max.x += adder;
-            bounds.max.y += adder;
-        }
-        tpVec2 boundsData[] = {bounds.min,
-            {bounds.min.x, bounds.max.y},
-            {bounds.max.x, bounds.min.y},
-            bounds.max
-        };
-
-        printf("BOOUUUUNDS %f %f, %f %f\n", bounds.min.x, bounds.min.y, bounds.max.x, bounds.max.y);
-
-        _tpVec2ArrayAppendArray(&p->geometryCache, boundsData, 4);
-        printf("CACHE COUNT %i\n", p->geometryCache.count);
+        //add the bounds geometry to the geom cache.
+        _tpGLCacheBoundsGeometry(p, s);
     }
     //check if the stroke should be removed
     else if ((s->stroke.type == kTpPaintTypeNone &&
@@ -2148,17 +2222,15 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
               memcmp(p->lastStroke.dashArray, s->dashArray, sizeof(tpFloat) * s->dashCount) != 0))
     {
         printf("UPDATE STROKE\n");
+        //remove all the old stoke vertices from the cache
+        _tpVec2ArrayRemoveRange(&p->geometryCache, p->strokeVertexOffset, p->geometryCache.count);
+
+        //generate and add the stroke geometry to the tmp buffers
+        _tpGLStroke(p, s, &p->geometryCache, &p->jointCache);
+
+        //add the bounds geometry to the geom cache.
+        _tpGLCacheBoundsGeometry(p, s);
     }
-
-    // printf("BOUNDS\n");
-    // printf("MIN %f %f\n", _ctx->boundsCache.minX, _ctx->boundsCache.minY);
-    // printf("MAX %f %f\n", _ctx->boundsCache.maxX, _ctx->boundsCache.maxY);
-    // printf("GEOM CACHE %i\n", ctx->geometryCacheCount);
-
-    // for (int i = 0; i < ctx->geometryCacheCount; ++i)
-    // {
-    //     printf("CACHE %f\n", ctx->geometryCache[i]);
-    // }
 
     ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
     ASSERT_NO_GL_ERROR(glDepthMask(GL_FALSE));
@@ -2201,7 +2273,7 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     }
 
     //draw the fill
-    _draw_fill_even_odd(_ctx, p, s);
+    _tpGLDrawFillEvenOdd(_ctx, p, s);
 
     //draw the stroke
     ASSERT_NO_GL_ERROR(glStencilMask(_kTpStrokeRasterStencilPlane));
@@ -2221,7 +2293,7 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpStrokeRasterStencilPlane));
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
 
-    _draw_paint(_ctx, p, &s->stroke);
+    _tpGLDrawPaint(_ctx, p, &s->stroke);
 
     return tpFalse;
 }

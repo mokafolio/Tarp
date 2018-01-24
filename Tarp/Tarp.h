@@ -31,7 +31,6 @@
 #define TARP_LOCAL __attribute__ ((visibility("hidden")))
 
 // some settings
-#define TARP_SEGMENT_CHUNK_SIZE 512
 #define TARP_MAX_COLOR_STOPS 128
 #define TARP_MAX_DASH_ARRAY_SIZE 64
 #define TARP_MAX_ERROR_MESSAGE 256
