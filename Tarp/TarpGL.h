@@ -2014,7 +2014,9 @@ int _tpGLFlattenPath(_tpGLPath * _path,
 
 int _tpGLColorStopComp(const void * _a, const void * _b)
 {
-    return ((tpColorStop *)_a)->offset < ((tpColorStop *)_b)->offset;
+    if (((tpColorStop *)_a)->offset < ((tpColorStop *)_b)->offset)
+        return -1;
+    return 1;
 }
 
 void _tpGLFinalizeColorStops(tpContext * _ctx, _tpGLGradient * _grad)
@@ -2095,12 +2097,63 @@ void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _pai
     {
         _tpGLGradient * grad = (_tpGLGradient *)&_paint->data.gradient;
 
+        // check if we need to update the gradient
         if (grad->bDirty)
         {
+            tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE];
+            int xStart, xEnd, diff, i, j;
+            tpFloat mixFact;
+            tpColor mixColor;
+            tpColorStop * stop1, * stop2;
 
+            grad->bDirty = tpFalse;
+
+            _tpGLFinalizeColorStops(_ctx, grad);
+
+            //generate the ramp texture
+            xStart = 0;
+            xEnd = 0;
+
+            stop1 = _tpColorStopArrayAtPtr(&grad->stops, 0);
+            pixels[0] = stop1->color;
+
+            for (i = 1; i < grad->stops.count; ++i)
+            {
+                stop2 = _tpColorStopArrayAtPtr(&grad->stops, i);
+                xEnd = (int)(stop2->offset * (TARP_GL_RAMP_TEXTURE_SIZE - 1));
+
+                assert(xStart >= 0 && xStart < TARP_GL_RAMP_TEXTURE_SIZE &&
+                       xEnd >= 0 && xEnd < TARP_GL_RAMP_TEXTURE_SIZE &&
+                       xStart <= xEnd);
+
+                diff = xEnd - xStart;
+                mixColor.r = stop2->color.r - stop1->color.r;
+                mixColor.g = stop2->color.g - stop1->color.g;
+                mixColor.b = stop2->color.b - stop1->color.b;
+                mixColor.a = stop2->color.a - stop1->color.a;
+
+                for (j = xStart + 1; j <= xEnd; ++j)
+                {
+                    mixFact = (tpFloat)(j - xStart) / (tpFloat)(diff);
+                    pixels[j].r = stop1->color.r + mixColor.r * mixFact;
+                    pixels[j].g = stop1->color.g + mixColor.g * mixFact;
+                    pixels[j].b = stop1->color.b + mixColor.b * mixFact;
+                    pixels[j].a = stop1->color.a + mixColor.a * mixFact;
+                }
+                stop1 = stop2;
+                xStart = xEnd;
+            }
+
+            ASSERT_NO_GL_ERROR(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
+            ASSERT_NO_GL_ERROR(glTexSubImage1D(GL_TEXTURE_1D, 0, 0, TARP_GL_RAMP_TEXTURE_SIZE,
+                                               GL_RGBA, GL_FLOAT, &pixels[0].r));
         }
 
         if (grad->type == kTpGradientTypeLinear)
+        {
+
+        }
+        else
         {
 
         }
