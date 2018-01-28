@@ -157,31 +157,31 @@ tpColor tpColorMake(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
 
 tpVec2 tpVec2Make(tpFloat _x, tpFloat _y);
 
-tpVec2 tpVec2Add(const tpVec2 * _a, const tpVec2 * _b);
+tpVec2 tpVec2Add(tpVec2 _a, tpVec2 _b);
 
-tpVec2 tpVec2Sub(const tpVec2 * _a, const tpVec2 * _b);
+tpVec2 tpVec2Sub(tpVec2 _a, tpVec2 _b);
 
-tpVec2 tpVec2Mult(const tpVec2 * _a, const tpVec2 * _b);
+tpVec2 tpVec2Mult(tpVec2 _a, tpVec2 _b);
 
-tpVec2 tpVec2MultScalar(const tpVec2 * _a, tpFloat _b);
+tpVec2 tpVec2MultScalar(tpVec2 _a, tpFloat _b);
 
-tpVec2 tpVec2Div(const tpVec2 * _a, const tpVec2 * _b);
+tpVec2 tpVec2Div(tpVec2 _a, tpVec2 _b);
 
-tpBool tpVec2Equals(const tpVec2 * _a, const tpVec2 * _b);
+tpBool tpVec2Equals(tpVec2 _a, tpVec2 _b);
 
-tpFloat tpVec2Length(const tpVec2 * _vec);
+tpFloat tpVec2Length(tpVec2 _vec);
 
-tpFloat tpVec2Dot(const tpVec2 * _a, const tpVec2 * _b);
+tpFloat tpVec2Dot(tpVec2 _a, tpVec2 _b);
 
-tpFloat tpVec2Cross(const tpVec2 * _a, const tpVec2 * _b);
+tpFloat tpVec2Cross(tpVec2 _a, tpVec2 _b);
 
 void tpVec2NormalizeSelf(tpVec2 * _vec);
 
-tpVec2 tpVec2Normalize(const tpVec2 * _vec);
+tpVec2 tpVec2Normalize(tpVec2 _vec);
 
-tpVec2 tpVec2Perp(const tpVec2 * _a);
+tpVec2 tpVec2Perp(tpVec2 _a);
 
-tpFloat tpVec2Distance(const tpVec2 * _a, const tpVec2 * _b);
+tpFloat tpVec2Distance(tpVec2 _a, tpVec2 _b);
 
 
 // Matrix Functions
@@ -330,74 +330,72 @@ tpVec2 tpVec2Make(tpFloat _x, tpFloat _y)
     return (tpVec2) {_x, _y};
 }
 
-tpVec2 tpVec2Add(const tpVec2 * _a, const tpVec2 * _b)
+tpVec2 tpVec2Add(tpVec2 _a, tpVec2 _b)
 {
-    return (tpVec2) {_a->x + _b->x, _a->y + _b->y};
+    return (tpVec2) {_a.x + _b.x, _a.y + _b.y};
 }
 
-tpVec2 tpVec2Sub(const tpVec2 * _a, const tpVec2 * _b)
+tpVec2 tpVec2Sub(tpVec2 _a, tpVec2 _b)
 {
-    return (tpVec2) {_a->x - _b->x, _a->y - _b->y};
+    return (tpVec2) {_a.x - _b.x, _a.y - _b.y};
 }
 
-tpVec2 tpVec2Mult(const tpVec2 * _a, const tpVec2 * _b)
+tpVec2 tpVec2Mult(tpVec2 _a, tpVec2 _b)
 {
-    return (tpVec2) {_a->x * _b->x, _a->y * _b->y};
+    return (tpVec2) {_a.x * _b.x, _a.y * _b.y};
 }
 
-tpVec2 tpVec2MultScalar(const tpVec2 * _a, tpFloat _b)
+tpVec2 tpVec2MultScalar(tpVec2 _a, tpFloat _b)
 {
-    return (tpVec2) {_a->x * _b, _a->y * _b};
+    return (tpVec2) {_a.x * _b, _a.y * _b};
 }
 
-tpVec2 tpVec2Div(const tpVec2 * _a, const tpVec2 * _b)
+tpVec2 tpVec2Div(tpVec2 _a, tpVec2 _b)
 {
-    return (tpVec2) {_a->x / _b->x, _a->y / _b->y};
+    return (tpVec2) {_a.x / _b.x, _a.y / _b.y};
 }
 
-tpBool tpVec2Equals(const tpVec2 * _a, const tpVec2 * _b)
+tpBool tpVec2Equals(tpVec2 _a, tpVec2 _b)
 {
-    return _a->x == _b->x && _a->y == _b->y;
+    return _a.x == _b.x && _a.y == _b.y;
 }
 
-tpFloat tpVec2Length(const tpVec2 * _vec)
+tpFloat tpVec2Length(tpVec2 _vec)
 {
-    return sqrt(_vec->x * _vec->x + _vec->y * _vec->y);
+    return sqrt(_vec.x * _vec.x + _vec.y * _vec.y);
 }
 
 void tpVec2NormalizeSelf(tpVec2 * _vec)
 {
-    tpFloat s = 1.0 / tpVec2Length(_vec);
+    tpFloat s = 1.0 / tpVec2Length(*_vec);
     _vec->x *= s;
     _vec->y *= s;
 }
 
-tpVec2 tpVec2Normalize(const tpVec2 * _vec)
+tpVec2 tpVec2Normalize(tpVec2 _vec)
 {
-    tpVec2 ret = {_vec->x, _vec->y};
-    tpVec2NormalizeSelf(&ret);
-    return ret;
+    tpFloat s = 1.0 / tpVec2Length(_vec);
+    return (tpVec2) {_vec.x * s, _vec.y * s};
 }
 
-tpVec2 tpVec2Perp(const tpVec2 * _a)
+tpVec2 tpVec2Perp(tpVec2 _a)
 {
-    return (tpVec2) {_a->y, -_a->x};
+    return (tpVec2) {_a.y, -_a.x};
 }
 
-tpFloat tpVec2Dot(const tpVec2 * _a, const tpVec2 * _b)
+tpFloat tpVec2Dot(tpVec2 _a, tpVec2 _b)
 {
-    return _a->x * _b->x + _a->y * _b->y;
+    return _a.x * _b.x + _a.y * _b.y;
 }
 
-tpFloat tpVec2Cross(const tpVec2 * _a, const tpVec2 * _b)
+tpFloat tpVec2Cross(tpVec2 _a, tpVec2 _b)
 {
-    return _a->x * _b->y - _a->y * _b->x;
+    return _a.x * _b.y - _a.y * _b.x;
 }
 
-tpFloat tpVec2Distance(const tpVec2 * _a, const tpVec2 * _b)
+tpFloat tpVec2Distance(tpVec2 _a, tpVec2 _b)
 {
-    tpVec2 tmp = tpVec2Sub(_a, _b);
-    return tpVec2Length(&tmp);
+    return tpVec2Length(tpVec2Sub(_a, _b));
 }
 
 tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2,

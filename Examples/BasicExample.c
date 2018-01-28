@@ -6,32 +6,34 @@
 // we use GLFW to open a simple window
 #include <GLFW/glfw3.h>
 
-#define TARP_STATIC_ASSERT(pred) switch(0){case 0:case pred:;}
+// #define TARP_STATIC_ASSERT(pred) switch(0){case 0:case pred:;}
 
-#define TARP_COMPILER_CLANG 0
-#define TARP_COMPILER_GCC 1
+// #define TARP_COMPILER_CLANG 0
+// #define TARP_COMPILER_GCC 1
 
-#if defined(__clang__)
-#define TARP_COMPILER TARP_COMPILER_CLANG
-#elif defined(__GNUC__)
-#define TARP_COMPILER TARP_COMPILER_GCC
-#endif
+// #if defined(__clang__)
+// #define TARP_COMPILER TARP_COMPILER_CLANG
+// #elif defined(__GNUC__)
+// #define TARP_COMPILER TARP_COMPILER_GCC
+// #endif
 
-#if TARP_COMPILER == TARP_COMPILER_CLANG || TARP_COMPILER == TARP_COMPILER_GCC
-#define TARP_POINTER_SIZE __SIZEOF_POINTER__
-#define TARP_INT_SIZE __SIZEOF_INT__
-#else
-#error "Can't detect pointer/integer size at preprocessor stage on your platform :("
-#endif
+// #if TARP_COMPILER == TARP_COMPILER_CLANG || TARP_COMPILER == TARP_COMPILER_GCC
+// #define TARP_POINTER_SIZE __SIZEOF_POINTER__
+// #define TARP_INT_SIZE __SIZEOF_INT__
+// #else
+// #error "Can't detect pointer/integer size at preprocessor stage on your platform :("
+// #endif
 
-#if TARP_POINTER_SIZE == TARP_INT_SIZE * 2
-#define TARP_HANDLE_FITS_POINTER
-#endif
+// #if TARP_POINTER_SIZE == TARP_INT_SIZE * 2
+// #define TARP_HANDLE_FITS_POINTER
+// #endif
 
-// TARP_DECLARE_ARRAY(tpIntArray, int);
-#define _TARP_ARRAY_T tpIntArray
-#define _TARP_ITEM_T int
-#include <Tarp/TarpArray.h>
+// // TARP_DECLARE_ARRAY(tpIntArray, int);
+// #define _TARP_ARRAY_T tpIntArray
+// #define _TARP_ITEM_T int
+// #include <Tarp/TarpArray.h>
+
+#include <time.h>
 
 // typedef struct
 // {
@@ -143,10 +145,75 @@
 //     return (FU){1, 99};
 // }
 
+typedef struct
+{
+    float x, y;
+} SomeVect;
+
+static inline SomeVect addByValue(SomeVect _a, SomeVect _b)
+{
+    return (SomeVect) {_a.x + _b.x, _a.y + _b.y};
+}
+
+static inline SomeVect addByPtr(const SomeVect * _a, const SomeVect * _b)
+{
+    return (SomeVect) {_a->x + _b->x, _a->y + _b->y};
+}
+
+static inline void addByPtr2(const SomeVect * _a, const SomeVect * _b, SomeVect * _result)
+{
+    _result->x = _a->x + _b->x;
+    _result->y = _a->y + _b->y;
+}
+
+typedef float SomeVec2[2];
+
+static inline void addWeird(const SomeVec2 _a, const SomeVec2 _b, SomeVec2 _result)
+{
+    _result[0] = _a[0] + _b[0];
+    _result[1] = _a[1] + _b[1];
+}
 
 int main(int argc, char * argv[])
 {
     // COMPILE_TIME_ASSERT(sizeof(Handle) != sizeof(void*));
+
+    // clock_t start, end;
+    // double cpu_time_used;
+
+    // SomeVect adder = {0.1, 0.1};
+    // start = clock();
+    // SomeVect sval = {0, 0};
+    // for (size_t i = 0; i < 10000000000; ++i)
+    // {
+    //     sval = addByValue(sval, adder);
+    // }
+    // end = clock();
+    // cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    // printf("TIME USED BY VALUE %f %f %f\n", cpu_time_used, sval.x, sval.y);
+
+    // start = clock();
+    // SomeVect sval3 = {0, 0};
+    // for (size_t i = 0; i < 10000000000; ++i)
+    // {
+    //     sval3 = addByPtr(&sval3, &adder);
+    // }
+    // end = clock();
+    // cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    // printf("TIME USED BY VALUE %f %f %f\n", cpu_time_used, sval3.x, sval3.y);
+
+    // SomeVec2 adder2 = {0.1, 0.1};
+    // start = clock();
+    // SomeVec2 sval2 = {0, 0};
+    // for (size_t i = 0; i < 10000000000; ++i)
+    // {
+    //     addWeird(sval2, adder2, sval2);
+    // }
+    // end = clock();
+    // cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    // printf("TIME USED BY WEIRD %f %f %f\n", cpu_time_used, sval2[0], sval2[1]);
+
+    // return EXIT_SUCCESS;
 
     // initialize glfw
     if (!glfwInit())
@@ -266,7 +333,7 @@ int main(int argc, char * argv[])
 
     // tpIntArrayDeallocate(&array);
 
-    //create the window
+    // create the window
     GLFWwindow * window = glfwCreateWindow(800, 600, "Basic Tarp Example", NULL, NULL);
     if (window)
     {
@@ -320,6 +387,12 @@ int main(int argc, char * argv[])
 
         tpStyleSetDashOffset(style, -31);
 
+
+        tpGradient grad = tpGradientCreateLinear(&ctx, 100, 100, 200, 200);
+        tpGradientAddColorStop(grad, 0, 0, 0, 1, 0.0);
+        tpGradientAddColorStop(grad, 1, 1, 0, 1, 1.0);
+        tpStyleSetFillGradient(style, grad);
+
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
 
@@ -366,8 +439,8 @@ int main(int argc, char * argv[])
 
             glViewport(0, 0, width, height);
 
-            tpStyleSetDashOffset(style, off);
-            off -= 0.05;
+            // tpStyleSetDashOffset(style, off);
+            // off -= 0.05;
 
             tpMat4 proj = tpMat4Ortho(0, 800, 600, 0, -1, 1);
             tpSetProjection(&ctx, &proj);
@@ -389,4 +462,6 @@ int main(int argc, char * argv[])
     // clean up glfw
     glfwDestroyWindow(window);
     glfwTerminate();
+
+    return EXIT_SUCCESS;
 }
