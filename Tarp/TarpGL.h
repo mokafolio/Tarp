@@ -116,7 +116,8 @@ static const char * _fragmentShaderCodeTexture =
     "out vec4 pixelColor; \n"
     "void main() \n"
     "{ \n"
-    "pixelColor = texture(tex, itc) * vec4(0.0); \n"
+    "pixelColor = texture(tex, itc); \n"
+    // "pixelColor = vec4(0, 0, 0, 1.0);\n"
     "} \n";
 
 #define _TARP_STACK_BUFFER_T _tpFloatStackBuffer
@@ -202,6 +203,17 @@ typedef struct
 
 typedef struct
 {
+    tpVec2 vertex;
+    tpVec2 tc;
+} _tpGLTextureVertex;
+
+#define _TARP_ARRAY_T _tpGLTextureVertexArray
+#define _TARP_ITEM_T _tpGLTextureVertex
+#define _TARP_COMPARATOR_T 0
+#include <Tarp/TarpArray.h>
+
+typedef struct
+{
     tpPaintType strokeType;
     tpFloat strokeWidth;
     tpFloat dashOffset;
@@ -233,12 +245,14 @@ typedef struct
 
     //rendering specific data/caches
     _tpVec2Array geometryCache;
+    _tpGLTextureVertexArray textureGeometryCache;
     _tpBoolArray jointCache;
 
     tpBool bPathGeometryDirty;
     tpFloat lastTransformScale;
     tpMat4 renderTransform;
     _tpGLRect boundsCache;
+    _tpGLRect strokeBoundsCache;
 
     //holds the properties that the stroke geometry
     //was generated with.
@@ -309,17 +323,8 @@ struct _tpContextData
     GLuint program;
     GLuint textureProgram;
 
-    // _tpGLVAO vao;
-    // _tpGLVAO textureVao;
-
-    // we use two vaos, one for basic drawing and one for textured drawing.
-    // both vaos share one vbo so that we only have to upload data once for
-    // each path drawn.
-    GLuint vao;
-    GLuint textureVao;
-    GLuint textureVBO;
-    GLuint vbo;
-    GLuint vboSize;
+    _tpGLVAO vao;
+    _tpGLVAO textureVao;
 
     GLuint currentClipStencilPlane;
     tpPath clippingStack[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
@@ -328,9 +333,14 @@ struct _tpContextData
     _tpGLPathPtrArray paths;
     _tpGLStylePtrArray styles;
     _tpGLGradientPtrArray gradients;
+
     //used to temporarily store vertex/stroke data (think double buffering)
     _tpVec2Array tmpVertices;
     _tpBoolArray tmpJoints;
+
+    //same helper for texture vertices
+    _tpGLTextureVertexArray tmpTexVertices;
+
     _tpColorStopArray tmpColorStops;
     char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
 };
@@ -452,26 +462,25 @@ tpBool tpContextInit(tpContext * _ctx)
         return ret;
     }
 
-    ASSERT_NO_GL_ERROR(glGenBuffers(1, &_ctx->vbo));
-    ASSERT_NO_GL_ERROR(glGenBuffers(1, &_ctx->textureVBO));
-    _ctx->vboSize = 0;
-
-    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
-
-    ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &_ctx->vao));
-    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao));
+    ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &_ctx->vao.vao));
+    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
+    ASSERT_NO_GL_ERROR(glGenBuffers(1, &_ctx->vao.vbo));
+    _ctx->vao.vboSize = 0;
+    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
     ASSERT_NO_GL_ERROR(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, ((char *)0)));
     ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(0));
 
-    ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &_ctx->textureVao));
-    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao));
-    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVBO));
-    ASSERT_NO_GL_ERROR(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float), ((char *)0)));
+    ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &_ctx->textureVao.vao));
+    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
+    ASSERT_NO_GL_ERROR(glGenBuffers(1, &_ctx->textureVao.vbo));
+    _ctx->textureVao.vboSize = 0;
+    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
+    ASSERT_NO_GL_ERROR(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(tpFloat), ((char *)0)));
     ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(0));
-    ASSERT_NO_GL_ERROR(glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 3 * sizeof(float), ((char *)(2 * sizeof(float)))));
+    ASSERT_NO_GL_ERROR(glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(tpFloat), ((char *)(2 * sizeof(float)))));
     ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(1));
 
-    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
+    // ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
 
     _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
     _ctx->clippingStackDepth = 0;
@@ -482,6 +491,7 @@ tpBool tpContextInit(tpContext * _ctx)
     _tpGLStylePtrArrayInit(&_ctx->styles, 8);
     _tpVec2ArrayInit(&_ctx->tmpVertices, 512);
     _tpBoolArrayInit(&_ctx->tmpJoints, 256);
+    _tpGLTextureVertexArrayInit(&_ctx->tmpTexVertices, 64);
     _tpColorStopArrayInit(&_ctx->tmpColorStops, 16);
 
     return ret;
@@ -491,10 +501,11 @@ tpBool tpContextDeallocate(tpContext * _ctx)
 {
     //free all opengl resources
     glDeleteProgram(_ctx->program);
-    glDeleteBuffers(1, &_ctx->vbo);
-    glDeleteVertexArrays(1, &_ctx->vao);
+    glDeleteBuffers(1, &_ctx->vao.vbo);
+    glDeleteVertexArrays(1, &_ctx->vao.vao);
     glDeleteProgram(_ctx->textureProgram);
-    glDeleteVertexArrays(1, &_ctx->textureVao);
+    glDeleteBuffers(1, &_ctx->textureVao.vbo);
+    glDeleteVertexArrays(1, &_ctx->textureVao.vao);
 
     // deallocate all gradients
     for (int i = 0; i < _ctx->gradients.count; ++i)
@@ -519,6 +530,7 @@ tpBool tpContextDeallocate(tpContext * _ctx)
 
     _tpBoolArrayDeallocate(&_ctx->tmpJoints);
     _tpVec2ArrayDeallocate(&_ctx->tmpVertices);
+    _tpGLTextureVertexArrayDeallocate(&_ctx->tmpTexVertices);
     _tpColorStopArrayDeallocate(&_ctx->tmpColorStops);
 
     return tpFalse;
@@ -548,6 +560,7 @@ tpPath tpPathCreate(tpContext * _ctx)
     path->transform = tpMat3Identity();
 
     _tpVec2ArrayInit(&path->geometryCache, 128);
+    _tpGLTextureVertexArrayInit(&path->textureGeometryCache, 32);
     _tpBoolArrayInit(&path->jointCache, 128);
     path->bPathGeometryDirty = tpTrue;
     path->lastTransformScale = 1.0;
@@ -578,6 +591,7 @@ void tpPathDestroy(tpPath _path)
     _tpGLPathPtrArrayRemoveValue(&p->context->paths, p);
 
     _tpVec2ArrayDeallocate(&p->geometryCache);
+    _tpGLTextureVertexArrayDeallocate(&p->textureGeometryCache);
     _tpBoolArrayDeallocate(&p->jointCache);
     for (int i = 0; i < p->contours.count; ++i)
     {
@@ -2066,6 +2080,8 @@ void _tpGLFinalizeColorStops(tpContext * _ctx, _tpGLGradient * _grad)
     bHasStartStop = tpFalse;
     bHasEndStop = tpFalse;
 
+    printf("FINALIZE COLOR STOPS %i %i\n", _grad->stops.count, _ctx->tmpColorStops.count);
+
     //remove duplicates
     for (i = 0; i < _grad->stops.count; ++i)
     {
@@ -2076,17 +2092,17 @@ void _tpGLFinalizeColorStops(tpContext * _ctx, _tpGLGradient * _grad)
         else if (current->offset == 1)
             bHasEndStop = tpTrue;
 
-        for (j = 0; i < _ctx->tmpColorStops.count; ++j)
+        for (j = 0; j < _ctx->tmpColorStops.count; ++j)
         {
             if (current->offset == _tpColorStopArrayAtPtr(&_ctx->tmpColorStops, j)->offset)
             {
                 bAdd = tpFalse;
                 break;
             }
-
-            if (bAdd && current->offset >= 0 && current->offset <= 1)
-                _tpColorStopArrayAppendPtr(&_ctx->tmpColorStops, current);
         }
+
+        if (bAdd && current->offset >= 0 && current->offset <= 1)
+            _tpColorStopArrayAppendPtr(&_ctx->tmpColorStops, current);
     }
 
     // sort from 0 - 1 by offset
@@ -2124,7 +2140,8 @@ void _tpGLFinalizeColorStops(tpContext * _ctx, _tpGLGradient * _grad)
 //this function assumes that the gradients ramp texture is bound
 void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 {
-    tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE];
+    printf("UPDATE RAMP TEXTURE %i\n", _grad->stops.count);
+    tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = {1.0};
     int xStart, xEnd, diff, i, j;
     tpFloat mixFact;
     tpColor mixColor;
@@ -2159,14 +2176,36 @@ void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
             pixels[j].g = stop1->color.g + mixColor.g * mixFact;
             pixels[j].b = stop1->color.b + mixColor.b * mixFact;
             pixels[j].a = stop1->color.a + mixColor.a * mixFact;
+
+            printf("%f %f %f %f\n", pixels[j].r, pixels[j].g, pixels[j].b, pixels[j].a);
         }
         stop1 = stop2;
         xStart = xEnd;
     }
 
+    ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
+    ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, _grad->rampTexture));
     ASSERT_NO_GL_ERROR(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
     ASSERT_NO_GL_ERROR(glTexSubImage1D(GL_TEXTURE_1D, 0, 0, TARP_GL_RAMP_TEXTURE_SIZE,
                                        GL_RGBA, GL_FLOAT, &pixels[0].r));
+}
+
+void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
+{
+    printf("UPDATE VAOOOOO\n");
+    //not sure if this buffer orphaning style data upload makes a difference these days anymore. (TEST??)
+    if (_byteCount > _vao->vboSize)
+    {
+        printf("NEW BUFFER DATA\n");
+        ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _byteCount, _data, GL_DYNAMIC_DRAW));
+        _vao->vboSize = _byteCount;
+    }
+    else
+    {
+        printf("ORPH BUFFER\n");
+        ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _vao->vboSize, NULL, GL_DYNAMIC_DRAW));
+        ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, _byteCount, _data));
+    }
 }
 
 void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _paint)
@@ -2191,16 +2230,30 @@ void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _pai
         {
             printf("DRAWING LINEAR GRADIENT \n");
             ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
-            ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao));
-            ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVBO));
+            // ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->textureProgram, "meshColor"), 1, &_paint->data.color.r));
+            ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
+            ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
+
+            // printf("VERTEX COUNT %i\n", _path->textureGeometryCache.count);
+
+            // for (int i = 0; i < _path->textureGeometryCache.count; ++i)
+            // {
+            //     printf("TVERTEX CACHE: %f %f\n", _tpVec2ArrayAt(&_path->textureGeometryCache, i).x, _tpVec2ArrayAt(&_path->textureGeometryCache, i).y);
+            // }
+            // ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(_tpGLTextureVertex) * _path->textureGeometryCache.count, _path->textureGeometryCache.array, GL_DYNAMIC_DRAW));
+
+            _tpGLUpdateVAO(&_ctx->textureVao, _path->textureGeometryCache.array, sizeof(_tpGLTextureVertex) * _path->textureGeometryCache.count);
 
             // ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "transformProjection"), 1, false, !_tp ? _cache.transformProjection.ptr() : _tp->ptr()));
 
-            ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, 0, 4));
+
+            printf("DA OOOOF %i %i\n", _path->fillPaintVertexOffset, _path->geometryCache.count);
+            ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _path->fillPaintVertexOffset, _path->fillPaintVertexCount));
+            // ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _path->boundsVertexOffset, 4));
 
             ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
-            ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao));
-            ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
+            ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
+            ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
         }
         else
         {
@@ -2261,6 +2314,7 @@ void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _style)
         bounds.max.x += adder;
         bounds.max.y += adder;
 
+        _path->strokeBoundsCache = bounds;
         bptr = &bounds;
     }
     else
@@ -2281,140 +2335,126 @@ typedef struct
     tpFloat tc;
 } TexVertex;
 
-void _tpGLCacheStyle(_tpGLPath * _path, const _tpGLStyle * _style)
+void _tpGLGradientLinearGeometry(tpContext * _ctx,
+                                 _tpGLGradient * _grad,
+                                 const _tpGLGradient * _lastGrad,
+                                 const _tpGLRect * _bounds,
+                                 _tpGLTextureVertexArray * _vertices,
+                                 int * _outVertexOffset,
+                                 int * _outVertexCount)
 {
+    // check if we need to update the gradient
+    if (_grad->bDirty)
+    {
+        _grad->bDirty = tpFalse;
+        // ensure that the color stops are valid/complete
+        _tpGLFinalizeColorStops(_ctx, _grad);
+        // update the ramp texture
+        _tpGLUpdateRampTexture(_grad);
+        _lastGrad = NULL;
+    }
+
+    // regenerate the geometry for this path/gradient combo
+    if (_lastGrad != _grad)
+    {
+        _tpGLTextureVertex vertices[8];
+        TexVertex v2[4];
+        tpVec2 dir, ndir, perp, nperp, center;
+        tpVec2 corners[4];
+        tpVec2 tmp, tmp2, tmp3;
+        tpVec2 results[8];
+        tpFloat len, o, s, left, right, minOffset, maxOffset;
+        const _tpGLRect * bounds;
+        int i;
+
+        bounds = _bounds;
+
+        dir = tpVec2Sub(_grad->destination, _grad->origin);
+        len = tpVec2Length(dir);
+        ndir.x = dir.x / len;
+        ndir.y = dir.y / len;
+        perp.x = -dir.y;
+        perp.y = dir.x;
+        nperp.x = -ndir.y;
+        nperp.y = ndir.x;
+
+        center = _grad->origin;
+
+        corners[0] = tpVec2Sub(bounds->min, center);
+        corners[1].x = bounds->max.x - center.x;
+        corners[1].y = bounds->min.y - center.y;
+        corners[2].x = bounds->min.x - center.x;
+        corners[2].y = bounds->max.y - center.y;
+        corners[3] = tpVec2Sub(bounds->max, center);
+
+        for (i = 0; i < 4; ++i)
+        {
+            o = tpVec2Dot(corners[i], ndir) / len;
+            s = tpVec2Dot(corners[i], nperp);
+
+            if (o < minOffset || i == 0) minOffset = o;
+            if (o > maxOffset || i == 0) maxOffset = o;
+
+            if (i == 0 || s < left) left = s;
+            if (i == 0 || s > right) right = s;
+        }
+
+        tmp = tpVec2MultScalar(ndir, minOffset * len);
+        tmp2 = tpVec2Add(center, tpVec2MultScalar(nperp, left));
+        tmp3 = tpVec2Add(center, tpVec2MultScalar(nperp, right));
+        vertices[0].vertex = tpVec2Add(tmp2, tmp);
+        vertices[0].tc.x = minOffset;
+        vertices[1].vertex = tpVec2Add(tmp3, tmp);
+        vertices[1].tc.x = minOffset;
+        tmp = tpVec2MultScalar(ndir, maxOffset * len);
+        vertices[2].vertex = tpVec2Add(tmp2, tmp);
+        vertices[2].tc.x = maxOffset;
+        vertices[3].vertex = tpVec2Add(tmp3, tmp);
+        vertices[3].tc.x = maxOffset;
+
+        *_outVertexOffset = _vertices->count;
+        *_outVertexCount = 4;
+        _tpGLTextureVertexArrayAppendArray(_vertices, vertices, 4);
+    }
+}
+
+void _tpGLCacheStyleGeometry(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle * _style)
+{
+    int changeCount = 0;
+
+    assert(_ctx->tmpTexVertices.count == 0);
     if (_style->fill.type == kTpPaintTypeGradient)
     {
         printf("FINALIZING GRADIENT\n");
         _tpGLGradient * grad = (_tpGLGradient *)_style->fill.data.gradient.pointer;
 
-        // check if we need to update the gradient
-        if (grad->bDirty)
-        {
-            grad->bDirty = tpFalse;
-            // ensure that the color stops are valid/complete
-            _tpGLFinalizeColorStops(_path->context, grad);
-            // update the ramp texture
-            _tpGLUpdateRampTexture(grad);
-            _path->lastFillGradient = NULL;
-        }
-
-        // regenerate the geometry for this path/gradient combo
-        if (_path->lastFillGradient != grad)
-        {
-            tpVec2 vertices[8];
-            TexVertex v2[4];
-            tpVec2 dir, ndir, perp, nperp, center;
-            tpVec2 corners[4];
-            tpVec2 tmp, tmp2, tmp3;
-            tpVec2 results[8];
-            tpFloat len, o, s, left, right, minOffset, maxOffset;
-            _tpGLRect * bounds;
-            int i;
-
-            bounds = &_path->boundsCache;
-
-            dir = tpVec2Sub(grad->destination, grad->origin);
-            len = tpVec2Length(dir);
-            ndir.x = dir.x / len;
-            ndir.y = dir.y / len;
-            perp.x = -dir.y;
-            perp.y = dir.x;
-            nperp.x = -ndir.y;
-            nperp.y = ndir.x;
-
-            center = grad->origin;
-
-            corners[0] = tpVec2Sub(bounds->min, center);
-            corners[1].x = bounds->max.x - center.x;
-            corners[1].y = bounds->min.y - center.y;
-            corners[2].x = bounds->min.x - center.x;
-            corners[2].y = bounds->max.y - center.y;
-            corners[3] = tpVec2Sub(bounds->max, center);
-
-            for (i = 0; i < 4; ++i)
-            {
-                o = tpVec2Dot(corners[i], ndir) / len;
-                s = tpVec2Dot(corners[i], nperp);
-
-                if (o < minOffset || i == 0) minOffset = o;
-                if (o > maxOffset || i == 0) maxOffset = o;
-
-                if (i == 0 || s < left) left = s;
-                if (i == 0 || s > right) right = s;
-            }
-
-            tmp = tpVec2MultScalar(ndir, minOffset * len);
-            tmp2 = tpVec2Add(center, tpVec2MultScalar(nperp, left));
-            tmp3 = tpVec2Add(center, tpVec2MultScalar(nperp, right));
-            vertices[0] = tpVec2Add(tmp2, tmp);
-            vertices[1].x = minOffset;
-            vertices[4] = tpVec2Add(tmp3, tmp);
-            vertices[5].x = minOffset;
-            tmp = tpVec2MultScalar(ndir, maxOffset * len);
-            vertices[2] = tpVec2Add(tmp2, tmp);
-            vertices[3].x = maxOffset;
-            vertices[6] = tpVec2Add(tmp3, tmp);
-            vertices[7].x = maxOffset;
-
-            for(int i = 0; i < 8; ++i)
-            {
-                printf("GRAD CORNER: %f %f\n", vertices[i].x, vertices[i].y);
-            }
-
-            _path->fillPaintVertexOffset = _path->geometryCache.count;
-            _path->fillPaintVertexCount = 4;
-
-
-            // vertices[0] = tpVec2Make(0, 0);
-            // vertices[1] = tpVec2Make(0, 0);
-            // vertices[2] = tpVec2Make(0, 300);
-            // vertices[3] = tpVec2Make(0, 0);
-            // vertices[4] = tpVec2Make(300, 0);
-            // vertices[5] = tpVec2Make(1, 0);
-            // vertices[6] = tpVec2Make(300, 300);
-            // vertices[7] = tpVec2Make(1, 0);
-
-            v2[0] = (TexVertex){{10, 10}, 0};
-            v2[1] = (TexVertex){{10, 500}, 1};
-            v2[2] = (TexVertex){{500, 10}, 0};
-            v2[3] = (TexVertex){{500, 500}, 1};
-
-            // _tpVec2ArrayAppendArray(&_path->geometryCache, results, 8);
-            ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _path->context->textureVBO));
-            ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(TexVertex) * 4, v2, GL_DYNAMIC_DRAW));
-            ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _path->context->vbo));
-        }
+        _tpGLGradientLinearGeometry(_ctx, grad, _path->lastFillGradient,
+                                    &_path->boundsCache, &_ctx->tmpTexVertices,
+                                    &_path->fillPaintVertexOffset, &_path->fillPaintVertexCount);
 
         _path->lastFillGradient = grad;
+        changeCount++;
     }
 
-    // if (_style->stroke.type == kTpPaintTypeGradient)
-    // {
+    if (_style->stroke.type == kTpPaintTypeGradient)
+    {
+        _tpGLGradient * grad = (_tpGLGradient *)_style->stroke.data.gradient.pointer;
 
-    // }
+        _tpGLGradientLinearGeometry(_ctx, grad, _path->lastStrokeGradient,
+                                    &_path->strokeBoundsCache, &_ctx->tmpTexVertices,
+                                    &_path->strokePaintVertexOffset, &_path->strokePaintVertexCount);
+
+        _path->lastStrokeGradient = grad;
+        changeCount++;
+    }
+
+    _tpGLTextureVertexArrayClear(&_path->textureGeometryCache);
+    _tpGLTextureVertexArraySwap(&_path->textureGeometryCache, &_ctx->tmpTexVertices);
 }
-
-// void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
-// {
-//     //not sure if this buffer orphaning style data upload makes a difference these days anymore. (TEST??)
-//     if (_byteCount > _vao->vboSize)
-//     {
-//         printf("NEW BUFFER DATA\n");
-//         ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _byteCount, _data, GL_DYNAMIC_DRAW));
-//         _vao->vboSize = _byteCount;
-//     }
-//     else
-//     {
-//         printf("ORPH BUFFER\n");
-//         ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _vao->vboSize, NULL, GL_DYNAMIC_DRAW));
-//         ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, _byteCount, _data));
-//     }
-// }
 
 tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 {
-    GLint bufferSize, currentSize, i;
+    GLint i;
     _tpGLContour * c;
 
     assert(_ctx);
@@ -2424,11 +2464,8 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     assert(_tpGLIsValidPath(p));
     assert(_tpGLIsValidStyle(s));
 
-    if (s->fill.type == kTpPaintTypeGradient)
-    {
-        printf("ITS A GRADIENT BABY\n");
-    }
-
+    // check if the path geometry is dirty.
+    // if so, rebuild everything!
     if (p->bPathGeometryDirty)
     {
         printf("RE BUILD STUFF\n");
@@ -2448,16 +2485,15 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         _tpVec2ArraySwap(&p->geometryCache, &_ctx->tmpVertices);
         _tpBoolArraySwap(&p->jointCache, &_ctx->tmpJoints);
 
-        //cache the path bounds
+        //save the path bounds
         p->boundsCache = bounds;
 
-        //add the bounds geometry to the geom cache.
+        //add the bounds geometry to the geom cache (and potentially cache stroke bounds)
         _tpGLCacheBoundsGeometry(p, s);
 
-        //cache the style related geometry
+        //force recalculation of gradient related geometries
         p->lastFillGradient = NULL;
         p->lastStrokeGradient = NULL;
-        _tpGLCacheStyle(p, s);
     }
     //check if the stroke should be removed
     else if ((s->stroke.type == kTpPaintTypeNone &&
@@ -2489,11 +2525,27 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 
         //add the bounds geometry to the geom cache.
         _tpGLCacheBoundsGeometry(p, s);
+
+        //force rebuilding of the stroke gradient geometry
+        p->lastStrokeGradient = NULL;
     }
 
-    //cache potential extra geometry for the style (only does anything for gradient fills/strokes right now)
+    if (s->fill.type == kTpPaintTypeGradient)
     {
+        _tpGLGradient * grad = (_tpGLGradient *)s->fill.data.gradient.pointer;
+        if (grad != p->lastFillGradient)
+        {
 
+        }
+    }
+
+    if (s->stroke.type == kTpPaintTypeGradient)
+    {
+        _tpGLGradient * grad = (_tpGLGradient *)s->stroke.data.gradient.pointer;
+        if (grad != p->lastStrokeGradient)
+        {
+
+        }
     }
 
     ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
@@ -2501,8 +2553,8 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
     ASSERT_NO_GL_ERROR(glDepthMask(GL_FALSE));
     ASSERT_NO_GL_ERROR(glEnable(GL_MULTISAMPLE));
-    ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
-    ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    // ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
+    // ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
     ASSERT_NO_GL_ERROR(glEnable(GL_STENCIL_TEST));
     ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
     ASSERT_NO_GL_ERROR(glClearStencil(0));
@@ -2523,54 +2575,52 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     //@TODO: Cache the uniform loc
     ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transform"), 1, GL_FALSE, &p->renderTransform.v[0]));
     ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "projection"), 1, GL_FALSE, &_ctx->projection.v[0]));
-    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao));
-    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
+    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
+    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
     // ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(0));
 
     // ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(1));
     // ASSERT_NO_GL_ERROR(glUniform4f(glGetUniformLocation(_ctx->program, "meshColor"), 1.0, 0.0, 0.0, 1.0));
 
     //upload the paths geometry cache to the gpu
-    // _tpGLUpdateVAO(&_ctx->vao, p->geometryCache.array, sizeof(tpVec2) * p->geometryCache.count);
+    _tpGLUpdateVAO(&_ctx->vao, p->geometryCache.array, sizeof(tpVec2) * p->geometryCache.count);
 
-    currentSize = sizeof(tpVec2) * p->geometryCache.count;
-    //not sure if this buffer orphaning style data upload makes a difference these days anymore. (TEST??)
-    if (currentSize > _ctx->vboSize)
-    {
-        printf("NEW BUFFER DATA\n");
-        ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, currentSize, p->geometryCache.array, GL_DYNAMIC_DRAW));
-        _ctx->vboSize = currentSize;
-    }
-    else
-    {
-        printf("ORPH BUFFER\n");
-        ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _ctx->vboSize, NULL, GL_DYNAMIC_DRAW));
-        ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, currentSize, p->geometryCache.array));
-    }
+    // currentSize = sizeof(tpVec2) * p->geometryCache.count;
+    // //not sure if this buffer orphaning style data upload makes a difference these days anymore. (TEST??)
+    // if (currentSize > _ctx->vboSize)
+    // {
+    //     printf("NEW BUFFER DATA\n");
+    //     ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, currentSize, p->geometryCache.array, GL_DYNAMIC_DRAW));
+    //     _ctx->vboSize = currentSize;
+    // }
+    // else
+    // {
+    //     printf("ORPH BUFFER\n");
+    //     ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _ctx->vboSize, NULL, GL_DYNAMIC_DRAW));
+    //     ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, currentSize, p->geometryCache.array));
+    // }
 
 
     //draw the fill
     _tpGLDrawFillEvenOdd(_ctx, p, s);
 
     //draw the stroke
-    ASSERT_NO_GL_ERROR(glStencilMask(_kTpStrokeRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
-    ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _kTpClipStencilPlaneOne));
-    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
+    if (p->strokeVertexCount)
+    {
+        ASSERT_NO_GL_ERROR(glStencilMask(_kTpStrokeRasterStencilPlane));
+        ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
+        ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _kTpClipStencilPlaneOne));
+        ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 
-    //Draw all stroke triangles at once
-    ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, p->strokeVertexOffset, p->strokeVertexCount));
-    // for(i = 0; i < p->contours.count; ++i)
-    // {
-    //     c = _tpGLContourArrayAtPtr(&p->contours, i);
-    //     ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, c->strokeVertexOffset, c->strokeVertexCount));
-    // }
+        //Draw all stroke triangles of all contours at once
+        ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, p->strokeVertexOffset, p->strokeVertexCount));
 
-    ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
-    ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpStrokeRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
+        ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+        ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpStrokeRasterStencilPlane));
+        ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
 
-    _tpGLDrawPaint(_ctx, p, &s->stroke);
+        _tpGLDrawPaint(_ctx, p, &s->stroke);
+    }
 
     return tpFalse;
 }
