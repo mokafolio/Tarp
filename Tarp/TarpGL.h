@@ -1058,6 +1058,22 @@ void tpStyleSetFillType(tpStyle _style, tpFillType _fillType)
     s->fillType = _fillType;
 }
 
+void tpStyleRemoveFill(tpStyle _style)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->fill.type = kTpPaintTypeNone;
+}
+
+void tpStyleRemoveStroke(tpStyle _style)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->stroke.type = kTpPaintTypeNone;
+}
+
 tpGradient tpGradientCreateLinear(tpContext * _ctx, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
 {
     _tpGLGradient * ret = malloc(sizeof(_tpGLGradient));

@@ -283,6 +283,10 @@ void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap);
 
 void tpStyleSetFillType(tpStyle _style, tpFillType _fillType);
 
+void tpStyleRemoveFill(tpStyle _style);
+
+void tpStyleRemoveStroke(tpStyle _style);
+
 tpGradient tpGradientCreateLinear(tpContext * _ctx, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
 void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset);

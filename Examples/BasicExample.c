@@ -395,6 +395,7 @@ int main(int argc, char * argv[])
 
         tpGradient grad2 = tpGradientCreateLinear(&ctx, 100, 150, 200, 150);
         tpGradientAddColorStop(grad2, 1, 1, 0, 1, 0.0);
+        tpGradientAddColorStop(grad2, 1, 0, 1, 1, 0.25);
         tpGradientAddColorStop(grad2, 0, 1, 1, 1, 1.0);
         tpStyleSetStrokeGradient(style, grad2);
 
@@ -453,6 +454,8 @@ int main(int argc, char * argv[])
 
             glfwSwapBuffers(window);
             glfwPollEvents();
+
+            // tpStyleRemoveStroke(style);
         }
 
         tpContextDeallocate(&ctx);
