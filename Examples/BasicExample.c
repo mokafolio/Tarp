@@ -174,6 +174,12 @@ static inline void addWeird(const SomeVec2 _a, const SomeVec2 _b, SomeVec2 _resu
     _result[1] = _a[1] + _b[1];
 }
 
+static inline float randomFloat(float _a, float _b)
+{
+    float ret = (float)rand() / (float)RAND_MAX;
+    return _a + (_b - _a) * ret;
+}
+
 int main(int argc, char * argv[])
 {
     // COMPILE_TIME_ASSERT(sizeof(Handle) != sizeof(void*));
@@ -431,6 +437,8 @@ int main(int argc, char * argv[])
         // tpPathDestroy(p);
 
         tpFloat off = 0.0;
+
+        int counter = 0;
         // the main loop
         while (!glfwWindowShouldClose(window))
         {
@@ -454,6 +462,28 @@ int main(int argc, char * argv[])
 
             glfwSwapBuffers(window);
             glfwPollEvents();
+
+            counter++;
+
+            if (counter >= 60)
+            {
+                float a = randomFloat(100, 200);
+                float b = randomFloat(100, 200);
+                float c = randomFloat(100, 200);
+                float d = randomFloat(100, 200);
+                printf("DA GRAD BABYBBB %f %f %f %f\n", a, b, c, d);
+                tpGradientDestroy(grad);
+
+                grad = tpGradientCreateLinear(&ctx, a, b, c, d);
+
+
+                tpGradientAddColorStop(grad, 1, 1, 0, 1, 0.0);
+                tpGradientAddColorStop(grad, 1, 0, 1, 1, 0.25);
+                tpGradientAddColorStop(grad, 0, 1, 1, 1, 1.0);
+                tpStyleSetFillGradient(style, grad);
+
+                counter = 0;
+            }
 
             // tpStyleRemoveStroke(style);
         }

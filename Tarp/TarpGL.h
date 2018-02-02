@@ -225,6 +225,7 @@ typedef struct
 
 typedef struct
 {
+    int gradientID;
     tpVec2 origin;
     tpVec2 destination;
     _tpColorStopArray stops;
@@ -238,7 +239,7 @@ typedef struct
 
 typedef struct
 {
-    _tpGLGradient * lastGradient;
+    int lastGradientID;
     _tpGLRect * bounds; //the bounds used by this gradient (i.e. stroke or fill)
     int vertexOffset;
     int vertexCount;
@@ -340,6 +341,8 @@ struct _tpContextData
     _tpGLStylePtrArray styles;
     _tpGLGradientPtrArray gradients;
 
+    int nextGradientID;
+
     //used to temporarily store vertex/stroke data (think double buffering)
     _tpVec2Array tmpVertices;
     _tpBoolArray tmpJoints;
@@ -359,7 +362,7 @@ typedef struct
 
 static inline void _tpGLGradientCacheDataInit(_tpGLGradientCacheData * _gd, _tpGLRect * _bounds)
 {
-    _gd->lastGradient = NULL;
+    _gd->lastGradientID = -1;
     _gd->bounds = _bounds;
     _gd->vertexOffset = 0;
     _gd->vertexCount = 0;
@@ -499,6 +502,7 @@ tpBool tpContextInit(tpContext * _ctx)
     _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
     _ctx->clippingStackDepth = 0;
     _ctx->projection = tpMat4Identity();
+    _ctx->nextGradientID = 0;
 
     _tpGLPathPtrArrayInit(&_ctx->paths, 32);
     _tpGLGradientPtrArrayInit(&_ctx->gradients, 8);
@@ -1083,6 +1087,7 @@ tpGradient tpGradientCreateLinear(tpContext * _ctx, tpFloat _x0, tpFloat _y0, tp
     _tpColorStopArrayInit(&ret->stops, 8);
     ret->context = _ctx;
     ret->bDirty = tpTrue;
+    ret->gradientID = _ctx->nextGradientID++;
 
     ASSERT_NO_GL_ERROR(glGenTextures(1, &ret->rampTexture));
     ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, ret->rampTexture));
@@ -1110,6 +1115,7 @@ void tpGradientDestroy(tpGradient _gradient)
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
     assert(_tpGLIsValidGradient(g));
+    ASSERT_NO_GL_ERROR(glDeleteTextures(1, &g->rampTexture));
     _tpColorStopArrayDeallocate(&g->stops);
     _tpGLGradientPtrArrayRemoveValue(&g->context->gradients, g);
     free(g);
@@ -2134,6 +2140,8 @@ void _tpGLFinalizeColorStops(tpContext * _ctx, _tpGLGradient * _grad)
     // sort from 0 - 1 by offset
     qsort(_ctx->tmpColorStops.array, _ctx->tmpColorStops.count, sizeof(tpColorStop), _tpGLColorStopComp);
 
+    printf("WOOT %i\n", _ctx->tmpColorStops.count);
+
     // make sure there is a stop at 0 and 1 offset
     if (!bHasStartStop || !bHasEndStop)
     {
@@ -2158,6 +2166,7 @@ void _tpGLFinalizeColorStops(tpContext * _ctx, _tpGLGradient * _grad)
     }
     else
     {
+        printf("SIMPLE STOP SWAP\n");
         //if they are already there, we can simply swap
         _tpColorStopArraySwap(&_grad->stops, &_ctx->tmpColorStops);
     }
@@ -2397,6 +2406,9 @@ void _tpGLGradientLinearGeometry(tpContext * _ctx,
         if (i == 0 || s > right) right = s;
     }
 
+    // minOffset = TARP_MAX(0.0, minOffset);
+    // maxOffset = TARP_MIN(1.0, maxOffset);
+
     tmp = tpVec2MultScalar(ndir, minOffset * len);
     tmp2 = tpVec2Add(center, tpVec2MultScalar(nperp, left));
     tmp3 = tpVec2Add(center, tpVec2MultScalar(nperp, right));
@@ -2409,6 +2421,11 @@ void _tpGLGradientLinearGeometry(tpContext * _ctx,
     vertices[2].tc.x = maxOffset;
     vertices[3].vertex = tpVec2Add(tmp3, tmp);
     vertices[3].tc.x = maxOffset;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        printf("DA LIN GRAD VERT %f %f %f\n", vertices[i].vertex.x, vertices[i].vertex.y, vertices[i].tc.x);
+    }
 
     *_outVertexOffset = _vertices->count;
     *_outVertexCount = 4;
@@ -2428,10 +2445,10 @@ static inline void _tpGLCacheGradientGeometry(tpContext * _ctx, _tpGLGradient * 
         _tpGLFinalizeColorStops(_ctx, grad);
         // update the ramp texture
         _tpGLUpdateRampTexture(grad);
-        _gradCache->lastGradient = NULL;
+        _gradCache->lastGradientID = -1;
     }
 
-    if (_gradCache->lastGradient != grad)
+    if (_gradCache->lastGradientID != grad->gradientID)
     {
         printf("REBUILDING GRAD\n");
         //rebuild the gradient
@@ -2446,10 +2463,11 @@ static inline void _tpGLCacheGradientGeometry(tpContext * _ctx, _tpGLGradient * 
         {
             //TODO :/
         }
-        _gradCache->lastGradient = grad;
+        _gradCache->lastGradientID = grad->gradientID;
     }
     else
     {
+        printf("COPY CACHED GRAD\n");
         //copy cached gradient data
         _tpGLTextureVertexArrayAppendArray(_vertices,
                                            _tpGLTextureVertexArrayAtPtr(&_path->textureGeometryCache, _gradCache->vertexOffset),
@@ -2545,8 +2563,8 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         _tpGLCacheBoundsGeometry(p, s);
 
         //force recalculation of gradient related geometries
-        p->fillGradientData.lastGradient = NULL;
-        p->strokeGradientData.lastGradient = NULL;
+        p->fillGradientData.lastGradientID = -1;
+        p->strokeGradientData.lastGradientID = -1;
     }
     //check if the stroke should be removed
     else if ((s->stroke.type == kTpPaintTypeNone &&
@@ -2580,12 +2598,14 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         _tpGLCacheBoundsGeometry(p, s);
 
         //force rebuilding of the stroke gradient geometry
-        p->strokeGradientData.lastGradient = NULL;
+        p->strokeGradientData.lastGradientID = -1;
     }
 
     // check if there are any gradients to be cached.
-    if ((s->fill.type == kTpPaintTypeGradient && p->fillGradientData.lastGradient != s->fill.data.gradient.pointer) ||
-            (s->stroke.type == kTpPaintTypeGradient && p->strokeGradientData.lastGradient != s->stroke.data.gradient.pointer))
+    if ((s->fill.type == kTpPaintTypeGradient &&
+            p->fillGradientData.lastGradientID != ((_tpGLGradient *)s->fill.data.gradient.pointer)->gradientID) ||
+            (s->stroke.type == kTpPaintTypeGradient &&
+             p->strokeGradientData.lastGradientID != ((_tpGLGradient *)s->stroke.data.gradient.pointer)->gradientID))
     {
         printf("GRADS GETTING UPDATED\n");
         _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
