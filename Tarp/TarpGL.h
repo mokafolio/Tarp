@@ -238,6 +238,15 @@ typedef struct
 
 typedef struct
 {
+    _tpGLGradient * lastGradient;
+    _tpGLRect * bounds; //the bounds used by this gradient (i.e. stroke or fill)
+    int vertexOffset;
+    int vertexCount;
+
+} _tpGLGradientCacheData;
+
+typedef struct
+{
     _tpGLContourArray contours;
     int currentContourIndex;
     char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
@@ -257,15 +266,12 @@ typedef struct
     //holds the properties that the stroke geometry
     //was generated with.
     _tpGLStrokeData lastStroke;
-    _tpGLGradient * lastFillGradient;
-    _tpGLGradient * lastStrokeGradient;
+
+    _tpGLGradientCacheData fillGradientData;
+    _tpGLGradientCacheData strokeGradientData;
 
     int strokeVertexOffset;
     int strokeVertexCount;
-
-    int fillPaintVertexOffset;
-    int fillPaintVertexCount;
-
     int boundsVertexOffset;
 
     //holds a pointer to the context that owns this path
@@ -350,6 +356,14 @@ typedef struct
     char message[TARP_GL_ERROR_MESSAGE_SIZE];
     int length;
 } _ErrorMessage;
+
+static inline void _tpGLGradientCacheDataInit(_tpGLGradientCacheData * _gd, _tpGLRect * _bounds)
+{
+    _gd->lastGradient = NULL;
+    _gd->bounds = _bounds;
+    _gd->vertexOffset = 0;
+    _gd->vertexCount = 0;
+}
 
 static tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint * _outHandle, _ErrorMessage * _outError)
 {
@@ -568,14 +582,10 @@ tpPath tpPathCreate(tpContext * _ctx)
 
     path->strokeVertexOffset = 0;
     path->strokeVertexCount = 0;
-
-    path->fillPaintVertexOffset = 0;
-    path->fillPaintVertexCount = 0;
-
     path->boundsVertexOffset = 0;
 
-    path->lastFillGradient = NULL;
-    path->lastStrokeGradient = NULL;
+    _tpGLGradientCacheDataInit(&path->fillGradientData, &path->boundsCache);
+    _tpGLGradientCacheDataInit(&path->strokeGradientData, &path->strokeBoundsCache);
 
     path->context = _ctx;
     _tpGLPathPtrArrayAppend(&_ctx->paths, path);
@@ -846,20 +856,20 @@ tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tp
     {
         int kappaIdx = i * 3;
 
-        printf("%f %f\n", s_unitSegments[kappaIdx].x, s_unitSegments[kappaIdx].y);
-        printf("%f %f\n", s_unitSegments[kappaIdx + 1].x, s_unitSegments[kappaIdx + 1].y);
-        printf("%f %f\n", s_unitSegments[kappaIdx + 2].x, s_unitSegments[kappaIdx + 2].y);
+        // printf("%f %f\n", s_unitSegments[kappaIdx].x, s_unitSegments[kappaIdx].y);
+        // printf("%f %f\n", s_unitSegments[kappaIdx + 1].x, s_unitSegments[kappaIdx + 1].y);
+        // printf("%f %f\n", s_unitSegments[kappaIdx + 2].x, s_unitSegments[kappaIdx + 2].y);
 
-        printf("COCK %f\n", s_unitSegments[kappaIdx + 1].x * rw + _x);
+        // printf("COCK %f\n", s_unitSegments[kappaIdx + 1].x * rw + _x);
         px = s_unitSegments[kappaIdx].x * rw + _x;
         py = s_unitSegments[kappaIdx].y * rh + _y;
         segs[i] = tpSegmentMake(s_unitSegments[kappaIdx + 1].x * rw + px, s_unitSegments[kappaIdx + 1].y * rh + py,
                                 px, py,
                                 s_unitSegments[kappaIdx + 2].x * rw + px, s_unitSegments[kappaIdx + 2].y * rh + py);
 
-        printf("HANDLE IN %f %f\n", segs[i].handleIn.x, segs[i].handleIn.y);
-        printf("POS %f %f\n", segs[i].position.x, segs[i].position.y);
-        printf("HANDLE Out %f %f\n", segs[i].handleOut.x, segs[i].handleOut.y);
+        // printf("HANDLE IN %f %f\n", segs[i].handleIn.x, segs[i].handleIn.y);
+        // printf("POS %f %f\n", segs[i].position.x, segs[i].position.y);
+        // printf("HANDLE Out %f %f\n", segs[i].handleOut.x, segs[i].handleOut.y);
     }
 
     tpBool err = _tpGLContourAddSegments(p, c, segs, 4);
@@ -1175,7 +1185,7 @@ void _tpGLPushQuad(_tpVec2Array * _vertices, tpVec2 _a, tpVec2 _b, tpVec2 _c, tp
 
 void _tpGLMakeCapOrJoinRound2(tpVec2 _p, tpVec2 _d, tpFloat _theta, tpFloat _radius, _tpVec2Array * _outVertices)
 {
-    printf("MAKE IT ROUND BB\n");
+    // printf("MAKE IT ROUND BB\n");
     tpFloat cosa, sina;
     tpVec2 dir, perp, last, current;
     int circleSubdivisionCount, i;
@@ -1227,7 +1237,7 @@ void _tpGLMakeJoinRound(tpVec2 _p,
 
     theta = acos(tpVec2Dot(nperp0, nperp1));
 
-    printf("ROUND JOIN\n");
+    // printf("ROUND JOIN\n");
 
     //@TODO: The stepsize should most likely take the stroke width in user space into account
     //(i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
@@ -1303,11 +1313,11 @@ void _tpGLMakeJoinMiter(tpVec2 _p,
     tpFloat t;
     tpVec2 intersection;
 
-    printf("MITER BABY!\n");
+    // printf("MITER BABY!\n");
     tpVec2 inv = tpVec2MultScalar(_dir1, -1);
     _tpGLIntersectLines(_e0, _dir0, _e1, _dir1, &intersection);
 
-    printf("INTER %f %f\n", intersection.x, intersection.y);
+    // printf("INTER %f %f\n", intersection.x, intersection.y);
 
     _tpGLPushQuad(_outVertices, _p, _e0, intersection, _e1);
 
@@ -1380,12 +1390,12 @@ void _tpGLMakeJoin(tpStrokeJoin _type,
             {
                 if (_cross < 0.0f)
                 {
-                    printf("MITER A\n");
+                    // printf("MITER A\n");
                     _tpGLMakeJoinMiter(_p, _lePrev, _le, _dir0, _dir1, _cross, _outVertices);
                 }
                 else
                 {
-                    printf("MITER B\n");
+                    // printf("MITER B\n");
                     _tpGLMakeJoinMiter(_p, _rePrev, _re, _dir0, _dir1, _cross, _outVertices);
                 }
                 break;
@@ -1475,7 +1485,7 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
     tpVec2 firstDir, firstPerp, firstLe, firstRe;
     tpFloat cross, halfSw;
 
-    printf("LKSJGKL %i %i\n", _vertices->count, _joints->count);
+    // printf("LKSJGKL %i %i\n", _vertices->count, _joints->count);
     assert(_vertices->count == _joints->count);
 
     halfSw = _style->strokeWidth * 0.5;
@@ -1483,10 +1493,10 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
     //generate the stroke geometry for each contour
     for (i = 0; i < _path->contours.count; ++i)
     {
-        printf("BLUBB %i\n", i);
+        // printf("BLUBB %i\n", i);
 
         voff = _vertices->count;
-        printf("BLUBB1 %i\n", voff);
+        // printf("BLUBB1 %i\n", voff);
         c = _tpGLContourArrayAtPtr(&_path->contours, i);
         c->strokeVertexOffset = voff;
         if (c->fillVertexCount <= 1)
@@ -1495,7 +1505,7 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
             continue;
         }
 
-        printf("A\n");
+        // printf("A\n");
         for (j = c->fillVertexOffset; j < c->fillVertexOffset + c->fillVertexCount - 1; ++j)
         {
             p0 = _tpVec2ArrayAt(_vertices, j);
@@ -1510,7 +1520,7 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
             re0 = tpVec2Sub(p0, perp);
             le1 = tpVec2Add(p1, perp);
             re1 = tpVec2Sub(p1, perp);
-            printf("B\n");
+            // printf("B\n");
 
             //check if this is the first segment / dash start
             if (j == c->fillVertexOffset)
@@ -1527,7 +1537,7 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
                 {
                     //if the contour is closed, we cache the directions and edges
                     //to be used for the last segments stroke calculations
-                    printf("CACHING\n");
+                    // printf("CACHING\n");
                     firstDir = dir;
                     firstPerp = perp;
                     firstLe = le0;
@@ -1539,7 +1549,7 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
                 //check if this is a joint
                 if (_tpBoolArrayAt(_joints, j))
                 {
-                    printf("MAKING DA JOIIIIIIN \n");
+                    // printf("MAKING DA JOIIIIIIN \n");
                     _tpGLMakeJoin(_style->strokeJoin, p0,
                                   dirPrev, dir,
                                   perpPrev, perp,
@@ -1560,10 +1570,10 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
             if (j == c->fillVertexOffset + c->fillVertexCount - 2 ||
                     c->fillVertexCount == 2)
             {
-                printf("PRE DEAD\n");
+                // printf("PRE DEAD\n");
                 if (_tpBoolArrayAt(_joints, j + 1))
                 {
-                    printf("MAKING DA LAST JOIN\n");
+                    // printf("MAKING DA LAST JOIN\n");
                     //last join
                     cross = tpVec2Cross(firstPerp, perp);
                     _tpGLMakeJoin(_style->strokeJoin, p1, dir, firstDir,
@@ -1574,7 +1584,7 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
                 else
                 {
                     //end cap
-                    printf("DA END CAP!!!!!\n");
+                    // printf("DA END CAP!!!!!\n");
                     firstDir = tpVec2MultScalar(dir, halfSw);
                     _tpGLMakeCap(_style->strokeCap, p1, firstDir, perp, le1, re1, tpFalse, _vertices);
                 }
@@ -1588,7 +1598,7 @@ void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, 
 
         c->strokeVertexCount = _vertices->count - voff;
         _path->strokeVertexCount += c->strokeVertexCount;
-        printf("FINISHED CONTOUR STRK %i %i\n", c->strokeVertexOffset, c->strokeVertexCount);
+        // printf("FINISHED CONTOUR STRK %i %i\n", c->strokeVertexOffset, c->strokeVertexCount);
     }
 }
 
@@ -1656,8 +1666,8 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
             startDashLen = _style->dashArray[startDashIndex] + startDashLen;
         }
 
-        printf("DASH STUFF %i %i %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
-               offsetIntoPattern, _style->dashArray[startDashIndex]);
+        // printf("DASH STUFF %i %i %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
+        //        offsetIntoPattern, _style->dashArray[startDashIndex]);
     }
 
     // printf("DASH STUFF %i %i %f %f %f %f\n", startDashIndex, bStartDashOn, startDashLen,
@@ -1679,17 +1689,17 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
         bFirstDashMightNeedJoin = tpFalse;
         bBarelyJoined = tpFalse;
 
-        printf("STROK NEXST CON\n");
-        printf("=================\n");
+        // printf("STROK NEXST CON\n");
+        // printf("=================\n");
 
         for (j = c->fillVertexOffset; j < c->fillVertexOffset + c->fillVertexCount - 1; ++j)
         {
             bLastSegment = j == c->fillVertexOffset + c->fillVertexCount - 2;
 
-            if (j == c->fillVertexOffset)
-            {
-                printf("FIRST SEG\n");
-            }
+            // if (j == c->fillVertexOffset)
+            // {
+            //     printf("FIRST SEG\n");
+            // }
             p0 = _tpVec2ArrayAt(_vertices, j);
             p1 = _tpVec2ArrayAt(_vertices, j + 1);
             dir = tpVec2Sub(p1, p0);
@@ -1700,12 +1710,12 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
             perp.x = dir.y * halfSw;
             perp.y = -dir.x * halfSw;
             cross = tpVec2Cross(perp, perpPrev);
-            printf("NEXT SEG %f\n", tpVec2Length(dir));
+            // printf("NEXT SEG %f\n", tpVec2Length(dir));
 
             //check if this is a joint
             if (bOnDash && _tpBoolArrayAt(_joints, j))
             {
-                printf("MAKING DA JOIIIIIIN \n");
+                // printf("MAKING DA JOIIIIIIN \n");
                 le0 = tpVec2Add(p0, perp);
                 re0 = tpVec2Sub(p0, perp);
                 _tpGLMakeJoin(_style->strokeJoin, p0,
@@ -1723,7 +1733,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
             do
             {
                 tpFloat left = TARP_MIN((segmentLen - segmentOff), dashLen - dashOffset);
-                printf("LEFT %f %i %f\n", left, bOnDash, dashOffset);
+                // printf("LEFT %f %i %f\n", left, bOnDash, dashOffset);
                 dirr = tpVec2MultScalar(dir, left);
                 p1 = tpVec2Add(p0, dirr);
 
@@ -1750,7 +1760,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
                     //might need a closing join in case the first and last dash of the contour touch.
                     else if (j == c->fillVertexOffset)
                     {
-                        printf("NNEED DA SPECIAL JOIN˜N\n");
+                        // printf("NNEED DA SPECIAL JOIN˜N\n");
                         bFirstDashMightNeedJoin = tpTrue;
                         firstDir = dir;
                         firstPerp = perp;
@@ -1765,7 +1775,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
 
                 if (bOnDash)
                 {
-                    printf("ADD QUAD\n");
+                    // printf("ADD QUAD\n");
                     //add the quad for the current dash on the current segment
                     _tpGLPushQuad(_vertices, le1, le0, re0, re1);
                 }
@@ -1776,15 +1786,15 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
 
                 if (dashOffset >= dashLen)
                 {
-                    printf("FINISH DASH\n");
+                    // printf("FINISH DASH\n");
 
                     if (bOnDash)
                     {
-                        printf("AKSJH %i %i %i\n", bFirstDashMightNeedJoin, bLastSegment, segmentLen - segmentOff <= 0);
+                        // printf("AKSJH %i %i %i\n", bFirstDashMightNeedJoin, bLastSegment, segmentLen - segmentOff <= 0);
                         //dont make cap if the first and last dash of the contour touch and the last dash is not finished.
                         if (!bFirstDashMightNeedJoin || !bLastSegment || segmentLen - segmentOff > 0)
                         {
-                            printf("NOO WAYYY CAP\n");
+                            // printf("NOO WAYYY CAP\n");
                             _tpGLMakeCap(_style->strokeCap, p1, dir, perp, le1, re1, tpFalse, _vertices);
                         }
                         else
@@ -1809,8 +1819,8 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
                 {
                     if ((bBarelyJoined || (dashOffset > 0 && bOnDash)))
                     {
-                        printf("MAKING LAST DASHED JOIN\n");
-                        printf("%f %f %f %i\n", dashOffset, segmentLen, segmentOff, bOnDash);
+                        // printf("MAKING LAST DASHED JOIN\n");
+                        // printf("%f %f %f %i\n", dashOffset, segmentLen, segmentOff, bOnDash);
                         cross = tpVec2Cross(firstPerp, perp);
                         _tpGLMakeJoin(_style->strokeJoin, p1, dir, firstDir,
                                       perp, firstPerp,
@@ -1820,7 +1830,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
                     else
                     {
                         //otherwise we simply add a starting cap to the first dash of the contour...
-                        printf("MAKING LAST DASHED CAP\n");
+                        // printf("MAKING LAST DASHED CAP\n");
                         tpVec2 tmpDir, tmpPerp;
                         tmpDir = tpVec2MultScalar(firstDir, -1 * halfSw);
                         tmpPerp.x = tmpDir.y;
@@ -1831,7 +1841,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
                 }
                 else if (dashOffset > 0 && bOnDash)
                 {
-                    printf("LAST CAP\n");
+                    // printf("LAST CAP\n");
                     _tpGLMakeCap(_style->strokeCap, p1, dir, perp, le1, re1, tpFalse, _vertices);
                 }
             }
@@ -1847,7 +1857,7 @@ void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tp
 
         c->strokeVertexCount = _vertices->count - voff;
         _path->strokeVertexCount += c->strokeVertexCount;
-        printf("CS %i %i\n", c->strokeVertexOffset, c->strokeVertexCount);
+        // printf("CS %i %i\n", c->strokeVertexOffset, c->strokeVertexCount);
     }
 }
 
@@ -1866,7 +1876,7 @@ void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _v
 
     //
     _path->strokeVertexOffset = _tpGLContourArrayAtPtr(&_path->contours, 0)->strokeVertexOffset;
-    printf("STROKE VERTEX OFF %i\n", _tpGLContourArrayAtPtr(&_path->contours, 0)->strokeVertexOffset);
+    // printf("STROKE VERTEX OFF %i\n", _tpGLContourArrayAtPtr(&_path->contours, 0)->strokeVertexOffset);
 
     // cache with what settings the stroke geometry was generated
     _path->lastStroke.strokeType = _style->stroke.type;
@@ -2177,7 +2187,7 @@ void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
             pixels[j].b = stop1->color.b + mixColor.b * mixFact;
             pixels[j].a = stop1->color.a + mixColor.a * mixFact;
 
-            printf("%f %f %f %f\n", pixels[j].r, pixels[j].g, pixels[j].b, pixels[j].a);
+            // printf("%f %f %f %f\n", pixels[j].r, pixels[j].g, pixels[j].b, pixels[j].a);
         }
         stop1 = stop2;
         xStart = xEnd;
@@ -2208,7 +2218,8 @@ void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
     }
 }
 
-void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _paint)
+static inline void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path,
+                                  const _tpGLPaint * _paint, const _tpGLGradientCacheData * _gradCache)
 {
     if (_paint->type == kTpPaintTypeColor)
     {
@@ -2232,28 +2243,15 @@ void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path, const _tpGLPaint * _pai
             ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
             // ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->textureProgram, "meshColor"), 1, &_paint->data.color.r));
             ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
-            ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
+            // ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
 
-            // printf("VERTEX COUNT %i\n", _path->textureGeometryCache.count);
+            // _tpGLUpdateVAO(&_ctx->textureVao, _path->textureGeometryCache.array, sizeof(_tpGLTextureVertex) * _path->textureGeometryCache.count);
 
-            // for (int i = 0; i < _path->textureGeometryCache.count; ++i)
-            // {
-            //     printf("TVERTEX CACHE: %f %f\n", _tpVec2ArrayAt(&_path->textureGeometryCache, i).x, _tpVec2ArrayAt(&_path->textureGeometryCache, i).y);
-            // }
-            // ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(_tpGLTextureVertex) * _path->textureGeometryCache.count, _path->textureGeometryCache.array, GL_DYNAMIC_DRAW));
-
-            _tpGLUpdateVAO(&_ctx->textureVao, _path->textureGeometryCache.array, sizeof(_tpGLTextureVertex) * _path->textureGeometryCache.count);
-
-            // ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "transformProjection"), 1, false, !_tp ? _cache.transformProjection.ptr() : _tp->ptr()));
-
-
-            printf("DA OOOOF %i %i\n", _path->fillPaintVertexOffset, _path->geometryCache.count);
-            ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _path->fillPaintVertexOffset, _path->fillPaintVertexCount));
-            // ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _path->boundsVertexOffset, 4));
+            ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _gradCache->vertexOffset, _gradCache->vertexCount));
 
             ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
             ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
-            ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
+            // ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
         }
         else
         {
@@ -2277,12 +2275,12 @@ void _tpGLDrawFillEvenOdd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle 
     //_transform ? & (*_transform).v[0] : NULL
     //@TODO: Cache the uniform loc
     // ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &mat.v[0]));
-    printf("COUNT %i\n", _path->geometryCache.count);
+    // printf("COUNT %i\n", _path->geometryCache.count);
     // ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, sizeof(tpVec2) * _path->geometryCache.count, _path->geometryCache.array, GL_DYNAMIC_DRAW));
     for (int i = 0; i < _path->contours.count; ++i)
     {
         _tpGLContour * c = _tpGLContourArrayAtPtr(&_path->contours, i);
-        printf("VC %i %i\n", c->fillVertexOffset, c->fillVertexCount);
+        // printf("VC %i %i\n", c->fillVertexOffset, c->fillVertexCount);
         ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
     }
 
@@ -2291,8 +2289,8 @@ void _tpGLDrawFillEvenOdd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle 
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO));
     ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
 
-    printf("DRAW DA FILL\n");
-    _tpGLDrawPaint(_ctx, _path, &_style->fill);
+    // printf("DRAW DA FILL\n");
+    _tpGLDrawPaint(_ctx, _path, &_style->fill, &_path->fillGradientData);
 }
 
 void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _style)
@@ -2306,14 +2304,15 @@ void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _style)
     //If there is a stroke, upload the stroke bounds instead
     if (_style->stroke.type != kTpPaintTypeNone)
     {
-        bounds = _path->boundsCache;
         tpFloat adder;
+        bounds = _path->boundsCache;
         adder = TARP_MAX(_style->strokeWidth, _style->miterLimit);
         bounds.min.x -= adder;
         bounds.min.y -= adder;
         bounds.max.x += adder;
         bounds.max.y += adder;
 
+        printf("SETTING STROKE BOUNDS\n");
         _path->strokeBoundsCache = bounds;
         bptr = &bounds;
     }
@@ -2337,120 +2336,158 @@ typedef struct
 
 void _tpGLGradientLinearGeometry(tpContext * _ctx,
                                  _tpGLGradient * _grad,
-                                 const _tpGLGradient * _lastGrad,
                                  const _tpGLRect * _bounds,
                                  _tpGLTextureVertexArray * _vertices,
                                  int * _outVertexOffset,
                                  int * _outVertexCount)
 {
-    // check if we need to update the gradient
-    if (_grad->bDirty)
-    {
-        _grad->bDirty = tpFalse;
-        // ensure that the color stops are valid/complete
-        _tpGLFinalizeColorStops(_ctx, _grad);
-        // update the ramp texture
-        _tpGLUpdateRampTexture(_grad);
-        _lastGrad = NULL;
-    }
-
     // regenerate the geometry for this path/gradient combo
-    if (_lastGrad != _grad)
+    _tpGLTextureVertex vertices[8];
+    tpVec2 dir, ndir, perp, nperp, center;
+    tpVec2 corners[4];
+    tpVec2 tmp, tmp2, tmp3;
+    tpFloat len, o, s, left, right, minOffset, maxOffset;
+    int i;
+
+    dir = tpVec2Sub(_grad->destination, _grad->origin);
+    len = tpVec2Length(dir);
+    ndir.x = dir.x / len;
+    ndir.y = dir.y / len;
+    perp.x = -dir.y;
+    perp.y = dir.x;
+    nperp.x = -ndir.y;
+    nperp.y = ndir.x;
+
+    center = _grad->origin;
+
+    printf("GRAD ORIGIN %f %f DES %f %f\n", center.x, center.y, _grad->destination.x, _grad->destination.y);
+
+    corners[0] = tpVec2Sub(_bounds->min, center);
+    corners[1].x = _bounds->max.x - center.x;
+    corners[1].y = _bounds->min.y - center.y;
+    corners[2].x = _bounds->min.x - center.x;
+    corners[2].y = _bounds->max.y - center.y;
+    corners[3] = tpVec2Sub(_bounds->max, center);
+
+    for (i = 0; i < 4; ++i)
     {
-        _tpGLTextureVertex vertices[8];
-        TexVertex v2[4];
-        tpVec2 dir, ndir, perp, nperp, center;
-        tpVec2 corners[4];
-        tpVec2 tmp, tmp2, tmp3;
-        tpVec2 results[8];
-        tpFloat len, o, s, left, right, minOffset, maxOffset;
-        const _tpGLRect * bounds;
-        int i;
+        o = tpVec2Dot(corners[i], ndir) / len;
+        s = tpVec2Dot(corners[i], nperp);
 
-        bounds = _bounds;
+        if (o < minOffset || i == 0) minOffset = o;
+        if (o > maxOffset || i == 0) maxOffset = o;
 
-        dir = tpVec2Sub(_grad->destination, _grad->origin);
-        len = tpVec2Length(dir);
-        ndir.x = dir.x / len;
-        ndir.y = dir.y / len;
-        perp.x = -dir.y;
-        perp.y = dir.x;
-        nperp.x = -ndir.y;
-        nperp.y = ndir.x;
-
-        center = _grad->origin;
-
-        corners[0] = tpVec2Sub(bounds->min, center);
-        corners[1].x = bounds->max.x - center.x;
-        corners[1].y = bounds->min.y - center.y;
-        corners[2].x = bounds->min.x - center.x;
-        corners[2].y = bounds->max.y - center.y;
-        corners[3] = tpVec2Sub(bounds->max, center);
-
-        for (i = 0; i < 4; ++i)
-        {
-            o = tpVec2Dot(corners[i], ndir) / len;
-            s = tpVec2Dot(corners[i], nperp);
-
-            if (o < minOffset || i == 0) minOffset = o;
-            if (o > maxOffset || i == 0) maxOffset = o;
-
-            if (i == 0 || s < left) left = s;
-            if (i == 0 || s > right) right = s;
-        }
-
-        tmp = tpVec2MultScalar(ndir, minOffset * len);
-        tmp2 = tpVec2Add(center, tpVec2MultScalar(nperp, left));
-        tmp3 = tpVec2Add(center, tpVec2MultScalar(nperp, right));
-        vertices[0].vertex = tpVec2Add(tmp2, tmp);
-        vertices[0].tc.x = minOffset;
-        vertices[1].vertex = tpVec2Add(tmp3, tmp);
-        vertices[1].tc.x = minOffset;
-        tmp = tpVec2MultScalar(ndir, maxOffset * len);
-        vertices[2].vertex = tpVec2Add(tmp2, tmp);
-        vertices[2].tc.x = maxOffset;
-        vertices[3].vertex = tpVec2Add(tmp3, tmp);
-        vertices[3].tc.x = maxOffset;
-
-        *_outVertexOffset = _vertices->count;
-        *_outVertexCount = 4;
-        _tpGLTextureVertexArrayAppendArray(_vertices, vertices, 4);
+        if (i == 0 || s < left) left = s;
+        if (i == 0 || s > right) right = s;
     }
+
+    tmp = tpVec2MultScalar(ndir, minOffset * len);
+    tmp2 = tpVec2Add(center, tpVec2MultScalar(nperp, left));
+    tmp3 = tpVec2Add(center, tpVec2MultScalar(nperp, right));
+    vertices[0].vertex = tpVec2Add(tmp2, tmp);
+    vertices[0].tc.x = minOffset;
+    vertices[1].vertex = tpVec2Add(tmp3, tmp);
+    vertices[1].tc.x = minOffset;
+    tmp = tpVec2MultScalar(ndir, maxOffset * len);
+    vertices[2].vertex = tpVec2Add(tmp2, tmp);
+    vertices[2].tc.x = maxOffset;
+    vertices[3].vertex = tpVec2Add(tmp3, tmp);
+    vertices[3].tc.x = maxOffset;
+
+    *_outVertexOffset = _vertices->count;
+    *_outVertexCount = 4;
+    _tpGLTextureVertexArrayAppendArray(_vertices, vertices, 4);
 }
 
-void _tpGLCacheStyleGeometry(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle * _style)
+static inline void _tpGLCacheGradientGeometry(tpContext * _ctx, _tpGLGradient * _grad,
+        _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices)
 {
-    int changeCount = 0;
+    _tpGLGradient * grad = _grad;
 
-    assert(_ctx->tmpTexVertices.count == 0);
-    if (_style->fill.type == kTpPaintTypeGradient)
+    // check if we need to update the gradient texture
+    if (grad->bDirty)
     {
-        printf("FINALIZING GRADIENT\n");
-        _tpGLGradient * grad = (_tpGLGradient *)_style->fill.data.gradient.pointer;
-
-        _tpGLGradientLinearGeometry(_ctx, grad, _path->lastFillGradient,
-                                    &_path->boundsCache, &_ctx->tmpTexVertices,
-                                    &_path->fillPaintVertexOffset, &_path->fillPaintVertexCount);
-
-        _path->lastFillGradient = grad;
-        changeCount++;
+        grad->bDirty = tpFalse;
+        // ensure that the color stops are valid/complete
+        _tpGLFinalizeColorStops(_ctx, grad);
+        // update the ramp texture
+        _tpGLUpdateRampTexture(grad);
+        _gradCache->lastGradient = NULL;
     }
 
-    if (_style->stroke.type == kTpPaintTypeGradient)
+    if (_gradCache->lastGradient != grad)
     {
-        _tpGLGradient * grad = (_tpGLGradient *)_style->stroke.data.gradient.pointer;
+        printf("REBUILDING GRAD\n");
+        //rebuild the gradient
+        if (grad->type == kTpGradientTypeLinear)
+        {
+            _tpGLGradientLinearGeometry(_ctx, grad,
+                                        _gradCache->bounds, _vertices,
+                                        &_gradCache->vertexOffset, &_gradCache->vertexCount);
 
-        _tpGLGradientLinearGeometry(_ctx, grad, _path->lastStrokeGradient,
-                                    &_path->strokeBoundsCache, &_ctx->tmpTexVertices,
-                                    &_path->strokePaintVertexOffset, &_path->strokePaintVertexCount);
-
-        _path->lastStrokeGradient = grad;
-        changeCount++;
+        }
+        else if (grad->type == kTpGradientTypeRadial)
+        {
+            //TODO :/
+        }
+        _gradCache->lastGradient = grad;
     }
-
-    _tpGLTextureVertexArrayClear(&_path->textureGeometryCache);
-    _tpGLTextureVertexArraySwap(&_path->textureGeometryCache, &_ctx->tmpTexVertices);
+    else
+    {
+        //copy cached gradient data
+        _tpGLTextureVertexArrayAppendArray(_vertices,
+                                           _tpGLTextureVertexArrayAtPtr(&_path->textureGeometryCache, _gradCache->vertexOffset),
+                                           _gradCache->vertexCount);
+    }
 }
+
+// void _tpGLCacheGradientGeometry(tpContext * _ctx, _tpGLPath * _path, _tpGLGradient * _grad, toBool _bIsStroke)
+// {
+//     if (_grad->type = kTpGradientTypeLinear)
+//     {
+//         _tpGLGradientLinearGeometry(_ctx, grad, _bIsStroke,
+//                                     &_path->boundsCache, &_ctx->tmpTexVertices,
+//                                     &_path->fillPaintVertexOffset, &_path->fillPaintVertexCount);
+//     }
+//     else if (_grad->type = kTpGradientTypeRadial)
+//     {
+
+//     }
+// }
+
+// void _tpGLCacheStyleGeometry(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle * _style)
+// {
+//     int changeCount = 0;
+
+//     assert(_ctx->tmpTexVertices.count == 0);
+//     if (_style->fill.type == kTpPaintTypeGradient)
+//     {
+//         printf("FINALIZING GRADIENT\n");
+//         _tpGLGradient * grad = (_tpGLGradient *)_style->fill.data.gradient.pointer;
+
+//         _tpGLGradientLinearGeometry(_ctx, grad, _path->lastFillGradient,
+//                                     &_path->boundsCache, &_ctx->tmpTexVertices,
+//                                     &_path->fillPaintVertexOffset, &_path->fillPaintVertexCount);
+
+//         _path->lastFillGradient = grad;
+//         changeCount++;
+//     }
+
+//     if (_style->stroke.type == kTpPaintTypeGradient)
+//     {
+//         _tpGLGradient * grad = (_tpGLGradient *)_style->stroke.data.gradient.pointer;
+
+//         _tpGLGradientLinearGeometry(_ctx, grad, _path->lastStrokeGradient,
+//                                     &_path->strokeBoundsCache, &_ctx->tmpTexVertices,
+//                                     &_path->strokePaintVertexOffset, &_path->strokePaintVertexCount);
+
+//         _path->lastStrokeGradient = grad;
+//         changeCount++;
+//     }
+
+//     _tpGLTextureVertexArrayClear(&_path->textureGeometryCache);
+//     _tpGLTextureVertexArraySwap(&_path->textureGeometryCache, &_ctx->tmpTexVertices);
+// }
 
 tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 {
@@ -2492,8 +2529,8 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         _tpGLCacheBoundsGeometry(p, s);
 
         //force recalculation of gradient related geometries
-        p->lastFillGradient = NULL;
-        p->lastStrokeGradient = NULL;
+        p->fillGradientData.lastGradient = NULL;
+        p->strokeGradientData.lastGradient = NULL;
     }
     //check if the stroke should be removed
     else if ((s->stroke.type == kTpPaintTypeNone &&
@@ -2527,25 +2564,37 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         _tpGLCacheBoundsGeometry(p, s);
 
         //force rebuilding of the stroke gradient geometry
-        p->lastStrokeGradient = NULL;
+        p->strokeGradientData.lastGradient = NULL;
     }
 
-    if (s->fill.type == kTpPaintTypeGradient)
+    // check if there are any gradients to be cached.
+    if ((s->fill.type == kTpPaintTypeGradient && p->fillGradientData.lastGradient != s->fill.data.gradient.pointer) ||
+            (s->stroke.type == kTpPaintTypeGradient && p->strokeGradientData.lastGradient != s->stroke.data.gradient.pointer))
     {
-        _tpGLGradient * grad = (_tpGLGradient *)s->fill.data.gradient.pointer;
-        if (grad != p->lastFillGradient)
+        printf("GRADS GETTING UPDATED\n");
+        _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
+        if (s->fill.type == kTpPaintTypeGradient)
         {
-
+            printf("UPDATE FILL GRADIENT\n");
+            _tpGLGradient * grad = (_tpGLGradient *)s->fill.data.gradient.pointer;
+            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->fillGradientData, &_ctx->tmpTexVertices);
         }
+
+        if (s->stroke.type == kTpPaintTypeGradient)
+        {
+            printf("UPDATE STROKE GRADIENT\n");
+            _tpGLGradient * grad = (_tpGLGradient *)s->stroke.data.gradient.pointer;
+            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->strokeGradientData, &_ctx->tmpTexVertices);
+        }
+
+        _tpGLTextureVertexArraySwap(&p->textureGeometryCache, &_ctx->tmpTexVertices);
     }
 
-    if (s->stroke.type == kTpPaintTypeGradient)
+    if (s->fill.type == kTpPaintTypeGradient || s->stroke.type == kTpPaintTypeGradient)
     {
-        _tpGLGradient * grad = (_tpGLGradient *)s->stroke.data.gradient.pointer;
-        if (grad != p->lastStrokeGradient)
-        {
-
-        }
+        ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
+        _tpGLUpdateVAO(&_ctx->textureVao, p->textureGeometryCache.array, sizeof(_tpGLTextureVertex) * p->textureGeometryCache.count);
+        ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
     }
 
     ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
@@ -2619,7 +2668,7 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpStrokeRasterStencilPlane));
         ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
 
-        _tpGLDrawPaint(_ctx, p, &s->stroke);
+        _tpGLDrawPaint(_ctx, p, &s->stroke, &p->strokeGradientData);
     }
 
     return tpFalse;

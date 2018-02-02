@@ -393,6 +393,11 @@ int main(int argc, char * argv[])
         tpGradientAddColorStop(grad, 1, 1, 0, 1, 1.0);
         tpStyleSetFillGradient(style, grad);
 
+        tpGradient grad2 = tpGradientCreateLinear(&ctx, 100, 150, 200, 150);
+        tpGradientAddColorStop(grad2, 1, 1, 0, 1, 0.0);
+        tpGradientAddColorStop(grad2, 0, 1, 1, 1, 1.0);
+        tpStyleSetStrokeGradient(style, grad2);
+
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
 
