@@ -130,8 +130,8 @@ typedef enum
     //Increment, Decrement stencil operations
     //http://www.opengl.org/discussion_boards/showthread.php/149740-glStencilOp-s-GL_INCR-GL_DECR-behaviour-when-masked
     _kTpFillRasterStencilPlane = 0x1F, //binary mask    00011111
-    _kTpClipStencilPlaneOne = 1 << 5, //binary mask     00100000
-    _kTpClipStencilPlaneTwo = 1 << 6, //binary mask     01000000
+    _ktpBeginClippingStencilPlaneOne = 1 << 5, //binary mask     00100000
+    _ktpBeginClippingStencilPlaneTwo = 1 << 6, //binary mask     01000000
     _kTpStrokeRasterStencilPlane = 1 << 7 //binary mask 10000000
 } _tpStencilPlane;
 
@@ -502,7 +502,7 @@ tpBool tpContextInit(tpContext * _ctx)
     // ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
     // memset(_ctx->clippingStack, 0, sizeof(_ctx->clippingStack));
     _ctx->clippingStackDepth = 0;
-    _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
+    _ctx->currentClipStencilPlane = _ktpBeginClippingStencilPlaneOne;
     _ctx->bCanSwapStencilPlanes = tpTrue;
     _ctx->projection = tpMat4MakeIdentity();
     _ctx->nextGradientID = 0;
@@ -2304,7 +2304,7 @@ void _tpGLDrawFillEvenOdd(tpContext * _ctx, _tpGLPath * _path, const _tpGLStyle 
 {
     ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
-    ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _kTpClipStencilPlaneOne));
+    ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _ktpBeginClippingStencilPlaneOne));
     ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
     ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
 
@@ -2550,12 +2550,14 @@ tpBool tpPrepareDrawing(tpContext * _ctx)
     ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
     ASSERT_NO_GL_ERROR(glClearStencil(0));
     ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
-    ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo | _kTpStrokeRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glStencilMask(_ktpBeginClippingStencilPlaneOne | _ktpBeginClippingStencilPlaneTwo | _kTpStrokeRasterStencilPlane));
     ASSERT_NO_GL_ERROR(glClearStencil(255));
     ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
     ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
     ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
+
+    _ctx->clippingStackDepth = 0; //reset clipping
 
     return tpFalse;
 }
@@ -2568,7 +2570,7 @@ tpBool tpFinishDrawing(tpContext * _ctx)
 void _tpGLPrepareStencilPlanes(tpContext * _ctx, tpBool _bIsClippingPath, int * _outTargetStencilPlane, int * _outTestStencilPlane)
 {
     *_outTargetStencilPlane = _bIsClippingPath ? _ctx->currentClipStencilPlane : _kTpFillRasterStencilPlane;
-    *_outTestStencilPlane = _ctx->currentClipStencilPlane == _kTpClipStencilPlaneOne ? _kTpClipStencilPlaneTwo : _kTpClipStencilPlaneOne;
+    *_outTestStencilPlane = _ctx->currentClipStencilPlane == _ktpBeginClippingStencilPlaneOne ? _ktpBeginClippingStencilPlaneTwo : _ktpBeginClippingStencilPlaneOne;
 }
 
 tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tpBool _bIsClipPath)
@@ -2698,7 +2700,7 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
     // _tpGLDrawFillEvenOdd(_ctx, p, s);
 
     stencilPlaneToWriteTo = _bIsClipPath ? _ctx->currentClipStencilPlane : _kTpFillRasterStencilPlane;
-    stencilPlaneToTestAgainst = _ctx->currentClipStencilPlane == _kTpClipStencilPlaneOne ? _kTpClipStencilPlaneTwo : _kTpClipStencilPlaneOne;
+    stencilPlaneToTestAgainst = _ctx->currentClipStencilPlane == _ktpBeginClippingStencilPlaneOne ? _ktpBeginClippingStencilPlaneTwo : _ktpBeginClippingStencilPlaneOne;
 
     if (s->fillType == kTpFillTypeEvenOdd)
     {
@@ -2721,7 +2723,7 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
 
         _tpGLDrawPaint(_ctx, p, &s->fill, &p->fillGradientData);
     }
-    else if(s->fillType == kTpFillTypeNonZero)
+    else if (s->fillType == kTpFillTypeNonZero)
     {
 
     }
@@ -2749,7 +2751,7 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
 
 tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 {
-    return _tpGLDrawPathImpl(_ctx, (_tpGLPath*)_path.pointer, _style, tpFalse);
+    return _tpGLDrawPathImpl(_ctx, (_tpGLPath *)_path.pointer, _style, tpFalse);
 }
 
 tpBool _tpGLGenerateClippingMask(tpContext * _ctx, _tpGLPath * _path, tpBool _bIsRebuilding)
@@ -2757,7 +2759,7 @@ tpBool _tpGLGenerateClippingMask(tpContext * _ctx, _tpGLPath * _path, tpBool _bI
     tpBool drawResult;
     assert(_ctx);
 
-    if(!_bIsRebuilding)
+    if (!_bIsRebuilding)
         _ctx->clippingStack[_ctx->clippingStackDepth++] = _path;
 
     //@TODO: Instead of clearing maybe just clear it in endClipping by
@@ -2768,23 +2770,24 @@ tpBool _tpGLGenerateClippingMask(tpContext * _ctx, _tpGLPath * _path, tpBool _bI
 
     //draw path
     drawResult = _tpGLDrawPathImpl(_ctx, _path, _ctx->clippingStyle, tpTrue);
-    if(drawResult) return tpTrue;
+    if (drawResult) return tpTrue;
 
-    _ctx->currentClipStencilPlane = _ctx->currentClipStencilPlane == _kTpClipStencilPlaneOne ?
-                                    _kTpClipStencilPlaneTwo : _kTpClipStencilPlaneOne;
+    _ctx->currentClipStencilPlane = _ctx->currentClipStencilPlane == _ktpBeginClippingStencilPlaneOne ?
+                                    _ktpBeginClippingStencilPlaneTwo : _ktpBeginClippingStencilPlaneOne;
 
     return tpFalse;
 }
 
 tpBool tpBeginClipping(tpContext * _ctx, tpPath _path)
 {
-    return _tpGLGenerateClippingMask(_ctx, (_tpGLPath*)_path.pointer, tpFalse);
+    return _tpGLGenerateClippingMask(_ctx, (_tpGLPath *)_path.pointer, tpFalse);
 }
 
 tpBool tpEndClipping(tpContext * _ctx)
 {
     _tpGLPath * p;
     assert(_ctx->clippingStackDepth);
+    printf("clip stack depth %i\n", _ctx->clippingStackDepth);
     p = _ctx->clippingStack[--_ctx->clippingStackDepth];
 
     if (_ctx->clippingStackDepth)
@@ -2792,14 +2795,16 @@ tpBool tpEndClipping(tpContext * _ctx)
         //check if the last clip mask is still in one of the clipping planes...
         if (_ctx->bCanSwapStencilPlanes)
         {
-            _ctx->currentClipStencilPlane = _ctx->currentClipStencilPlane == _kTpClipStencilPlaneOne ?
-                                            _kTpClipStencilPlaneTwo : _kTpClipStencilPlaneOne;
+            printf("swap END CLIP\n");
+            _ctx->currentClipStencilPlane = _ctx->currentClipStencilPlane == _ktpBeginClippingStencilPlaneOne ?
+                                            _ktpBeginClippingStencilPlaneTwo : _ktpBeginClippingStencilPlaneOne;
             _ctx->bCanSwapStencilPlanes = tpFalse;
         }
         else
         {
+            printf("rebuild END CLIP %i\n", _ctx->clippingStackDepth);
             //...otherwise rebuild it
-            ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo));
+            ASSERT_NO_GL_ERROR(glStencilMask(_ktpBeginClippingStencilPlaneOne | _ktpBeginClippingStencilPlaneTwo));
             ASSERT_NO_GL_ERROR(glClearStencil(255));
             ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
@@ -2816,7 +2821,7 @@ tpBool tpEndClipping(tpContext * _ctx)
     {
         //@TODO: Instead of clearing maybe just redrawing the clipping path bounds to
         //reset the stencil? Might scale better for a lot of paths :)
-        ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo));
+        ASSERT_NO_GL_ERROR(glStencilMask(_ktpBeginClippingStencilPlaneOne | _ktpBeginClippingStencilPlaneTwo));
         ASSERT_NO_GL_ERROR(glClearStencil(255));
         ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
     }
@@ -2824,11 +2829,11 @@ tpBool tpEndClipping(tpContext * _ctx)
 
 tpBool tpResetClipping(tpContext * _ctx)
 {
-    ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo));
+    ASSERT_NO_GL_ERROR(glStencilMask(_ktpBeginClippingStencilPlaneOne | _ktpBeginClippingStencilPlaneTwo));
     ASSERT_NO_GL_ERROR(glClearStencil(0));
     ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
-    _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
+    _ctx->currentClipStencilPlane = _ktpBeginClippingStencilPlaneOne;
     _ctx->clippingStackDepth = 0;
 }
 

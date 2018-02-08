@@ -370,7 +370,13 @@ int main(int argc, char * argv[])
         tpPathAddCircle(path, 150, 150, 30);
 
         tpPath clipPath = tpPathCreate(&ctx);
-        tpPathAddCircle(clipPath, 150, 150, 40);
+        tpPathAddCircle(clipPath, 150, 150, 50);
+
+        tpPath clipPath2 = tpPathCreate(&ctx);
+        tpPathAddRect(clipPath2, 100, 140, 100, 40);
+
+        tpPath clipPath3 = tpPathCreate(&ctx);
+        tpPathAddRect(clipPath3, 120, 100, 30, 100);
 
         tpPath anotherOne = tpPathCreate(&ctx);
         tpPathAddCircle(anotherOne, 250, 150, 80);
@@ -486,7 +492,12 @@ int main(int argc, char * argv[])
             tpSetProjection(&ctx, &proj);
             tpPrepareDrawing(&ctx);
             tpBeginClipping(&ctx, clipPath);
+            tpBeginClipping(&ctx, clipPath2);
+            tpBeginClipping(&ctx, clipPath3);
             tpDrawPath(&ctx, path, style);
+            // tpEndClipping(&ctx);
+            // tpEndClipping(&ctx);
+            // tpEndClipping(&ctx);
             tpResetClipping(&ctx);
 
             tpDrawPath(&ctx, anotherOne, style);
