@@ -191,7 +191,15 @@ tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, //row1
                   tpFloat _v3, tpFloat _v4, tpFloat _v5, //row2
                   tpFloat _v6, tpFloat _v7, tpFloat _v8); //row3
 
-tpMat3 tpMat3Identity();
+tpMat3 tpMat3MakeIdentity();
+
+tpMat3 tpMat3MakeTranslation(tpFloat _x, tpFloat _y);
+
+tpMat3 tpMat3MakeScale(tpFloat _x, tpFloat _y);
+
+tpMat3 tpMat3MakeSkew(tpFloat _x, tpFloat _y);
+
+tpMat3 tpMat3MakeRotation(tpFloat _angle);
 
 int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation,
                     tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation);
@@ -200,16 +208,20 @@ tpBool tpMat3Equals(const tpMat3 * _a, const tpMat3 * _b);
 
 tpVec2 tpMat3MultVec2(const tpMat3 * _mat, const tpVec2 * _vec);
 
+tpMat3 tpMat3Mult(const tpMat3 * _a, const tpMat3 * _b);
+
 tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3, //row1
                   tpFloat _v4, tpFloat _v5, tpFloat _v6, tpFloat _v7, //row2
                   tpFloat _v8, tpFloat _v9, tpFloat _v10, tpFloat _v11, //row3
                   tpFloat _v12, tpFloat _v13, tpFloat _v14, tpFloat _v15); //row4
 
-tpMat4 tpMat4Identity();
+tpMat4 tpMat4MakeIdentity();
 
-tpMat4 tpMat4Ortho(tpFloat _left, tpFloat _right, tpFloat _bottom, tpFloat _top, tpFloat _near, tpFloat _far);
+tpMat4 tpMat4MakeOrtho(tpFloat _left, tpFloat _right, tpFloat _bottom, tpFloat _top, tpFloat _near, tpFloat _far);
 
 tpMat4 tpMat4MakeFrom2DTransform(const tpMat3 * _transform);
+
+tpMat4 tpMat4Mult(const tpMat4 * _a, const tpMat4 * _b);
 
 
 // Segment Functions
@@ -309,6 +321,11 @@ tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection);
 
 tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style);
 
+tpBool tpBeginClipping(tpContext * _ctx, tpPath _path);
+
+tpBool tpEndClipping(tpContext * _ctx);
+
+tpBool tpResetClipping(tpContext * _ctx);
 
 // // Hidden functions that need to be implemented
 // // by the backend
@@ -414,7 +431,7 @@ tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2,
     };
 }
 
-tpMat3 tpMat3Identity()
+tpMat3 tpMat3MakeIdentity()
 {
     return (tpMat3)
     {
@@ -422,6 +439,36 @@ tpMat3 tpMat3Identity()
         0, 1, 0,
         0, 0, 1
     };
+}
+
+tpMat3 tpMat3MakeTranslation(tpFloat _x, tpFloat _y)
+{
+    return tpMat3Make(1, 0, _x,
+                      0, 1, _y,
+                      0, 0, 1);
+}
+
+tpMat3 tpMat3MakeScale(tpFloat _x, tpFloat _y)
+{
+    return tpMat3Make(_x, 0, 0,
+                      0, _y, 0,
+                      0, 0, 1);
+}
+
+tpMat3 tpMat3MakeSkew(tpFloat _x, tpFloat _y)
+{
+    return tpMat3Make(1, tan(_x), 0,
+                      tan(_y), 1, 0,
+                      0, 0, 1);
+}
+
+tpMat3 tpMat3MakeRotation(tpFloat _angle)
+{
+    tpFloat c = cos(_angle);
+    tpFloat s = sin(_angle);
+    return tpMat3Make(c, -s, 0,
+                      s, c, 0,
+                      0, 0, 1);
 }
 
 int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation)
@@ -491,7 +538,7 @@ tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3,
     };
 }
 
-tpMat4 tpMat4Identity()
+tpMat4 tpMat4MakeIdentity()
 {
     return (tpMat4)
     {
@@ -502,7 +549,7 @@ tpMat4 tpMat4Identity()
     };
 }
 
-tpMat4 tpMat4Ortho(tpFloat _left, tpFloat _right, tpFloat _bottom, tpFloat _top, tpFloat _near, tpFloat _far)
+tpMat4 tpMat4MakeOrtho(tpFloat _left, tpFloat _right, tpFloat _bottom, tpFloat _top, tpFloat _near, tpFloat _far)
 {
     tpFloat a = 2.0 / (_right - _left);
     tpFloat b = 2.0 / (_top - _bottom);
@@ -519,10 +566,40 @@ tpMat4 tpMat4Ortho(tpFloat _left, tpFloat _right, tpFloat _bottom, tpFloat _top,
 
 tpMat4 tpMat4MakeFrom2DTransform(const tpMat3 * _transform)
 {
-    return tpMat4Make(_transform->v[0], _transform->v[1], _transform->v[2], 0.0,
-                      _transform->v[3], _transform->v[4], _transform->v[5], 0.0,
-                      0, 0, 1, 0,
-                      _transform->v[6], _transform->v[7], _transform->v[8], 1.0);
+    return tpMat4Make(_transform->v[0], _transform->v[3], 0, _transform->v[6],
+                      _transform->v[1], _transform->v[4], 0, _transform->v[7],
+                      _transform->v[2], _transform->v[5], 1, 0,
+                      0, 0, 0, 1.0);
+}
+
+tpMat4 tpMat4Mult(const tpMat4 * _a, const tpMat4 * _b)
+{
+    return (tpMat4)
+    {
+        //column one
+        _b->v[0] * _a->v[0] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[8]  + _b->v[3] * _a->v[12],
+        _b->v[0] * _a->v[1] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[9]  + _b->v[3] * _a->v[13],
+        _b->v[0] * _a->v[2] + _b->v[1] * _a->v[6] + _b->v[2] * _a->v[10] + _b->v[3] * _a->v[14],
+        _b->v[0] * _a->v[3] + _b->v[1] * _a->v[7] + _b->v[2] * _a->v[11] + _b->v[3] * _a->v[15],
+
+        //column two
+        _b->v[4] * _a->v[0] + _b->v[5] * _a->v[4] + _b->v[6] * _a->v[8]  + _b->v[7] * _a->v[12],
+        _b->v[4] * _a->v[1] + _b->v[5] * _a->v[5] + _b->v[6] * _a->v[9]  + _b->v[7] * _a->v[13],
+        _b->v[4] * _a->v[2] + _b->v[5] * _a->v[6] + _b->v[6] * _a->v[10] + _b->v[7] * _a->v[14],
+        _b->v[4] * _a->v[3] + _b->v[5] * _a->v[7] + _b->v[6] * _a->v[11] + _b->v[7] * _a->v[15],
+
+        //column three
+        _b->v[8] * _a->v[0] + _b->v[9] * _a->v[4] + _b->v[10] * _a->v[8]  + _b->v[11] * _a->v[12],
+        _b->v[8] * _a->v[1] + _b->v[9] * _a->v[5] + _b->v[10] * _a->v[9]  + _b->v[11] * _a->v[13],
+        _b->v[8] * _a->v[2] + _b->v[9] * _a->v[6] + _b->v[10] * _a->v[10] + _b->v[11] * _a->v[14],
+        _b->v[8] * _a->v[3] + _b->v[9] * _a->v[7] + _b->v[10] * _a->v[11] + _b->v[11] * _a->v[15],
+
+        //column four
+        _b->v[12] * _a->v[0] + _b->v[13] * _a->v[4] + _b->v[14] * _a->v[8]  + _b->v[15] * _a->v[12],
+        _b->v[12] * _a->v[1] + _b->v[13] * _a->v[5] + _b->v[14] * _a->v[9]  + _b->v[15] * _a->v[13],
+        _b->v[12] * _a->v[2] + _b->v[13] * _a->v[6] + _b->v[14] * _a->v[10] + _b->v[15] * _a->v[14],
+        _b->v[12] * _a->v[3] + _b->v[13] * _a->v[7] + _b->v[14] * _a->v[11] + _b->v[15] * _a->v[15]
+    };
 }
 
 tpVec2 tpMat3MultVec2(const tpMat3 * _mat, const tpVec2 * _vec)
@@ -531,6 +608,27 @@ tpVec2 tpMat3MultVec2(const tpMat3 * _mat, const tpVec2 * _vec)
     {
         (_vec->x * _mat->v[0] + _vec->y * _mat->v[3] + _mat->v[6]),
         (_vec->x * _mat->v[1] + _vec->y * _mat->v[4] + _mat->v[7])
+    };
+}
+
+tpMat3 tpMat3Mult(const tpMat3 * _a, const tpMat3 * _b)
+{
+    return (tpMat3)
+    {
+        //column one
+        _b->v[0] * _a->v[0] + _b->v[1] * _a->v[3] + _b->v[2] * _a->v[6],
+        _b->v[0] * _a->v[1] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[7],
+        _b->v[0] * _a->v[2] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[8],
+
+        //column two
+        _b->v[3] * _a->v[0] + _b->v[4] * _a->v[3] + _b->v[5] * _a->v[6],
+        _b->v[3] * _a->v[1] + _b->v[4] * _a->v[4] + _b->v[5] * _a->v[7],
+        _b->v[3] * _a->v[2] + _b->v[4] * _a->v[5] + _b->v[5] * _a->v[8],
+
+        //column three
+        _b->v[6] * _a->v[0] + _b->v[7] * _a->v[3] + _b->v[8] * _a->v[6],
+        _b->v[6] * _a->v[1] + _b->v[7] * _a->v[4] + _b->v[8] * _a->v[7],
+        _b->v[6] * _a->v[2] + _b->v[7] * _a->v[5] + _b->v[8] * _a->v[8]
     };
 }
 

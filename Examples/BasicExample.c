@@ -367,6 +367,13 @@ int main(int argc, char * argv[])
         tpPathLineTo(path, 100, 200);
         tpPathClose(path);
 
+        tpPathAddCircle(path, 150, 150, 30);
+
+        tpPath clipPath = tpPathCreate(&ctx);
+        tpPathAddCircle(clipPath, 150, 150, 40);
+
+        tpPath anotherOne = tpPathCreate(&ctx);
+        tpPathAddCircle(anotherOne, 250, 150, 80);
         // tpPathAddRect(path, 100, 100, 200, 100);
         // tpPathAddCircle(path, 100, 100, 50);
         // tpPathAddCircle(path, 100, 100, 20);
@@ -405,6 +412,25 @@ int main(int argc, char * argv[])
         tpGradientAddColorStop(grad2, 0, 1, 1, 1, 1.0);
         tpStyleSetStrokeGradient(style, grad2);
 
+        tpMat3 scal = tpMat3MakeScale(2.0, 2.0);
+        tpMat3 rot = tpMat3MakeRotation(TARP_PI / 4);
+        tpMat3 transl = tpMat3MakeTranslation(-150, -150);
+        tpMat3 transl2 = tpMat3MakeTranslation(150, 150);
+        tpMat3 skew = tpMat3MakeSkew(TARP_PI / 10, 0);
+        tpMat3 ident = tpMat3MakeIdentity();
+        tpMat3 trans = tpMat3Mult(&scal, &transl);
+        trans = tpMat3Mult(&transl2, &trans);
+
+        tpMat4 m4 = tpMat4MakeFrom2DTransform(&trans);
+        printf("MAT4 (%f %f %f %f,\n %f %f %f %f, \n %f %f %f %f, \n %f %f %f %f)\n",
+               m4.v[0], m4.v[4], m4.v[8], m4.v[12],
+               m4.v[1], m4.v[5], m4.v[9], m4.v[13],
+               m4.v[2], m4.v[6], m4.v[10], m4.v[14],
+               m4.v[3], m4.v[7], m4.v[11], m4.v[15]
+              );
+
+        // tpPathSetTransform(path, &skew);
+
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
 
 
@@ -416,7 +442,7 @@ int main(int argc, char * argv[])
         // printf("%f %f\n", b.x, b.y);
         // printf("%f %f\n", c.x, c.y);
 
-        // tpMat3 mat = tpMat3Identity();
+        // tpMat3 mat = tpMat3MakeIdentity();
         // printf("%f %f %f\n%f %f %f\n%f %f %f\n", mat.v[0], mat.v[1], mat.v[2],
         //        mat.v[3], mat.v[4], mat.v[5],
         //        mat.v[6], mat.v[7], mat.v[8]);
@@ -456,9 +482,15 @@ int main(int argc, char * argv[])
             // tpStyleSetDashOffset(style, off);
             // off -= 0.05;
 
-            tpMat4 proj = tpMat4Ortho(0, 800, 600, 0, -1, 1);
+            tpMat4 proj = tpMat4MakeOrtho(0, 800, 600, 0, -1, 1);
             tpSetProjection(&ctx, &proj);
+            tpPrepareDrawing(&ctx);
+            tpBeginClipping(&ctx, clipPath);
             tpDrawPath(&ctx, path, style);
+            tpResetClipping(&ctx);
+
+            tpDrawPath(&ctx, anotherOne, style);
+            tpFinishDrawing(&ctx);
 
             glfwSwapBuffers(window);
             glfwPollEvents();

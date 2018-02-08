@@ -549,7 +549,7 @@ int tpContextInit(tpContext * _ctx)
     // glctx->geometryCacheCount = 0;
     // _data_array_init(&glctx->geometryCache, 1024, sizeof(Float));
     // _data_array_init(&glctx->jointCache, 1024, sizeof(int));
-    _ctx->projection = tpMat4Identity();
+    _ctx->projection = tpMat4MakeIdentity();
 
     _memoryChunkInit(_ctx->paths, 8, sizeof(_tpGLPath));
 
@@ -601,7 +601,7 @@ tpPath tpPathCreate(tpContext * _ctx)
 
 
 
-    // tpMat3 tmp = tpMat3Identity();
+    // tpMat3 tmp = tpMat3MakeIdentity();
     // tpPathSetTransform(ret, &tmp);
 
 

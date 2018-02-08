@@ -76,14 +76,13 @@ exit(EXIT_FAILURE); \
 //The shader programs used by the renderer
 static const char * _vertexShaderCode =
     "#version 150 \n"
-    "uniform mat4 transform; \n"
-    "uniform mat4 projection; \n"
+    "uniform mat4 transformProjection; \n"
     "uniform vec4 meshColor; \n"
     "in vec2 vertex; \n"
     "out vec4 icol;\n"
     "void main() \n"
     "{ \n"
-    "gl_Position = projection * transform * vec4(vertex, 0.0, 1.0); \n"
+    "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
     "icol = meshColor;\n"
     "} \n";
 
@@ -98,14 +97,13 @@ static const char * _fragmentShaderCode =
 
 static const char * _vertexShaderCodeTexture =
     "#version 150 \n"
-    "uniform mat4 transform; \n"
-    "uniform mat4 projection; \n"
+    "uniform mat4 transformProjection; \n"
     "in vec2 vertex; \n"
     "in float tc; \n"
     "out float itc;\n"
     "void main() \n"
     "{ \n"
-    "gl_Position = projection * transform * vec4(vertex, 0.0, 1.0); \n"
+    "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
     "itc = tc; \n"
     "} \n";
 
@@ -261,6 +259,8 @@ typedef struct
     tpBool bPathGeometryDirty;
     tpFloat lastTransformScale;
     tpMat4 renderTransform;
+    tpMat4 transformProjection;
+    tpBool bTransformProjDirty;
     _tpGLRect boundsCache;
     _tpGLRect strokeBoundsCache;
 
@@ -333,13 +333,15 @@ struct _tpContextData
     _tpGLVAO vao;
     _tpGLVAO textureVao;
 
-    GLuint currentClipStencilPlane;
-    tpPath clippingStack[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
+    _tpGLPath * clippingStack[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
     int clippingStackDepth;
+    int currentClipStencilPlane;
+    tpBool bCanSwapStencilPlanes;
     tpMat4 projection;
     _tpGLPathPtrArray paths;
     _tpGLStylePtrArray styles;
     _tpGLGradientPtrArray gradients;
+    tpStyle clippingStyle;
 
     int nextGradientID;
 
@@ -498,10 +500,11 @@ tpBool tpContextInit(tpContext * _ctx)
     ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(1));
 
     // ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
-
-    _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
+    // memset(_ctx->clippingStack, 0, sizeof(_ctx->clippingStack));
     _ctx->clippingStackDepth = 0;
-    _ctx->projection = tpMat4Identity();
+    _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
+    _ctx->bCanSwapStencilPlanes = tpTrue;
+    _ctx->projection = tpMat4MakeIdentity();
     _ctx->nextGradientID = 0;
 
     _tpGLPathPtrArrayInit(&_ctx->paths, 32);
@@ -511,6 +514,9 @@ tpBool tpContextInit(tpContext * _ctx)
     _tpBoolArrayInit(&_ctx->tmpJoints, 256);
     _tpGLTextureVertexArrayInit(&_ctx->tmpTexVertices, 64);
     _tpColorStopArrayInit(&_ctx->tmpColorStops, 16);
+
+    _ctx->clippingStyle = tpStyleCreate(_ctx);
+    tpStyleRemoveStroke(_ctx->clippingStyle);
 
     return ret;
 }
@@ -575,14 +581,16 @@ tpPath tpPathCreate(tpContext * _ctx)
     _tpGLContourArrayInit(&path->contours, 4);
     path->currentContourIndex = -1;
     memset(path->errorMessage, 0, sizeof(path->errorMessage));
-    path->transform = tpMat3Identity();
+    path->transform = tpMat3MakeIdentity();
 
     _tpVec2ArrayInit(&path->geometryCache, 128);
     _tpGLTextureVertexArrayInit(&path->textureGeometryCache, 32);
     _tpBoolArrayInit(&path->jointCache, 128);
     path->bPathGeometryDirty = tpTrue;
     path->lastTransformScale = 1.0;
-    path->renderTransform = tpMat4Identity();
+    path->renderTransform = tpMat4MakeIdentity();
+    path->transformProjection = tpMat4MakeIdentity();
+    path->bTransformProjDirty = tpTrue;
 
     path->strokeVertexOffset = 0;
     path->strokeVertexCount = 0;
@@ -911,24 +919,25 @@ tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFlo
 
 tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform)
 {
-    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    tpVec2 scale, skew, translation;
+    tpFloat rotation;
+    _tpGLPath * p;
+
+    p = (_tpGLPath *)_path.pointer;
     assert(_tpGLIsValidPath(p));
-    if (!tpMat3Equals(&p->transform, _transform))
+
+    tpMat3Decompose(_transform, &translation, &scale, &skew, &rotation);
+    if (p->lastTransformScale < scale.x || p->lastTransformScale < scale.y)
     {
-        tpVec2 scale, skew, translation;
-        tpFloat rotation;
-        tpMat3Decompose(_transform, &translation, &scale, &skew, &rotation);
-        if (p->lastTransformScale < scale.x || p->lastTransformScale < scale.y)
+        p->lastTransformScale = TARP_MAX(scale.x, scale.y);
+        p->bPathGeometryDirty = tpTrue;
+        for (int i = 0; i < p->contours.count; ++i)
         {
-            p->lastTransformScale = TARP_MAX(scale.x, scale.y);
-            p->bPathGeometryDirty = tpTrue;
-            for (int i = 0; i < p->contours.count; ++i)
-            {
-                _tpGLContourArrayAtPtr(&p->contours, i)->bDirty = tpTrue;
-            }
+            _tpGLContourArrayAtPtr(&p->contours, i)->bDirty = tpTrue;
         }
-        p->renderTransform = tpMat4MakeFrom2DTransform(_transform);
     }
+    p->renderTransform = tpMat4MakeFrom2DTransform(_transform);
+    p->bTransformProjDirty = tpTrue;
 
     return tpFalse;
 }
@@ -2266,6 +2275,8 @@ static inline void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path,
         {
             printf("DRAWING LINEAR GRADIENT \n");
             ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
+            //@TODO: Cache uniform loc
+            ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "transformProjection"), 1, GL_FALSE, &_path->transformProjection.v[0]));
             // ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->textureProgram, "meshColor"), 1, &_paint->data.color.r));
             ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
             // ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
@@ -2337,7 +2348,6 @@ void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _style)
         bounds.max.x += adder;
         bounds.max.y += adder;
 
-        printf("SETTING STROKE BOUNDS\n");
         _path->strokeBoundsCache = bounds;
         bptr = &bounds;
     }
@@ -2523,17 +2533,63 @@ static inline void _tpGLCacheGradientGeometry(tpContext * _ctx, _tpGLGradient * 
 //     _tpGLTextureVertexArraySwap(&_path->textureGeometryCache, &_ctx->tmpTexVertices);
 // }
 
-tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
+tpBool tpPrepareDrawing(tpContext * _ctx)
+{
+    //TODO: Cache previous opengl state of everything we change so we can reset it in
+    // tpFinishDrawing
+    ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
+
+    ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
+    ASSERT_NO_GL_ERROR(glDepthMask(GL_FALSE));
+    ASSERT_NO_GL_ERROR(glEnable(GL_MULTISAMPLE));
+    // ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
+    // ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+
+    //TODO: find a way to clear all stencil planes to the same value so we can only clear once?
+    ASSERT_NO_GL_ERROR(glEnable(GL_STENCIL_TEST));
+    ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glClearStencil(0));
+    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+    ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo | _kTpStrokeRasterStencilPlane));
+    ASSERT_NO_GL_ERROR(glClearStencil(255));
+    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+
+    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
+    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
+
+    return tpFalse;
+}
+
+tpBool tpFinishDrawing(tpContext * _ctx)
+{
+
+}
+
+void _tpGLPrepareStencilPlanes(tpContext * _ctx, tpBool _bIsClippingPath, int * _outTargetStencilPlane, int * _outTestStencilPlane)
+{
+    *_outTargetStencilPlane = _bIsClippingPath ? _ctx->currentClipStencilPlane : _kTpFillRasterStencilPlane;
+    *_outTestStencilPlane = _ctx->currentClipStencilPlane == _kTpClipStencilPlaneOne ? _kTpClipStencilPlaneTwo : _kTpClipStencilPlaneOne;
+}
+
+tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tpBool _bIsClipPath)
 {
     GLint i;
+    GLuint stencilPlaneToWriteTo, stencilPlaneToTestAgainst;
     _tpGLContour * c;
 
     assert(_ctx);
-    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    _tpGLPath * p = _path;
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
     assert(p && s);
     assert(_tpGLIsValidPath(p));
     assert(_tpGLIsValidStyle(s));
+
+    //check if the transform projection is dirty
+    if (p->bTransformProjDirty)
+    {
+        p->bTransformProjDirty = tpFalse;
+        p->transformProjection = tpMat4Mult(&_ctx->projection, &p->renderTransform);
+    }
 
     // check if the path geometry is dirty.
     // if so, rebuild everything!
@@ -2544,7 +2600,7 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 
         //flatten the path into tmp buffers
         _tpGLRect bounds;
-        _tpGLFlattenPath(p, 0.15, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
+        _tpGLFlattenPath(p, 0.15 / p->lastTransformScale, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
 
         //generate and add the stroke geometry to the tmp buffers
         if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0)
@@ -2567,9 +2623,9 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         p->strokeGradientData.lastGradientID = -1;
     }
     //check if the stroke should be removed
-    else if ((s->stroke.type == kTpPaintTypeNone &&
-              p->lastStroke.strokeType != kTpPaintTypeNone) ||
-             (s->strokeWidth == 0 && p->lastStroke.strokeWidth > 0))
+    else if (!_bIsClipPath && ((s->stroke.type == kTpPaintTypeNone &&
+                                p->lastStroke.strokeType != kTpPaintTypeNone) ||
+                               (s->strokeWidth == 0 && p->lastStroke.strokeWidth > 0)))
     {
         printf("REMOVE STROKE\n");
 
@@ -2579,13 +2635,13 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         p->strokeVertexCount = 0;
     }
     //check if the stroke needs to be regenerated (due to a change in stroke width or dash related settings)
-    else if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0 &&
-             (p->lastStroke.strokeWidth != s->strokeWidth ||
-              p->lastStroke.cap != s->strokeCap ||
-              p->lastStroke.join != s->strokeJoin ||
-              p->lastStroke.dashCount != s->dashCount ||
-              p->lastStroke.dashOffset != s->dashOffset ||
-              memcmp(p->lastStroke.dashArray, s->dashArray, sizeof(tpFloat) * s->dashCount) != 0))
+    else if (!_bIsClipPath && ((s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0 &&
+                                (p->lastStroke.strokeWidth != s->strokeWidth ||
+                                 p->lastStroke.cap != s->strokeCap ||
+                                 p->lastStroke.join != s->strokeJoin ||
+                                 p->lastStroke.dashCount != s->dashCount ||
+                                 p->lastStroke.dashOffset != s->dashOffset ||
+                                 memcmp(p->lastStroke.dashArray, s->dashArray, sizeof(tpFloat) * s->dashCount) != 0))))
     {
         printf("UPDATE STROKE\n");
         //remove all the old stoke vertices from the cache
@@ -2602,10 +2658,10 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     }
 
     // check if there are any gradients to be cached.
-    if ((s->fill.type == kTpPaintTypeGradient &&
-            p->fillGradientData.lastGradientID != ((_tpGLGradient *)s->fill.data.gradient.pointer)->gradientID) ||
-            (s->stroke.type == kTpPaintTypeGradient &&
-             p->strokeGradientData.lastGradientID != ((_tpGLGradient *)s->stroke.data.gradient.pointer)->gradientID))
+    if (!_bIsClipPath && ((s->fill.type == kTpPaintTypeGradient &&
+                           p->fillGradientData.lastGradientID != ((_tpGLGradient *)s->fill.data.gradient.pointer)->gradientID) ||
+                          (s->stroke.type == kTpPaintTypeGradient &&
+                           p->strokeGradientData.lastGradientID != ((_tpGLGradient *)s->stroke.data.gradient.pointer)->gradientID)))
     {
         printf("GRADS GETTING UPDATED\n");
         _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
@@ -2626,75 +2682,56 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
         _tpGLTextureVertexArraySwap(&p->textureGeometryCache, &_ctx->tmpTexVertices);
     }
 
-    if (s->fill.type == kTpPaintTypeGradient || s->stroke.type == kTpPaintTypeGradient)
+    if (!_bIsClipPath && (s->fill.type == kTpPaintTypeGradient || s->stroke.type == kTpPaintTypeGradient))
     {
         ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
         _tpGLUpdateVAO(&_ctx->textureVao, p->textureGeometryCache.array, sizeof(_tpGLTextureVertex) * p->textureGeometryCache.count);
         ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
     }
 
-    ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
-
-    ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
-    ASSERT_NO_GL_ERROR(glDepthMask(GL_FALSE));
-    ASSERT_NO_GL_ERROR(glEnable(GL_MULTISAMPLE));
-    // ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
-    // ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-    ASSERT_NO_GL_ERROR(glEnable(GL_STENCIL_TEST));
-    ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glClearStencil(0));
-    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
-    ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo | _kTpStrokeRasterStencilPlane));
-    ASSERT_NO_GL_ERROR(glClearStencil(255));
-    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
-
-
-    ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
-
-    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "transform"), 1, GL_FALSE, &p->renderTransform.v[0]));
-    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "projection"), 1, GL_FALSE, &_ctx->projection.v[0]));
-    ASSERT_NO_GL_ERROR(glUniform1i(glGetUniformLocation(_ctx->program, "tex"), 0));
-
-    ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
-
-    //@TODO: Cache the uniform loc
-    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transform"), 1, GL_FALSE, &p->renderTransform.v[0]));
-    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "projection"), 1, GL_FALSE, &_ctx->projection.v[0]));
-    ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
-    ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
-    // ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(0));
-
-    // ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(1));
-    // ASSERT_NO_GL_ERROR(glUniform4f(glGetUniformLocation(_ctx->program, "meshColor"), 1.0, 0.0, 0.0, 1.0));
-
     //upload the paths geometry cache to the gpu
     _tpGLUpdateVAO(&_ctx->vao, p->geometryCache.array, sizeof(tpVec2) * p->geometryCache.count);
 
-    // currentSize = sizeof(tpVec2) * p->geometryCache.count;
-    // //not sure if this buffer orphaning style data upload makes a difference these days anymore. (TEST??)
-    // if (currentSize > _ctx->vboSize)
-    // {
-    //     printf("NEW BUFFER DATA\n");
-    //     ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, currentSize, p->geometryCache.array, GL_DYNAMIC_DRAW));
-    //     _ctx->vboSize = currentSize;
-    // }
-    // else
-    // {
-    //     printf("ORPH BUFFER\n");
-    //     ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _ctx->vboSize, NULL, GL_DYNAMIC_DRAW));
-    //     ASSERT_NO_GL_ERROR(glBufferSubData(GL_ARRAY_BUFFER, 0, currentSize, p->geometryCache.array));
-    // }
-
+    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &p->transformProjection.v[0]));
 
     //draw the fill
-    _tpGLDrawFillEvenOdd(_ctx, p, s);
+    // _tpGLDrawFillEvenOdd(_ctx, p, s);
+
+    stencilPlaneToWriteTo = _bIsClipPath ? _ctx->currentClipStencilPlane : _kTpFillRasterStencilPlane;
+    stencilPlaneToTestAgainst = _ctx->currentClipStencilPlane == _kTpClipStencilPlaneOne ? _kTpClipStencilPlaneTwo : _kTpClipStencilPlaneOne;
+
+    if (s->fillType == kTpFillTypeEvenOdd)
+    {
+        ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
+        ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
+        ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
+        ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
+        ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
+
+        for (int i = 0; i < p->contours.count; ++i)
+        {
+            _tpGLContour * c = _tpGLContourArrayAtPtr(&p->contours, i);
+            ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
+        }
+
+        ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 255, _kTpFillRasterStencilPlane));
+        ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
+        ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO));
+        ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
+
+        _tpGLDrawPaint(_ctx, p, &s->fill, &p->fillGradientData);
+    }
+    else if(s->fillType == kTpFillTypeNonZero)
+    {
+
+    }
 
     //draw the stroke
     if (p->strokeVertexCount)
     {
         ASSERT_NO_GL_ERROR(glStencilMask(_kTpStrokeRasterStencilPlane));
         ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
-        ASSERT_NO_GL_ERROR(glStencilFunc(GL_ALWAYS, 0, _kTpClipStencilPlaneOne));
+        ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
         ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 
         //Draw all stroke triangles of all contours at once
@@ -2710,9 +2747,98 @@ tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
     return tpFalse;
 }
 
+tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
+{
+    return _tpGLDrawPathImpl(_ctx, (_tpGLPath*)_path.pointer, _style, tpFalse);
+}
+
+tpBool _tpGLGenerateClippingMask(tpContext * _ctx, _tpGLPath * _path, tpBool _bIsRebuilding)
+{
+    tpBool drawResult;
+    assert(_ctx);
+
+    if(!_bIsRebuilding)
+        _ctx->clippingStack[_ctx->clippingStackDepth++] = _path;
+
+    //@TODO: Instead of clearing maybe just clear it in endClipping by
+    //drawing the bounds of the last clip path?
+    ASSERT_NO_GL_ERROR(glStencilMask(_ctx->currentClipStencilPlane));
+    ASSERT_NO_GL_ERROR(glClearStencil(0));
+    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+
+    //draw path
+    drawResult = _tpGLDrawPathImpl(_ctx, _path, _ctx->clippingStyle, tpTrue);
+    if(drawResult) return tpTrue;
+
+    _ctx->currentClipStencilPlane = _ctx->currentClipStencilPlane == _kTpClipStencilPlaneOne ?
+                                    _kTpClipStencilPlaneTwo : _kTpClipStencilPlaneOne;
+
+    return tpFalse;
+}
+
+tpBool tpBeginClipping(tpContext * _ctx, tpPath _path)
+{
+    return _tpGLGenerateClippingMask(_ctx, (_tpGLPath*)_path.pointer, tpFalse);
+}
+
+tpBool tpEndClipping(tpContext * _ctx)
+{
+    _tpGLPath * p;
+    assert(_ctx->clippingStackDepth);
+    p = _ctx->clippingStack[--_ctx->clippingStackDepth];
+
+    if (_ctx->clippingStackDepth)
+    {
+        //check if the last clip mask is still in one of the clipping planes...
+        if (_ctx->bCanSwapStencilPlanes)
+        {
+            _ctx->currentClipStencilPlane = _ctx->currentClipStencilPlane == _kTpClipStencilPlaneOne ?
+                                            _kTpClipStencilPlaneTwo : _kTpClipStencilPlaneOne;
+            _ctx->bCanSwapStencilPlanes = tpFalse;
+        }
+        else
+        {
+            //...otherwise rebuild it
+            ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo));
+            ASSERT_NO_GL_ERROR(glClearStencil(255));
+            ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+
+            for (int i = 0; i < _ctx->clippingStackDepth; ++i)
+            {
+                //draw clip path
+                _tpGLGenerateClippingMask(_ctx, _ctx->clippingStack[i], tpTrue);
+            }
+
+            _ctx->bCanSwapStencilPlanes = tpTrue;
+        }
+    }
+    else
+    {
+        //@TODO: Instead of clearing maybe just redrawing the clipping path bounds to
+        //reset the stencil? Might scale better for a lot of paths :)
+        ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo));
+        ASSERT_NO_GL_ERROR(glClearStencil(255));
+        ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+    }
+}
+
+tpBool tpResetClipping(tpContext * _ctx)
+{
+    ASSERT_NO_GL_ERROR(glStencilMask(_kTpClipStencilPlaneOne | _kTpClipStencilPlaneTwo));
+    ASSERT_NO_GL_ERROR(glClearStencil(0));
+    ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
+
+    _ctx->currentClipStencilPlane = _kTpClipStencilPlaneOne;
+    _ctx->clippingStackDepth = 0;
+}
+
 tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
 {
     _ctx->projection = *_projection;
+    for (int i = 0; i < _ctx->paths.count; ++i)
+    {
+        _tpGLPathPtrArrayAt(&_ctx->paths, i)->bTransformProjDirty = tpTrue;
+    }
     return tpFalse;
 }
 
