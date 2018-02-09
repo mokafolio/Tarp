@@ -298,7 +298,7 @@ typedef struct
     tpFloat strokeWidth;
     tpStrokeCap strokeCap;
     tpStrokeJoin strokeJoin;
-    tpFillType fillType;
+    tpFillRule fillRule;
     tpFloat dashArray[TARP_MAX_DASH_ARRAY_SIZE];
     int dashCount;
     tpFloat dashOffset;
@@ -362,7 +362,7 @@ typedef struct
     int length;
 } _ErrorMessage;
 
-static inline void _tpGLGradientCacheDataInit(_tpGLGradientCacheData * _gd, _tpGLRect * _bounds)
+void _tpGLGradientCacheDataInit(_tpGLGradientCacheData * _gd, _tpGLRect * _bounds)
 {
     _gd->lastGradientID = -1;
     _gd->bounds = _bounds;
@@ -370,7 +370,7 @@ static inline void _tpGLGradientCacheDataInit(_tpGLGradientCacheData * _gd, _tpG
     _gd->vertexCount = 0;
 }
 
-static tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint * _outHandle, _ErrorMessage * _outError)
+tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint * _outHandle, _ErrorMessage * _outError)
 {
     GLenum glHandle = glCreateShader(_shaderType);
     GLint len = strlen(_shaderCode);
@@ -401,7 +401,7 @@ static tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, GLuin
     return tpFalse;
 }
 
-static tpBool _createProgram(const char * _vertexShader, const char * _fragmentShader, int _bTexProgram, GLuint * _outHandle, _ErrorMessage * _outError)
+tpBool _createProgram(const char * _vertexShader, const char * _fragmentShader, int _bTexProgram, GLuint * _outHandle, _ErrorMessage * _outError)
 {
     GLuint vertexShader, fragmentShader;
     tpBool err = _compileShader(_vertexShader, GL_VERTEX_SHADER, &vertexShader, _outError);
@@ -523,6 +523,8 @@ tpBool tpContextInit(tpContext * _ctx)
 
 tpBool tpContextDeallocate(tpContext * _ctx)
 {
+    int i;
+
     //free all opengl resources
     glDeleteProgram(_ctx->program);
     glDeleteBuffers(1, &_ctx->vao.vbo);
@@ -532,21 +534,21 @@ tpBool tpContextDeallocate(tpContext * _ctx)
     glDeleteVertexArrays(1, &_ctx->textureVao.vao);
 
     // deallocate all gradients
-    for (int i = 0; i < _ctx->gradients.count; ++i)
+    for (i = 0; i < _ctx->gradients.count; ++i)
     {
         tpGradientDestroy((tpGradient) {_tpGLGradientPtrArrayAt(&_ctx->gradients, i)});
     }
     _tpGLGradientPtrArrayDeallocate(&_ctx->gradients);
 
     // deallocate all styles
-    for (int i = 0; i < _ctx->styles.count; ++i)
+    for (i = 0; i < _ctx->styles.count; ++i)
     {
         tpStyleDestroy((tpStyle) {_tpGLStylePtrArrayAt(&_ctx->styles, i)});
     }
     _tpGLStylePtrArrayDeallocate(&_ctx->styles);
 
     // deallocate all paths
-    for (int i = 0; i < _ctx->paths.count; ++i)
+    for (i = 0; i < _ctx->paths.count; ++i)
     {
         tpPathDestroy((tpPath) {_tpGLPathPtrArrayAt(&_ctx->paths, i)});
     }
@@ -953,7 +955,7 @@ tpStyle tpStyleCreate(tpContext * _ctx)
     style->strokeWidth = 1.0;
     style->strokeJoin = kTpStrokeJoinBevel;
     style->strokeCap = kTpStrokeCapButt;
-    style->fillType = kTpFillTypeEvenOdd;
+    style->fillRule = kTpFillRuleEvenOdd;
     style->dashCount = 0;
     style->dashOffset = 0;
     style->miterLimit = 4;
@@ -1063,12 +1065,12 @@ void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap)
     s->strokeCap = _cap;
 }
 
-void tpStyleSetFillType(tpStyle _style, tpFillType _fillType)
+void tpStyleSetFillRule(tpStyle _style, tpFillRule _rule)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
     assert(_tpGLIsValidStyle(s));
 
-    s->fillType = _fillType;
+    s->fillRule = _rule;
 }
 
 void tpStyleRemoveFill(tpStyle _style)
@@ -2252,8 +2254,8 @@ void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
     }
 }
 
-static inline void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path,
-                                  const _tpGLPaint * _paint, const _tpGLGradientCacheData * _gradCache)
+void _tpGLDrawPaint(tpContext * _ctx, _tpGLPath * _path,
+                    const _tpGLPaint * _paint, const _tpGLGradientCacheData * _gradCache)
 {
     if (_paint->type == kTpPaintTypeColor)
     {
@@ -2432,18 +2434,18 @@ void _tpGLGradientLinearGeometry(tpContext * _ctx,
     vertices[3].vertex = tpVec2Add(tmp3, tmp);
     vertices[3].tc.x = maxOffset;
 
-    for (int i = 0; i < 4; ++i)
+    /*for (int i = 0; i < 4; ++i)
     {
         printf("DA LIN GRAD VERT %f %f %f\n", vertices[i].vertex.x, vertices[i].vertex.y, vertices[i].tc.x);
-    }
+    }*/
 
     *_outVertexOffset = _vertices->count;
     *_outVertexCount = 4;
     _tpGLTextureVertexArrayAppendArray(_vertices, vertices, 4);
 }
 
-static inline void _tpGLCacheGradientGeometry(tpContext * _ctx, _tpGLGradient * _grad,
-        _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices)
+void _tpGLCacheGradientGeometry(tpContext * _ctx, _tpGLGradient * _grad,
+                                _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices)
 {
     _tpGLGradient * grad = _grad;
 
@@ -2556,6 +2558,8 @@ tpBool tpPrepareDrawing(tpContext * _ctx)
 
     ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
     ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
+
+    ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
 
     _ctx->clippingStackDepth = 0; //reset clipping
 
@@ -2702,31 +2706,85 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
     stencilPlaneToWriteTo = _bIsClipPath ? _ctx->currentClipStencilPlane : _kTpFillRasterStencilPlane;
     stencilPlaneToTestAgainst = _ctx->currentClipStencilPlane == _ktpBeginClippingStencilPlaneOne ? _ktpBeginClippingStencilPlaneTwo : _ktpBeginClippingStencilPlaneOne;
 
-    if (s->fillType == kTpFillTypeEvenOdd)
-    {
-        ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
-        ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
-        ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
-        ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
-        ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
 
-        for (int i = 0; i < p->contours.count; ++i)
+    if (_bIsClipPath || s->fill.type != kTpPaintTypeNone)
+    {
+        ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
+        ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
+        if (s->fillRule == kTpFillRuleEvenOdd)
         {
-            _tpGLContour * c = _tpGLContourArrayAtPtr(&p->contours, i);
-            ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
+            ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
+            ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
+            ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
+
+            for (i = 0; i < p->contours.count; ++i)
+            {
+                _tpGLContour * c = _tpGLContourArrayAtPtr(&p->contours, i);
+                ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
+            }
+
+            if(_bIsClipPath) return tpFalse;
+
+            ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 255, _kTpFillRasterStencilPlane));
+        }
+        else if (s->fillRule == kTpFillRuleNonZero)
+        {
+            //NonZero winding rule needs to use Increment and Decrement stencil operations.
+            //we therefore render to the rasterize mask, even if this is a clipping mask, and transfer
+            //the results to the clipping mask stencil plane afterwards
+            ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
+            ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INCR_WRAP));
+            ASSERT_NO_GL_ERROR(glEnable(GL_CULL_FACE));
+            ASSERT_NO_GL_ERROR(glCullFace(GL_BACK));
+            ASSERT_NO_GL_ERROR(glFrontFace(GL_CCW));
+
+            for (i = 0; i < p->contours.count; ++i)
+            {
+                _tpGLContour * c = _tpGLContourArrayAtPtr(&p->contours, i);
+                ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
+            }
+
+            ASSERT_NO_GL_ERROR(glFrontFace(GL_CW));
+            ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_DECR_WRAP));
+
+            for (i = 0; i < p->contours.count; ++i)
+            {
+                _tpGLContour * c = _tpGLContourArrayAtPtr(&p->contours, i);
+                ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
+            }
+
+            ASSERT_NO_GL_ERROR(glDisable(GL_CULL_FACE));
+            ASSERT_NO_GL_ERROR(glFrontFace(GL_CW));
+
+            if (_bIsClipPath)
+            {
+                ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
+                ASSERT_NO_GL_ERROR(glStencilFunc(GL_NOTEQUAL, 0, _kTpFillRasterStencilPlane));
+                ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
+
+                ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, p->boundsVertexOffset, 4));
+
+                //draw the bounds one last time to zero out the tmp data created in the _kTpFillRasterStencilPlane
+                ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
+                ASSERT_NO_GL_ERROR(glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO));
+                ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, p->boundsVertexOffset, 4));
+
+                return tpFalse;
+            }
+            else
+            {
+                ASSERT_NO_GL_ERROR(glStencilFunc(GL_NOTEQUAL, 0, _kTpFillRasterStencilPlane));
+            }
         }
 
-        ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 255, _kTpFillRasterStencilPlane));
         ASSERT_NO_GL_ERROR(glStencilMask(_kTpFillRasterStencilPlane));
         ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO));
         ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
-
         _tpGLDrawPaint(_ctx, p, &s->fill, &p->fillGradientData);
     }
-    else if (s->fillType == kTpFillTypeNonZero)
-    {
 
-    }
+    // we don't care for stroke if this is a clipping path
+    if(_bIsClipPath) return tpFalse;
 
     //draw the stroke
     if (p->strokeVertexCount)

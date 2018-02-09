@@ -804,7 +804,7 @@ int tpPathSetTransform(tpPath * _path, const tpMat3 * _transform)
 //     _style->strokeCap = _cap;
 // }
 
-// void tpStyleSetFillType(tpStyle * _style, FillType _fillType)
+// void tpStyleSetFillRule(tpStyle * _style, FillType _fillType)
 // {
 //     _style->fillType = _fillType;
 // }

@@ -150,17 +150,17 @@ typedef struct
     float x, y;
 } SomeVect;
 
-static inline SomeVect addByValue(SomeVect _a, SomeVect _b)
+static SomeVect addByValue(SomeVect _a, SomeVect _b)
 {
     return (SomeVect) {_a.x + _b.x, _a.y + _b.y};
 }
 
-static inline SomeVect addByPtr(const SomeVect * _a, const SomeVect * _b)
+static SomeVect addByPtr(const SomeVect * _a, const SomeVect * _b)
 {
     return (SomeVect) {_a->x + _b->x, _a->y + _b->y};
 }
 
-static inline void addByPtr2(const SomeVect * _a, const SomeVect * _b, SomeVect * _result)
+static void addByPtr2(const SomeVect * _a, const SomeVect * _b, SomeVect * _result)
 {
     _result->x = _a->x + _b->x;
     _result->y = _a->y + _b->y;
@@ -168,13 +168,13 @@ static inline void addByPtr2(const SomeVect * _a, const SomeVect * _b, SomeVect 
 
 typedef float SomeVec2[2];
 
-static inline void addWeird(const SomeVec2 _a, const SomeVec2 _b, SomeVec2 _result)
+static void addWeird(const SomeVec2 _a, const SomeVec2 _b, SomeVec2 _result)
 {
     _result[0] = _a[0] + _b[0];
     _result[1] = _a[1] + _b[1];
 }
 
-static inline float randomFloat(float _a, float _b)
+static float randomFloat(float _a, float _b)
 {
     float ret = (float)rand() / (float)RAND_MAX;
     return _a + (_b - _a) * ret;
@@ -340,7 +340,7 @@ int main(int argc, char * argv[])
     // tpIntArrayDeallocate(&array);
 
     // create the window
-    GLFWwindow * window = glfwCreateWindow(800, 600, "Basic Tarp Example", NULL, NULL);
+    GLFWwindow * window = glfwCreateWindow(1280, 720, "Basic Tarp Example", NULL, NULL);
     if (window)
     {
         glfwMakeContextCurrent(window);
@@ -380,6 +380,20 @@ int main(int argc, char * argv[])
 
         tpPath anotherOne = tpPathCreate(&ctx);
         tpPathAddCircle(anotherOne, 250, 150, 80);
+
+
+        tpPath circle = tpPathCreate(&ctx);
+        tpPathAddCircle(circle, 450, 150, 80);
+
+        tpPath star = tpPathCreate(&ctx);
+
+        tpPathMoveTo(star, 500, 200);
+        tpPathLineTo(star, 600, 200);
+        tpPathLineTo(star, 525, 300);
+        tpPathLineTo(star, 550, 150);
+        tpPathLineTo(star, 575, 300);
+        tpPathClose(star);
+
         // tpPathAddRect(path, 100, 100, 200, 100);
         // tpPathAddCircle(path, 100, 100, 50);
         // tpPathAddCircle(path, 100, 100, 20);
@@ -435,6 +449,10 @@ int main(int argc, char * argv[])
                m4.v[3], m4.v[7], m4.v[11], m4.v[15]
               );
 
+        tpStyle simple = tpStyleCreate(&ctx);
+        tpStyleSetFillColor(simple, 1.0, 0.5, 0.3, 1.0);
+        tpStyleSetFillRule(simple, kTpFillRuleNonZero);
+
         // tpPathSetTransform(path, &skew);
 
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
@@ -488,19 +506,22 @@ int main(int argc, char * argv[])
             // tpStyleSetDashOffset(style, off);
             // off -= 0.05;
 
-            tpMat4 proj = tpMat4MakeOrtho(0, 800, 600, 0, -1, 1);
+            tpMat4 proj = tpMat4MakeOrtho(0, 1280, 720, 0, -1, 1);
             tpSetProjection(&ctx, &proj);
             tpPrepareDrawing(&ctx);
             tpBeginClipping(&ctx, clipPath);
             tpBeginClipping(&ctx, clipPath2);
             tpBeginClipping(&ctx, clipPath3);
             tpDrawPath(&ctx, path, style);
-            // tpEndClipping(&ctx);
-            // tpEndClipping(&ctx);
-            // tpEndClipping(&ctx);
-            tpResetClipping(&ctx);
+            tpEndClipping(&ctx);
+            tpEndClipping(&ctx);
+            tpEndClipping(&ctx);
+            // tpResetClipping(&ctx);
 
             tpDrawPath(&ctx, anotherOne, style);
+
+            tpDrawPath(&ctx, star, simple);
+
             tpFinishDrawing(&ctx);
 
             glfwSwapBuffers(window);

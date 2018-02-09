@@ -59,9 +59,9 @@ typedef enum
 
 typedef enum
 {
-    kTpFillTypeEvenOdd,
-    kTpFillTypeNonZero
-} tpFillType;
+    kTpFillRuleEvenOdd,
+    kTpFillRuleNonZero
+} tpFillRule;
 
 typedef enum
 {
@@ -293,7 +293,7 @@ void tpStyleSetMiterLimit(tpStyle _style, tpFloat _limit);
 
 void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap);
 
-void tpStyleSetFillType(tpStyle _style, tpFillType _fillType);
+void tpStyleSetFillRule(tpStyle _style, tpFillRule _fillType);
 
 void tpStyleRemoveFill(tpStyle _style);
 
