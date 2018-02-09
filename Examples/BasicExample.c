@@ -394,6 +394,9 @@ int main(int argc, char * argv[])
         tpPathLineTo(star, 575, 300);
         tpPathClose(star);
 
+        tpPath starOnCircle = tpPathCreate(&ctx);
+        tpPathAddCircle(starOnCircle, 550, 225, 50);
+
         // tpPathAddRect(path, 100, 100, 200, 100);
         // tpPathAddCircle(path, 100, 100, 50);
         // tpPathAddCircle(path, 100, 100, 20);
@@ -520,7 +523,10 @@ int main(int argc, char * argv[])
 
             tpDrawPath(&ctx, anotherOne, style);
 
-            tpDrawPath(&ctx, star, simple);
+            // tpDrawPath(&ctx, star, simple);
+            tpBeginClipping(&ctx, star);
+            tpDrawPath(&ctx, starOnCircle, simple);
+            tpEndClipping(&ctx);
 
             tpFinishDrawing(&ctx);
 
