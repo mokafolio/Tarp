@@ -381,7 +381,6 @@ int main(int argc, char * argv[])
         tpPath anotherOne = tpPathCreate(&ctx);
         tpPathAddCircle(anotherOne, 250, 150, 80);
 
-
         tpPath circle = tpPathCreate(&ctx);
         tpPathAddCircle(circle, 450, 150, 80);
 
@@ -456,6 +455,13 @@ int main(int argc, char * argv[])
         tpStyleSetFillColor(simple, 1.0, 0.5, 0.3, 1.0);
         tpStyleSetFillRule(simple, kTpFillRuleNonZero);
 
+        tpPath circle2 = tpPathCreate(&ctx);
+        tpPathAddCircle(circle2, 100, 200, 60);
+        tpMat3 scal2 = tpMat3MakeScale(2.0, 2.0);
+        // tpPathSetTransform(circle2, &scal2);
+        tpStyle nonScaling = tpStyleCreate(&ctx);
+        tpStyleSetScaleStroke(nonScaling, tpFalse);
+
         // tpPathSetTransform(path, &skew);
 
         // printf("WE GOT %lu\n", tpPathSegmentCount(path));
@@ -490,7 +496,7 @@ int main(int argc, char * argv[])
         // tpPathDestroy(p);
 
         tpFloat off = 0.0;
-
+        tpFloat scoff = 0.0;
         int counter = 0;
         // the main loop
         while (!glfwWindowShouldClose(window))
@@ -528,7 +534,14 @@ int main(int argc, char * argv[])
             tpDrawPath(&ctx, starOnCircle, simple);
             tpEndClipping(&ctx);
 
+            tpDrawPath(&ctx, circle2, nonScaling);
+
             tpFinishDrawing(&ctx);
+
+            tpFloat s = 1.0 + (sin(scoff) + 1.0) * 0.5;
+            tpMat3 sm = tpMat3MakeScale(s, s);
+            tpPathSetTransform(circle2, &sm);
+            scoff += 0.01;
 
             glfwSwapBuffers(window);
             glfwPollEvents();

@@ -219,6 +219,7 @@ typedef struct
     int dashCount;
     tpStrokeJoin join;
     tpStrokeCap cap;
+    tpBool bScaleStroke;
 } _tpGLStrokeData;
 
 typedef struct
@@ -303,6 +304,7 @@ typedef struct
     int dashCount;
     tpFloat dashOffset;
     tpFloat miterLimit;
+    tpBool bScaleStroke;
     tpContext * context;
 } _tpGLStyle;
 
@@ -919,6 +921,15 @@ tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFlo
     return tpFalse;
 }
 
+static void _tpGLMarkPathGeometryDirty(_tpGLPath * _p)
+{
+    _p->bPathGeometryDirty = tpTrue;
+    for (int i = 0; i < _p->contours.count; ++i)
+    {
+        _tpGLContourArrayAtPtr(&_p->contours, i)->bDirty = tpTrue;
+    }
+}
+
 tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform)
 {
     tpVec2 scale, skew, translation;
@@ -929,15 +940,14 @@ tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform)
     assert(_tpGLIsValidPath(p));
 
     tpMat3Decompose(_transform, &translation, &scale, &skew, &rotation);
+    //we only force a reflattening of the path if the scale changed.
+    //TODO: this should take skewing into account, too AFAIK
     if (p->lastTransformScale < scale.x || p->lastTransformScale < scale.y)
     {
         p->lastTransformScale = TARP_MAX(scale.x, scale.y);
-        p->bPathGeometryDirty = tpTrue;
-        for (int i = 0; i < p->contours.count; ++i)
-        {
-            _tpGLContourArrayAtPtr(&p->contours, i)->bDirty = tpTrue;
-        }
+        _tpGLMarkPathGeometryDirty(p);
     }
+    p->transform = *_transform;
     p->renderTransform = tpMat4MakeFrom2DTransform(_transform);
     p->bTransformProjDirty = tpTrue;
 
@@ -1063,6 +1073,14 @@ void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap)
     assert(_tpGLIsValidStyle(s));
 
     s->strokeCap = _cap;
+}
+
+void tpStyleSetScaleStroke(tpStyle _style, tpBool _b)
+{
+    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
+    assert(_tpGLIsValidStyle(s));
+
+    s->bScaleStroke = _b;
 }
 
 void tpStyleSetFillRule(tpStyle _style, tpFillRule _rule)
@@ -1919,6 +1937,7 @@ void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _v
     _path->lastStroke.dashCount = _style->dashCount;
     _path->lastStroke.join = _style->strokeJoin;
     _path->lastStroke.cap = _style->strokeCap;
+    _path->lastStroke.bScaleStroke = _style->bScaleStroke;
 }
 
 void _tpGLFlattenCurve(_tpGLPath * _path,
@@ -1998,6 +2017,7 @@ void _tpGLMergeBounds(_tpGLRect * _a, const _tpGLRect * _b)
 
 int _tpGLFlattenPath(_tpGLPath * _path,
                      tpFloat _angleTolerance,
+                     tpBool _bTransformCurves,
                      _tpVec2Array * _outVertices,
                      _tpBoolArray * _outJoints,
                      _tpGLRect * _outBounds)
@@ -2031,6 +2051,7 @@ int _tpGLFlattenPath(_tpGLPath * _path,
             for (j = 1; j < c->segments.count; ++j)
             {
                 current = _tpSegmentArrayAtPtr(&c->segments, j);
+
                 printf("%f %f\n", last->position.x, last->position.y);
                 printf("%f %f\n", current->position.x, current->position.y);
                 _tpGLCurve curve = {last->position.x, last->position.y,
@@ -2038,6 +2059,16 @@ int _tpGLFlattenPath(_tpGLPath * _path,
                                     current->handleIn.x, current->handleIn.y,
                                     current->position.x, current->position.y
                                    };
+
+                if (_bTransformCurves)
+                {
+                    printf("TRANSFORM CURVES %f\n", _path->lastTransformScale);
+                    printf("TRANS %f %f %f %f\n", _path->transform.v[0], _path->transform.v[1], _path->transform.v[3], _path->transform.v[4]);
+                    curve.p0 = tpMat3MultVec2(&_path->transform, curve.p0);
+                    curve.h0 = tpMat3MultVec2(&_path->transform, curve.h0);
+                    curve.h1 = tpMat3MultVec2(&_path->transform, curve.h1);
+                    curve.p1 = tpMat3MultVec2(&_path->transform, curve.p1);
+                }
 
                 _tpGLFlattenCurve(_path,
                                   &curve,
@@ -2048,7 +2079,6 @@ int _tpGLFlattenPath(_tpGLPath * _path,
                                   _outVertices,
                                   _outJoints,
                                   &contourBounds, &vcount);
-
 
                 last = current;
             }
@@ -2062,6 +2092,16 @@ int _tpGLFlattenPath(_tpGLPath * _path,
                                     fs->handleIn.x, fs->handleIn.y,
                                     fs->position.x, fs->position.y
                                    };
+
+                if (_bTransformCurves)
+                {
+                    printf("AAA %f %f\n", curve.p0.x, curve.p0.y);
+                    curve.p0 = tpMat3MultVec2(&_path->transform, curve.p0);
+                    printf("BBB %f %f\n", curve.p0.x, curve.p0.y);
+                    curve.h0 = tpMat3MultVec2(&_path->transform, curve.h0);
+                    curve.h1 = tpMat3MultVec2(&_path->transform, curve.h1);
+                    curve.p1 = tpMat3MultVec2(&_path->transform, curve.p1);
+                }
 
                 _tpGLFlattenCurve(_path,
                                   &curve,
@@ -2590,6 +2630,16 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
     assert(_tpGLIsValidPath(p));
     assert(_tpGLIsValidStyle(s));
 
+    //if this style has a stroke and its scale stroke property is different from the last style,
+    //we force a full reflattening of all path contours.
+    //we also do this if the style has non scaling stroke and the transform changed since we
+    //last drew the path.
+    if ((s->stroke.type != kTpPaintTypeNone && p->lastStroke.bScaleStroke != s->bScaleStroke) ||
+            (!s->bScaleStroke && p->bTransformProjDirty))
+    {
+        _tpGLMarkPathGeometryDirty(p);
+    }
+
     //check if the transform projection is dirty
     if (p->bTransformProjDirty)
     {
@@ -2606,7 +2656,10 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
 
         //flatten the path into tmp buffers
         _tpGLRect bounds;
-        _tpGLFlattenPath(p, 0.15 / p->lastTransformScale, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
+        if (s->bScaleStroke)
+            _tpGLFlattenPath(p, 0.15 / p->lastTransformScale, tpFalse, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
+        else
+            _tpGLFlattenPath(p, 0.15, tpTrue, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
 
         //generate and add the stroke geometry to the tmp buffers
         if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0)
@@ -2629,9 +2682,9 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
         p->strokeGradientData.lastGradientID = -1;
     }
     //check if the stroke should be removed
-    else if (!_bIsClipPath && ((s->stroke.type == kTpPaintTypeNone &&
-                                p->lastStroke.strokeType != kTpPaintTypeNone) ||
-                               (s->strokeWidth == 0 && p->lastStroke.strokeWidth > 0)))
+    else if (((s->stroke.type == kTpPaintTypeNone &&
+               p->lastStroke.strokeType != kTpPaintTypeNone) ||
+              (s->strokeWidth == 0 && p->lastStroke.strokeWidth > 0)))
     {
         printf("REMOVE STROKE\n");
 
@@ -2698,14 +2751,17 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
     //upload the paths geometry cache to the gpu
     _tpGLUpdateVAO(&_ctx->vao, p->geometryCache.array, sizeof(tpVec2) * p->geometryCache.count);
 
-    ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &p->transformProjection.v[0]));
+    //@TODO: Cache Uniforms loc
+    if (s->bScaleStroke)
+        ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &p->transformProjection.v[0]));
+    else
+    {
+        ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &_ctx->projection.v[0]));
+    }
 
     //draw the fill
-    // _tpGLDrawFillEvenOdd(_ctx, p, s);
-
     stencilPlaneToWriteTo = _bIsClipPath ? _ctx->currentClipStencilPlane : _kTpFillRasterStencilPlane;
     stencilPlaneToTestAgainst = _ctx->currentClipStencilPlane == _ktpBeginClippingStencilPlaneOne ? _ktpBeginClippingStencilPlaneTwo : _ktpBeginClippingStencilPlaneOne;
-
 
     if (_bIsClipPath || s->fill.type != kTpPaintTypeNone)
     {
@@ -2723,7 +2779,7 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
                 ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
             }
 
-            if(_bIsClipPath) return tpFalse;
+            if (_bIsClipPath) return tpFalse;
 
             ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 255, _kTpFillRasterStencilPlane));
         }
@@ -2784,7 +2840,7 @@ tpBool _tpGLDrawPathImpl(tpContext * _ctx, _tpGLPath * _path, tpStyle _style, tp
     }
 
     // we don't care for stroke if this is a clipping path
-    if(_bIsClipPath) return tpFalse;
+    if (_bIsClipPath) return tpFalse;
 
     //draw the stroke
     if (p->strokeVertexCount)
