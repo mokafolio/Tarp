@@ -1,4 +1,5 @@
-#include <Tarp/TarpGL.h>
+#define TARP_COMPILE_OPENGL_IMPLEMENTATION
+#include <Tarp/Tarp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -180,9 +181,43 @@ static float randomFloat(float _a, float _b)
     return _a + (_b - _a) * ret;
 }
 
+// typedef float (*RandomFn)(float, float);
+
+// typedef struct 
+// {
+//     RandomFn random;
+// } TestImpl;
+
+// static TestImpl * testImpl()
+// {
+//     static TestImpl simpl;
+//     return &simpl;
+// }
+
+// TestImpl impl;
+
 int main(int argc, char * argv[])
 {
     // COMPILE_TIME_ASSERT(sizeof(Handle) != sizeof(void*));
+
+    // testImpl()->random = randomFloat;
+    // impl.random = randomFloat;
+
+    // clock_t start, end;
+    // double cpu_time_used;
+    // start = clock();
+    // tpFloat sval = 0;
+    // for (size_t i = 0; i < 1000000000; ++i)
+    // {
+    //     sval += testImpl()->random(-10, 10);
+    //     // sval += randomFloat(-10, 10);
+    //     // sval += impl.random(-10, 10);
+    // }
+    // end = clock();
+    // cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    // printf("TIME USED BY VALUE %f %f\n", cpu_time_used, sval);
+
+    // return EXIT_SUCCESS;
 
     // clock_t start, end;
     // double cpu_time_used;
@@ -345,6 +380,8 @@ int main(int argc, char * argv[])
     {
         glfwMakeContextCurrent(window);
 
+        tpSetImplementation(tpOpenGLImplementation());
+
         tpContext ctx;
         tpBool err = tpContextInit(&ctx);
         if (err)
@@ -460,7 +497,7 @@ int main(int argc, char * argv[])
         tpMat3 scal2 = tpMat3MakeScale(2.0, 2.0);
         // tpPathSetTransform(circle2, &scal2);
         tpStyle nonScaling = tpStyleCreate(&ctx);
-        tpStyleSetScaleStroke(nonScaling, tpFalse);
+        // tpStyleSetScaleStroke(nonScaling, tpFalse);
 
         // tpPathSetTransform(path, &skew);
 
@@ -539,7 +576,7 @@ int main(int argc, char * argv[])
             tpFinishDrawing(&ctx);
 
             tpFloat s = 1.0 + (sin(scoff) + 1.0) * 0.5;
-            tpMat3 sm = tpMat3MakeScale(s, s);
+            tpMat3 sm = tpMat3MakeScale(s * 2, s);
             tpPathSetTransform(circle2, &sm);
             scoff += 0.01;
 
