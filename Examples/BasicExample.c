@@ -1,4 +1,5 @@
-#define TARP_COMPILE_OPENGL_IMPLEMENTATION
+#define TARP_INCLUDE_OPENGL_IMPLEMENTATION
+#define TARP_IMPLEMENTATION
 #include <Tarp/Tarp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -183,7 +184,7 @@ static float randomFloat(float _a, float _b)
 
 // typedef float (*RandomFn)(float, float);
 
-// typedef struct 
+// typedef struct
 // {
 //     RandomFn random;
 // } TestImpl;
@@ -397,7 +398,7 @@ int main(int argc, char * argv[])
         // tpPathLineTo(path, 300, 170);
         // tpPathClose(path);
 
-        tpPath path = tpPathCreate(&ctx);
+        tpPath path = tpPathCreate();
         tpPathMoveTo(path, 100, 100);
         tpPathLineTo(path, 200, 100);
         tpPathLineTo(path, 200, 200);
@@ -406,22 +407,22 @@ int main(int argc, char * argv[])
 
         tpPathAddCircle(path, 150, 150, 30);
 
-        tpPath clipPath = tpPathCreate(&ctx);
+        tpPath clipPath = tpPathCreate();
         tpPathAddCircle(clipPath, 150, 150, 50);
 
-        tpPath clipPath2 = tpPathCreate(&ctx);
+        tpPath clipPath2 = tpPathCreate();
         tpPathAddRect(clipPath2, 100, 140, 100, 40);
 
-        tpPath clipPath3 = tpPathCreate(&ctx);
+        tpPath clipPath3 = tpPathCreate();
         tpPathAddRect(clipPath3, 120, 100, 30, 100);
 
-        tpPath anotherOne = tpPathCreate(&ctx);
+        tpPath anotherOne = tpPathCreate();
         tpPathAddCircle(anotherOne, 250, 150, 80);
 
-        tpPath circle = tpPathCreate(&ctx);
+        tpPath circle = tpPathCreate();
         tpPathAddCircle(circle, 450, 150, 80);
 
-        tpPath star = tpPathCreate(&ctx);
+        tpPath star = tpPathCreate();
 
         tpPathMoveTo(star, 500, 200);
         tpPathLineTo(star, 600, 200);
@@ -430,7 +431,7 @@ int main(int argc, char * argv[])
         tpPathLineTo(star, 575, 300);
         tpPathClose(star);
 
-        tpPath starOnCircle = tpPathCreate(&ctx);
+        tpPath starOnCircle = tpPathCreate();
         tpPathAddCircle(starOnCircle, 550, 225, 50);
 
         // tpPathAddRect(path, 100, 100, 200, 100);
@@ -446,7 +447,7 @@ int main(int argc, char * argv[])
 
 
 
-        tpStyle style = tpStyleCreate(&ctx);
+        tpStyle style = tpStyleCreate();
         tpStyleSetStrokeWidth(style, 8);
         // tpStyleSetMiterLimit(style, 64);
         tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
@@ -459,13 +460,12 @@ int main(int argc, char * argv[])
 
         tpStyleSetDashOffset(style, -31);
 
-
-        tpGradient grad = tpGradientCreateLinear(&ctx, 100, 100, 200, 200);
+        tpGradient grad = tpGradientCreateLinear(100, 100, 200, 200);
         tpGradientAddColorStop(grad, 0, 0, 0, 1, 0.0);
         tpGradientAddColorStop(grad, 1, 1, 0, 1, 1.0);
         tpStyleSetFillGradient(style, grad);
 
-        tpGradient grad2 = tpGradientCreateLinear(&ctx, 100, 150, 200, 150);
+        tpGradient grad2 = tpGradientCreateLinear(100, 150, 200, 150);
         tpGradientAddColorStop(grad2, 1, 1, 0, 1, 0.0);
         tpGradientAddColorStop(grad2, 1, 0, 1, 1, 0.25);
         tpGradientAddColorStop(grad2, 0, 1, 1, 1, 1.0);
@@ -488,15 +488,15 @@ int main(int argc, char * argv[])
                m4.v[3], m4.v[7], m4.v[11], m4.v[15]
               );
 
-        tpStyle simple = tpStyleCreate(&ctx);
+        tpStyle simple = tpStyleCreate();
         tpStyleSetFillColor(simple, 1.0, 0.5, 0.3, 1.0);
         tpStyleSetFillRule(simple, kTpFillRuleNonZero);
 
-        tpPath circle2 = tpPathCreate(&ctx);
+        tpPath circle2 = tpPathCreate();
         tpPathAddCircle(circle2, 100, 200, 60);
         tpMat3 scal2 = tpMat3MakeScale(2.0, 2.0);
         // tpPathSetTransform(circle2, &scal2);
-        tpStyle nonScaling = tpStyleCreate(&ctx);
+        tpStyle nonScaling = tpStyleCreate();
         // tpStyleSetScaleStroke(nonScaling, tpFalse);
 
         // tpPathSetTransform(path, &skew);
@@ -535,6 +535,10 @@ int main(int argc, char * argv[])
         tpFloat off = 0.0;
         tpFloat scoff = 0.0;
         int counter = 0;
+
+        tpMat4 proj = tpMat4MakeOrtho(0, 1280, 720, 0, -1, 1);
+        tpSetProjection(&ctx, &proj);
+
         // the main loop
         while (!glfwWindowShouldClose(window))
         {
@@ -552,8 +556,6 @@ int main(int argc, char * argv[])
             // tpStyleSetDashOffset(style, off);
             // off -= 0.05;
 
-            tpMat4 proj = tpMat4MakeOrtho(0, 1280, 720, 0, -1, 1);
-            tpSetProjection(&ctx, &proj);
             tpPrepareDrawing(&ctx);
             tpBeginClipping(&ctx, clipPath);
             tpBeginClipping(&ctx, clipPath2);
@@ -575,10 +577,10 @@ int main(int argc, char * argv[])
 
             tpFinishDrawing(&ctx);
 
-            tpFloat s = 1.0 + (sin(scoff) + 1.0) * 0.5;
-            tpMat3 sm = tpMat3MakeScale(s * 2, s);
-            tpPathSetTransform(circle2, &sm);
-            scoff += 0.01;
+            // tpFloat s = 1.0 + (sin(scoff) + 1.0) * 0.5;
+            // tpMat3 sm = tpMat3MakeScale(s * 2, s);
+            // tpPathSetTransform(circle2, &sm);
+            // scoff += 0.01;
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -594,7 +596,7 @@ int main(int argc, char * argv[])
                 printf("DA GRAD BABYBBB %f %f %f %f\n", a, b, c, d);
                 tpGradientDestroy(grad);
 
-                grad = tpGradientCreateLinear(&ctx, a, b, c, d);
+                grad = tpGradientCreateLinear(a, b, c, d);
 
 
                 tpGradientAddColorStop(grad, 1, 1, 0, 1, 0.0);
