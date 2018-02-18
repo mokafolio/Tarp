@@ -391,6 +391,8 @@ TARP_API tpBool tpVec2Equals(tpVec2 _a, tpVec2 _b);
 
 TARP_API tpFloat tpVec2Length(tpVec2 _vec);
 
+TARP_API tpFloat tpVec2LengthSquared(tpVec2 _vec);
+
 TARP_API tpFloat tpVec2Dot(tpVec2 _a, tpVec2 _b);
 
 TARP_API tpFloat tpVec2Cross(tpVec2 _a, tpVec2 _b);
@@ -402,6 +404,8 @@ TARP_API tpVec2 tpVec2Normalize(tpVec2 _vec);
 TARP_API tpVec2 tpVec2Perp(tpVec2 _a);
 
 TARP_API tpFloat tpVec2Distance(tpVec2 _a, tpVec2 _b);
+
+TARP_API tpFloat tpVec2DistanceSquared(tpVec2 _a, tpVec2 _b);
 
 
 // Matrix Functions
@@ -635,6 +639,11 @@ tpFloat tpVec2Length(tpVec2 _vec)
     return sqrt(_vec.x * _vec.x + _vec.y * _vec.y);
 }
 
+tpFloat tpVec2LengthSquared(tpVec2 _vec)
+{
+    return _vec.x * _vec.x + _vec.y * _vec.y;
+}
+
 void tpVec2NormalizeSelf(tpVec2 * _vec)
 {
     tpFloat s = 1.0 / tpVec2Length(*_vec);
@@ -666,6 +675,11 @@ tpFloat tpVec2Cross(tpVec2 _a, tpVec2 _b)
 tpFloat tpVec2Distance(tpVec2 _a, tpVec2 _b)
 {
     return tpVec2Length(tpVec2Sub(_a, _b));
+}
+
+tpFloat tpVec2DistanceSquared(tpVec2 _a, tpVec2 _b)
+{
+    return tpVec2LengthSquared(tpVec2Sub(_a, _b));
 }
 
 tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2,
@@ -1296,6 +1310,8 @@ typedef struct
     int strokeVertexCount;
 
     _tpGLRect bounds;
+    tpBool bLengthDirty;
+    tpFloat length;
 } _tpGLContour;
 
 #define _TARP_ARRAY_T _tpGLContourArray
@@ -1747,6 +1763,7 @@ _tpGLContour * _tpGLPathCreateNextContour(_tpGLPath * _p)
     contour.fillVertexCount = 0;
     contour.strokeVertexOffset = 0;
     contour.strokeVertexCount = 0;
+    contour.bLengthDirty = tpTrue;
     _p->currentContourIndex = _p->contours.count;
     _tpGLContourArrayAppend(&_p->contours, contour);
     return _tpGLContourArrayAtPtr(&_p->contours, _p->currentContourIndex);
@@ -2051,10 +2068,13 @@ tpBool _tpGLPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tp
 
 static void _tpGLMarkPathGeometryDirty(_tpGLPath * _p)
 {
+    _tpGLContour * c;
     _p->bPathGeometryDirty = tpTrue;
     for (int i = 0; i < _p->contours.count; ++i)
     {
-        _tpGLContourArrayAtPtr(&_p->contours, i)->bDirty = tpTrue;
+        c = _tpGLContourArrayAtPtr(&_p->contours, i);
+        c->bDirty = tpTrue;
+        c->bLengthDirty = tpTrue;
     }
 }
 

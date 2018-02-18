@@ -63,7 +63,7 @@ static float randomFloat(float _a, float _b)
 static void updateStrokeOffsetDrawing(void * _userData)
 {
     PathWithStyleAndCallback * drawing = (PathWithStyleAndCallback *) _userData;
-    tpStyleSetDashOffset(drawing->style, tpStyleDashOffset(drawing->style) + 0.1);
+    tpStyleSetDashOffset(drawing->style, tpStyleDashOffset(drawing->style) + 0.2);
 }
 
 static void updateStarFillRuleDrawing(void * _userData)
@@ -176,7 +176,7 @@ int main(int argc, char * argv[])
             tpStyleSetStrokeWidth(style, 6.0);
             tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
             tpStyleSetMiterLimit(style, 25);
-
+            
             starDrawing.path = path;
             starDrawing.style = style;
             starDrawing.cb = makeRepeatingCallback(updateStarFillRuleDrawing, 1.0, &starDrawing);
