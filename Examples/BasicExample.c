@@ -101,8 +101,23 @@ static void updateRotatingDrawing(void * _userData)
     rot += (sin(rot) + 2.0) * 0.5 * 0.05;
 }
 
+static void updateWormDrawing(void * _userData)
+{
+    static tpFloat rot = 0;
+    PathWithStyleAndCallback * drawing = (PathWithStyleAndCallback *) _userData;
+    tpMat3 transform = tpMat3MakeTranslation(400, 250);
+    tpMat3 rotMat = tpMat3MakeRotation(rot);
+    transform = tpMat3Mult(&transform, &rotMat);
+    tpPathSetStrokePaintTransform(drawing->path, &transform);
+    rot += 0.1;
+}
+
 int main(int argc, char * argv[])
 {
+    //randomize the random seed
+    //NOTE: Fuck rand, we just use it for the simplicity/portability of this example
+    srand (time(NULL));
+
     // initialize glfw
     if (!glfwInit())
         return EXIT_FAILURE;
@@ -176,7 +191,7 @@ int main(int argc, char * argv[])
             tpStyleSetStrokeWidth(style, 6.0);
             tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
             tpStyleSetMiterLimit(style, 25);
-            
+
             starDrawing.path = path;
             starDrawing.style = style;
             starDrawing.cb = makeRepeatingCallback(updateStarFillRuleDrawing, 1.0, &starDrawing);
@@ -206,13 +221,55 @@ int main(int argc, char * argv[])
             tpPathClose(path);
 
             tpStyle style = tpStyleCreate();
-            tpStyleSetFillColor(style, 1.0, 0.0, 0.0, 1.0);
+            tpStyleSetFillColor(style, 1.0, 0.7, 0.1, 1.0);
             tpStyleSetStrokeWidth(style, 5.0);
             tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
 
             rotatingDrawing.path = path;
             rotatingDrawing.style = style;
             rotatingDrawing.cb = makeRepeatingCallback(updateRotatingDrawing, 0, &rotatingDrawing);
+        }
+
+        PathWithStyleAndCallback wormDrawing;
+        {
+            tpPath path = tpPathCreate();
+            tpPathMoveTo(path, 200, 200);
+            tpFloat xoff = 200;
+            for (int i = 0; i < 2; ++i)
+            {
+                // tpPathCubicCurveTo(path, 200 + TARP_KAPPA * 50, 200, 250, 250 - TARP_KAPPA * 50, 250, 250);
+                // tpPathCubicCurveTo(path, 250, 250 + TARP_KAPPA * 50, 300 - TARP_KAPPA * 50, 300, 300, 300);
+                // tpPathCubicCurveTo(path, 300 + TARP_KAPPA * 50, 300, 350, 250 + TARP_KAPPA * 50, 350, 250);
+                // tpPathCubicCurveTo(path, 350, 250 - TARP_KAPPA * 50, 400 - TARP_KAPPA * 50, 200, 400, 200);
+
+                tpPathCubicCurveTo(path, xoff + TARP_KAPPA * 50, 200, xoff + 50, 250 - TARP_KAPPA * 50, xoff + 50, 250);
+                tpPathCubicCurveTo(path, xoff + 50, 250 + TARP_KAPPA * 50, xoff + 100 - TARP_KAPPA * 50, 300, xoff + 100, 300);
+                tpPathCubicCurveTo(path, xoff + 100 + TARP_KAPPA * 50, 300, xoff + 150, 250 + TARP_KAPPA * 50, xoff + 150, 250);
+                tpPathCubicCurveTo(path, xoff + 150, 250 - TARP_KAPPA * 50, xoff + 200 - TARP_KAPPA * 50, 200, xoff + 200, 200);
+                xoff += 200;
+            }
+
+            // tpPathClose(path);
+
+            tpStyle style = tpStyleCreate();
+            tpStyleRemoveFill(style);
+            tpStyleSetStrokeWidth(style, 20.0);
+            tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
+            tpStyleSetStrokeCap(style, kTpStrokeCapRound);
+
+            tpGradient grad = tpGradientCreateLinear(-200, -50, 200, 50);
+            tpFloat off = 0.0;
+            while(off < 1.0)
+            {
+                tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, off);
+                off += randomFloat(0.1, 0.3);
+            }
+
+            tpStyleSetStrokeGradient(style, grad);
+
+            wormDrawing.path = path;
+            wormDrawing.style = style;
+            wormDrawing.cb = makeRepeatingCallback(updateWormDrawing, 0.0, &wormDrawing);
         }
 
         // the main loop
@@ -247,6 +304,9 @@ int main(int argc, char * argv[])
             //update and draw the random path
             updateRepeatingCallback(&rotatingDrawing.cb);
             tpDrawPath(&ctx, rotatingDrawing.path, rotatingDrawing.style);
+
+            updateRepeatingCallback(&wormDrawing.cb);
+            tpDrawPath(&ctx, wormDrawing.path, wormDrawing.style);
 
             tpFinishDrawing(&ctx);
 

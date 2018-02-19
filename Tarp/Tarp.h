@@ -239,6 +239,8 @@ typedef struct _tpContextData tpContext;*/
 typedef tpPath (*_tpPathCreateFn)();
 typedef void (*_tpPathDestroyFn)(tpPath);
 typedef tpBool (*_tpPathSetTransformFn)(tpPath, const tpMat3 *);
+typedef tpBool (*_tpPathSetFillPaintTransformFn)(tpPath, const tpMat3 *);
+typedef tpBool (*_tpPathSetStrokePaintTransformFn)(tpPath, const tpMat3 *);
 typedef tpBool (*_tpPathAddCircleFn)(tpPath, tpFloat, tpFloat, tpFloat);
 typedef tpBool (*_tpPathAddEllipseFn)(tpPath, tpFloat, tpFloat, tpFloat, tpFloat);
 typedef tpBool (*_tpPathAddRectFn)(tpPath, tpFloat, tpFloat, tpFloat, tpFloat);
@@ -307,6 +309,8 @@ typedef struct
     _tpPathCreateFn pathCreate;
     _tpPathDestroyFn pathDestroy;
     _tpPathSetTransformFn pathSetTransform;
+    _tpPathSetFillPaintTransformFn pathSetFillPaintTransform;
+    _tpPathSetStrokePaintTransformFn pathSetStrokePaintTransform;
     _tpPathAddCircleFn pathAddCircle;
     _tpPathAddEllipseFn pathAddEllipse;
     _tpPathAddRectFn pathAddRect;
@@ -462,6 +466,10 @@ TARP_API tpPath tpPathCreate();
 TARP_API void tpPathDestroy(tpPath _path);
 
 TARP_API tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform);
+
+TARP_API tpBool tpPathSetFillPaintTransform(tpPath, const tpMat3 * _transform);
+
+TARP_API tpBool tpPathSetStrokePaintTransform(tpPath, const tpMat3 * _transform);
 
 TARP_API tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r);
 
@@ -924,6 +932,16 @@ TARP_API void tpPathDestroy(tpPath _path)
 TARP_API tpBool tpPathSetTransform(tpPath _path, const tpMat3 * _transform)
 {
     return tpGetImplementation()->pathSetTransform(_path, _transform);
+}
+
+TARP_API tpBool tpPathSetFillPaintTransform(tpPath _path, const tpMat3 * _transform)
+{
+    return tpGetImplementation()->pathSetFillPaintTransform(_path, _transform);
+}
+
+TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _transform)
+{
+    return tpGetImplementation()->pathSetStrokePaintTransform(_path, _transform);
 }
 
 TARP_API tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r)
@@ -1397,6 +1415,11 @@ typedef struct
 
     _tpGLContext * lastDrawContext;
     int lastProjectionID;
+
+    tpMat3 fillPaintTransform;
+    tpMat3 strokePaintTransform;
+    tpBool bFillPaintTransformDirty;
+    tpBool bStrokePaintTransformDirty;
 } _tpGLPath;
 
 typedef struct
@@ -1725,6 +1748,11 @@ tpPath _tpGLPathCreate()
 
     path->lastDrawContext = NULL;
     path->lastProjectionID = 0;
+
+    path->fillPaintTransform = tpMat3MakeIdentity();
+    path->strokePaintTransform = tpMat3MakeIdentity();
+    path->bFillPaintTransformDirty = tpFalse;
+    path->bStrokePaintTransformDirty = tpFalse;
 
     return (tpPath) {path};
 }
@@ -2099,6 +2127,22 @@ tpBool _tpGLPathSetTransform(tpPath _path, const tpMat3 * _transform)
     p->renderTransform = tpMat4MakeFrom2DTransform(_transform);
     p->lastDrawContext = NULL;
 
+    return tpFalse;
+}
+
+tpBool _tpGLPathSetFillPaintTransform(tpPath _path, const tpMat3 * _transform)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    p->fillPaintTransform = *_transform;
+    p->bFillPaintTransformDirty = tpTrue;
+    return tpFalse;
+}
+
+tpBool _tpGLPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _transform)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    p->strokePaintTransform = *_transform;
+    p->bStrokePaintTransformDirty = tpTrue;
     return tpFalse;
 }
 
@@ -3592,6 +3636,7 @@ typedef struct
 
 void _tpGLGradientLinearGeometry(_tpGLContext * _ctx,
                                  _tpGLGradient * _grad,
+                                 const tpMat3 * _paintTransform,
                                  const _tpGLRect * _bounds,
                                  _tpGLTextureVertexArray * _vertices,
                                  int * _outVertexOffset,
@@ -3599,13 +3644,15 @@ void _tpGLGradientLinearGeometry(_tpGLContext * _ctx,
 {
     // regenerate the geometry for this path/gradient combo
     _tpGLTextureVertex vertices[8];
-    tpVec2 dir, ndir, perp, nperp, center;
+    tpVec2 dir, ndir, perp, nperp, center, dest, origin;
     tpVec2 corners[4];
     tpVec2 tmp, tmp2, tmp3;
     tpFloat len, o, s, left, right, minOffset, maxOffset;
     int i;
 
-    dir = tpVec2Sub(_grad->destination, _grad->origin);
+    origin = tpMat3MultVec2(_paintTransform, _grad->origin);
+    dest = tpMat3MultVec2(_paintTransform, _grad->destination);
+    dir = tpVec2Sub(dest, origin);
     len = tpVec2Length(dir);
     ndir.x = dir.x / len;
     ndir.y = dir.y / len;
@@ -3614,9 +3661,9 @@ void _tpGLGradientLinearGeometry(_tpGLContext * _ctx,
     nperp.x = -ndir.y;
     nperp.y = ndir.x;
 
-    center = _grad->origin;
+    center = origin;
 
-    printf("GRAD ORIGIN %f %f DES %f %f\n", center.x, center.y, _grad->destination.x, _grad->destination.y);
+    // printf("GRAD ORIGIN %f %f DES %f %f\n", center.x, center.y, _grad->destination.x, _grad->destination.y);
 
     corners[0] = tpVec2Sub(_bounds->min, center);
     corners[1].x = _bounds->max.x - center.x;
@@ -3664,7 +3711,8 @@ void _tpGLGradientLinearGeometry(_tpGLContext * _ctx,
 }
 
 void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * _grad,
-                                _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices)
+                                _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices,
+                                const tpMat3 * _paintTransform, tpBool _bPaintTransformDirty)
 {
     _tpGLGradient * grad = _grad;
 
@@ -3679,13 +3727,13 @@ void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * _grad,
         _gradCache->lastGradientID = -1;
     }
 
-    if (_gradCache->lastGradientID != grad->gradientID)
+    if (_gradCache->lastGradientID != grad->gradientID || _bPaintTransformDirty)
     {
         printf("REBUILDING GRAD\n");
         //rebuild the gradient
         if (grad->type == kTpGradientTypeLinear)
         {
-            _tpGLGradientLinearGeometry(_ctx, grad,
+            _tpGLGradientLinearGeometry(_ctx, grad, _paintTransform,
                                         _gradCache->bounds, _vertices,
                                         &_gradCache->vertexOffset, &_gradCache->vertexCount);
 
@@ -3852,10 +3900,14 @@ tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpStyle _style,
     }
 
     // check if there are any gradients to be cached.
+    // @TODO: This if statement could really need a cleaner rework. Basically what we are doing here is
+    // checking if any property changed that triggers that the gradient geometry needs to be recached.
     if (!_bIsClipPath && ((s->fill.type == kTpPaintTypeGradient &&
-                           p->fillGradientData.lastGradientID != ((_tpGLGradient *)s->fill.data.gradient.pointer)->gradientID) ||
+                           (p->fillGradientData.lastGradientID != ((_tpGLGradient *)s->fill.data.gradient.pointer)->gradientID ||
+                            p->bFillPaintTransformDirty)) ||
                           (s->stroke.type == kTpPaintTypeGradient &&
-                           p->strokeGradientData.lastGradientID != ((_tpGLGradient *)s->stroke.data.gradient.pointer)->gradientID)))
+                           (p->strokeGradientData.lastGradientID != ((_tpGLGradient *)s->stroke.data.gradient.pointer)->gradientID ||
+                            p->bStrokePaintTransformDirty))))
     {
         printf("GRADS GETTING UPDATED\n");
         _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
@@ -3863,14 +3915,16 @@ tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpStyle _style,
         {
             printf("UPDATE FILL GRADIENT\n");
             _tpGLGradient * grad = (_tpGLGradient *)s->fill.data.gradient.pointer;
-            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->fillGradientData, &_ctx->tmpTexVertices);
+            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->fillGradientData, &_ctx->tmpTexVertices, &p->fillPaintTransform, p->bFillPaintTransformDirty);
+            p->bFillPaintTransformDirty = tpFalse;
         }
 
         if (s->stroke.type == kTpPaintTypeGradient)
         {
             printf("UPDATE STROKE GRADIENT\n");
             _tpGLGradient * grad = (_tpGLGradient *)s->stroke.data.gradient.pointer;
-            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->strokeGradientData, &_ctx->tmpTexVertices);
+            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->strokeGradientData, &_ctx->tmpTexVertices, &p->strokePaintTransform, p->bStrokePaintTransformDirty);
+            p->bStrokePaintTransformDirty = tpFalse;
         }
 
         _tpGLTextureVertexArraySwap(&p->textureGeometryCache, &_ctx->tmpTexVertices);
@@ -4107,6 +4161,8 @@ TARP_API tpImplementation tpOpenGLImplementation()
     ret.pathCreate = _tpGLPathCreate;
     ret.pathDestroy = _tpGLPathDestroy;
     ret.pathSetTransform = _tpGLPathSetTransform;
+    ret.pathSetFillPaintTransform = _tpGLPathSetFillPaintTransform;
+    ret.pathSetStrokePaintTransform = _tpGLPathSetStrokePaintTransform;
     ret.pathAddCircle = _tpGLPathAddCircle;
     ret.pathAddEllipse = _tpGLPathAddEllipse;
     ret.pathAddRect = _tpGLPathAddRect;
