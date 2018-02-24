@@ -60,6 +60,7 @@ typedef struct
 {
     PathWithStyle paths[512];
     int pathCount;
+    tpPath clipPath;
 } TigerDrawing;
 
 static float randomFloat(float _a, float _b)
@@ -188,13 +189,25 @@ static void updateTigerDrawing(tpContext * _context, void * _userData, tpBool _b
 {
     static tpFloat s = 0;
     TigerDrawing * td = (TigerDrawing *) _userData;
+    tpFloat xoff = 300;
+    tpFloat yoff = 300;
+    tpMat3 trans = tpMat3MakeTranslation(-xoff, -yoff);
     tpFloat scale = (sin(s * 1.5) + 1.0) * 0.5 * 2.0;
-    tpMat3 scaleMat = tpMat3MakeScale(scale, scale);
-    tpSetTransform(_context, &scaleMat);
+    // tpMat3 scaleMat = tpMat3MakeScale(scale, scale);
+    tpMat3 rot = tpMat3MakeRotation(s * 3);
+    tpMat3 smat = tpMat3MakeScale(0.65, 0.65);
+    rot = tpMat3Mult(&rot, &trans);
+    rot = tpMat3Mult(&smat, &rot);
+    trans = tpMat3MakeTranslation(180, 600);
+    rot = tpMat3Mult(&trans, &rot);
+
+    tpBeginClipping(_context, td->clipPath);
+    tpSetTransform(_context, &rot);
     for(int i = 0; i < td->pathCount; ++i)
     {
         tpDrawPath(_context, td->paths[i].path, td->paths[i].style);
     }
+    tpResetClipping(_context);
     tpResetTransform(_context);
     s += 0.005;
 }
@@ -217,7 +230,7 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // create the window
-    GLFWwindow * window = glfwCreateWindow(1280, 720, "Basic Tarp Example", NULL, NULL);
+    GLFWwindow * window = glfwCreateWindow(1280, 800, "Basic Tarp Example", NULL, NULL);
     if (window)
     {
         glfwMakeContextCurrent(window);
@@ -472,7 +485,8 @@ int main(int argc, char * argv[])
         }
 
         drawCallbacks[callbackCount++] = makeDrawCallback(updateTigerDrawing, 0, &ctx, &tigerDrawing);
-
+        tigerDrawing.clipPath = tpPathCreate();
+        tpPathAddCircle(tigerDrawing.clipPath, 175, 625, 125);
         nsvgDelete(image);
 
         printf("TIGER PATH COUNT %i\n", tigerDrawing.pathCount);
@@ -499,22 +513,6 @@ int main(int argc, char * argv[])
             {
                 updateDrawCallback(&drawCallbacks[i]);
             }
-
-            // tpDrawPath(&ctx, dashOffsetDrawing.path, dashOffsetDrawing.style);
-
-            // tpDrawPath(&ctx, starDrawing.path, starDrawing.style);
-            // tpDrawPath(&ctx, randomDrawing.path, randomDrawing.style);
-            // tpDrawPath(&ctx, confettiDrawing.path, confettiDrawing.style);
-            // tpDrawPath(&ctx, rotatingDrawing.path, rotatingDrawing.style);
-            // tpDrawPath(&ctx, wormDrawing.path, wormDrawing.style);
-            // tpDrawPath(&ctx, scalingStrokeDrawing.path, scalingStrokeDrawing.style);
-            // tpDrawPath(&ctx, noneScalingStrokeDrawing.path, noneScalingStrokeDrawing.style);
-
-            // for (int i = 0; i < tigerDrawing.pathCount; ++i)
-            // {
-            //     tpDrawPath(&ctx, tigerDrawing.paths[i].path, tigerDrawing.paths[i].style);
-            // }
-
 
             tpFinishDrawing(&ctx);
 
