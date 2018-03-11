@@ -47,6 +47,9 @@
 #include <float.h>
 #include <math.h>
 
+//check if we need to include opengl
+#ifndef TARP_DONT_INCLUDE_GL
+#ifndef __gl_h_
 #if TARP_PLATFORM == TARP_PLATFORM_OSX
 #include <OpenGL/OpenGL.h> //for CGL functions
 //check if opengl 3+ is available
@@ -65,6 +68,8 @@
 #include <GL/glext.h>
 // #undef None //??? some glx thing
 // #undef GL_GLEXT_PROTOTYPES
+#endif
+#endif
 #endif
 
 #ifdef TARP_DEBUG
