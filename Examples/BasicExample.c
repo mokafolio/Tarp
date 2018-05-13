@@ -238,9 +238,6 @@ int main(int argc, char * argv[])
         int wwidth, wheight;
         glfwGetWindowSize(window, &wwidth, &wheight);
 
-        //use the Tarp OpenGL implementation
-        tpSetImplementation(tpOpenGLImplementation());
-
         DrawCallback drawCallbacks[32];
         int callbackCount = 0;
 
