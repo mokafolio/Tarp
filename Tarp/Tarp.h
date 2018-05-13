@@ -1273,15 +1273,18 @@ TARP_API tpPath tpPathCreate()
 TARP_API void tpPathDestroy(tpPath _path)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    _tpVec2ArrayDeallocate(&p->geometryCache);
-    _tpGLTextureVertexArrayDeallocate(&p->textureGeometryCache);
-    _tpBoolArrayDeallocate(&p->jointCache);
-    for (int i = 0; i < p->contours.count; ++i)
+    if (p)
     {
-        _tpSegmentArrayDeallocate(&_tpGLContourArrayAtPtr(&p->contours, i)->segments);
+        _tpVec2ArrayDeallocate(&p->geometryCache);
+        _tpGLTextureVertexArrayDeallocate(&p->textureGeometryCache);
+        _tpBoolArrayDeallocate(&p->jointCache);
+        for (int i = 0; i < p->contours.count; ++i)
+        {
+            _tpSegmentArrayDeallocate(&_tpGLContourArrayAtPtr(&p->contours, i)->segments);
+        }
+        _tpGLContourArrayDeallocate(&p->contours);
+        free(p);
     }
-    _tpGLContourArrayDeallocate(&p->contours);
-    free(p);
 }
 
 TARP_LOCAL _tpGLContour * _tpGLCurrentContour(_tpGLPath * _p)
@@ -1819,9 +1822,12 @@ TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _
 TARP_API void tpGradientDestroy(tpGradient _gradient)
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
-    _TARP_ASSERT_NO_GL_ERROR(glDeleteTextures(1, &g->rampTexture));
-    _tpColorStopArrayDeallocate(&g->stops);
-    free(g);
+    if (g)
+    {
+        _TARP_ASSERT_NO_GL_ERROR(glDeleteTextures(1, &g->rampTexture));
+        _tpColorStopArrayDeallocate(&g->stops);
+        free(g);
+    }
 }
 
 TARP_LOCAL int _tpGLIsClose(tpFloat _x, tpFloat _y, tpFloat _epsilon)

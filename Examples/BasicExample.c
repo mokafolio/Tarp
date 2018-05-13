@@ -55,7 +55,15 @@ typedef struct
 {
     tpPath path;
     tpStyle style;
+    tpGradient grad;
 } PathWithStyle;
+
+static void destroyPathWithStyle(PathWithStyle * _ps)
+{
+    tpPathDestroy(_ps->path);
+    tpStyleDestroy(_ps->style);
+    tpGradientDestroy(_ps->grad);
+}
 
 typedef struct
 {
@@ -263,7 +271,7 @@ int main(int argc, char * argv[])
         tpSetProjection(&ctx, &proj);
 
         //create the dash offset drawing
-        PathWithStyle dashOffsetDrawing;
+        PathWithStyle dashOffsetDrawing = {0};
         {
             tpPath path = tpPathCreate();
             tpPathAddCircle(path, 100, 100, 50);
@@ -283,7 +291,7 @@ int main(int argc, char * argv[])
         }
 
         //init the star drawing to show EvenOdd vs NonZero fill rule
-        PathWithStyle starDrawing;
+        PathWithStyle starDrawing = {0};
         {
             tpPath path = tpPathCreate();
             tpPathMoveTo(path, 250, 50);
@@ -306,7 +314,7 @@ int main(int argc, char * argv[])
         }
 
         //path that randomly regenerates every half second
-        PathWithStyle randomDrawing;
+        PathWithStyle randomDrawing = {0};
         {
             tpPath path = tpPathCreate();
 
@@ -319,7 +327,7 @@ int main(int argc, char * argv[])
             drawCallbacks[callbackCount++] = makeDrawCallback(updateRandomDrawing, 0.5, &ctx, &randomDrawing);
         }
 
-        PathWithStyle confettiDrawing;
+        PathWithStyle confettiDrawing = {0};
         {
             tpPath path = tpPathCreate();
 
@@ -334,7 +342,7 @@ int main(int argc, char * argv[])
             // tpPathSetTransform(path, &trans);
         }
 
-        PathWithStyle rotatingDrawing;
+        PathWithStyle rotatingDrawing = {0};
         {
             tpPath path = tpPathCreate();
             tpPathAddRect(path, -50, -50, 100, 100);
@@ -354,7 +362,7 @@ int main(int argc, char * argv[])
             drawCallbacks[callbackCount++] = makeDrawCallback(updateRotatingDrawing, 0, &ctx, &rotatingDrawing);
         }
 
-        PathWithStyle wormDrawing;
+        PathWithStyle wormDrawing = {0};
         {
             tpPath path = tpPathCreate();
             tpPathMoveTo(path, 200, 200);
@@ -391,7 +399,7 @@ int main(int argc, char * argv[])
             drawCallbacks[callbackCount++] = makeDrawCallback(updateWormDrawing, 0.0, &ctx, &wormDrawing);
         }
 
-        PathWithStyle scalingStrokeDrawing;
+        PathWithStyle scalingStrokeDrawing = {0};
         {
             tpPath path = tpPathCreate();
             tpPathMoveTo(path, -50, 0);
@@ -411,7 +419,7 @@ int main(int argc, char * argv[])
             drawCallbacks[callbackCount++] = makeDrawCallback(updateScalingStrokeDrawing, 0.0, &ctx, &scalingStrokeDrawing);
         }
 
-        PathWithStyle noneScalingStrokeDrawing;
+        PathWithStyle noneScalingStrokeDrawing = {0};
         {
             tpPath path = tpPathCreate();
             tpPathMoveTo(path, -50, 0);
@@ -436,7 +444,7 @@ int main(int argc, char * argv[])
         image = nsvgParseFromFile("../../Examples/23.svg", "px", 4096);
         printf("size: %f x %f\n", image->width, image->height);
 
-        TigerDrawing tigerDrawing;
+        TigerDrawing tigerDrawing = {0};
         tigerDrawing.pathCount = 0;
         for (NSVGshape * shape = image->shapes; shape != NULL; shape = shape->next)
         {
@@ -510,15 +518,19 @@ int main(int argc, char * argv[])
             int width, height;
             glfwGetFramebufferSize(window, &width, &height);
 
+            //set the viewport based on the actual width and height in pixels
             glViewport(0, 0, width, height);
 
+            //start drawing the current tarp frame
             tpPrepareDrawing(&ctx);
 
             for (int i = 0; i < callbackCount; ++i)
             {
+                //update all the individual drawings
                 updateDrawCallback(&drawCallbacks[i]);
             }
 
+            //end the current tarp frame
             tpFinishDrawing(&ctx);
 
             glfwSwapBuffers(window);
@@ -526,8 +538,23 @@ int main(int argc, char * argv[])
         }
 
         //clean up tarp related things
-        // tpPathDestroy(circle);
-        // tpStyleDestroy(defaultStyle);
+        for (int i = 0; i < callbackCount; ++i)
+        {
+            if (drawCallbacks[i].callback == updateTigerDrawing)
+            {
+                TigerDrawing * td = (TigerDrawing *)drawCallbacks[i].userData;
+                for (int i = 0; i < td->pathCount; ++i)
+                {
+                    destroyPathWithStyle(&td->paths[i]);
+                }
+            }
+            else
+            {
+                destroyPathWithStyle((PathWithStyle *)drawCallbacks[i].userData);
+            }
+        }
+
+
         tpContextDeallocate(&ctx);
     }
     else
