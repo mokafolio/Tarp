@@ -6,14 +6,14 @@
 
 #endif //TARP_TARPARRAY_H
 
-typedef struct
+typedef struct TARP_API
 {
     _TARP_ITEM_T * array;
     int count;
     int capacity;
 } _TARP_ARRAY_T;
 
-int _TARP_FN(_TARP_ARRAY_T, Reserve)(_TARP_ARRAY_T * _array, int _capacity)
+TARP_API int _TARP_FN(_TARP_ARRAY_T, Reserve)(_TARP_ARRAY_T * _array, int _capacity)
 {
     assert(_capacity > 0);
     _TARP_ITEM_T * mem;
@@ -33,14 +33,16 @@ int _TARP_FN(_TARP_ARRAY_T, Reserve)(_TARP_ARRAY_T * _array, int _capacity)
     }
     return 1;
 }
-int _TARP_FN(_TARP_ARRAY_T, Init)(_TARP_ARRAY_T * _array, int _capacity)
+
+TARP_API int _TARP_FN(_TARP_ARRAY_T, Init)(_TARP_ARRAY_T * _array, int _capacity)
 {
     assert(_array);
     _array->capacity = 0;
     _array->count = 0;
     return _TARP_FN(_TARP_ARRAY_T, Reserve)(_array, _capacity);
 }
-void _TARP_FN(_TARP_ARRAY_T, Deallocate)(_TARP_ARRAY_T * _array)
+
+TARP_API void _TARP_FN(_TARP_ARRAY_T, Deallocate)(_TARP_ARRAY_T * _array)
 {
     assert(_array);
     if (_array->array)
@@ -50,12 +52,14 @@ void _TARP_FN(_TARP_ARRAY_T, Deallocate)(_TARP_ARRAY_T * _array)
         _array->capacity = 0;
     }
 }
-void _TARP_FN(_TARP_ARRAY_T, Clear)(_TARP_ARRAY_T * _array)
+
+TARP_API void _TARP_FN(_TARP_ARRAY_T, Clear)(_TARP_ARRAY_T * _array)
 {
     assert(_array);
     _array->count = 0;
 }
-int _TARP_FN(_TARP_ARRAY_T, Append)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
+
+TARP_API int _TARP_FN(_TARP_ARRAY_T, Append)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
 {
     assert(_array);
     if (_array->capacity - _array->count < 1)
@@ -66,7 +70,8 @@ int _TARP_FN(_TARP_ARRAY_T, Append)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
     _array->array[_array->count++] = _value;
     return 0;
 }
-int _TARP_FN(_TARP_ARRAY_T, AppendPtr)(_TARP_ARRAY_T * _array, const _TARP_ITEM_T * _value)
+
+TARP_API int _TARP_FN(_TARP_ARRAY_T, AppendPtr)(_TARP_ARRAY_T * _array, const _TARP_ITEM_T * _value)
 {
     assert(_array);
     if (_array->capacity - _array->count < 1)
@@ -77,7 +82,8 @@ int _TARP_FN(_TARP_ARRAY_T, AppendPtr)(_TARP_ARRAY_T * _array, const _TARP_ITEM_
     _array->array[_array->count++] = *(_TARP_ITEM_T *)(_value);
     return 0;
 }
-int _TARP_FN(_TARP_ARRAY_T, AppendArray)(_TARP_ARRAY_T * _array, _TARP_ITEM_T * _values, int _count)
+
+TARP_API int _TARP_FN(_TARP_ARRAY_T, AppendArray)(_TARP_ARRAY_T * _array, _TARP_ITEM_T * _values, int _count)
 {
     assert(_array);
     assert(_values);
@@ -92,7 +98,8 @@ int _TARP_FN(_TARP_ARRAY_T, AppendArray)(_TARP_ARRAY_T * _array, _TARP_ITEM_T * 
     _array->count += _count;
     return 0;
 }
-int _TARP_FN(_TARP_ARRAY_T, Remove)(_TARP_ARRAY_T * _array, int _index)
+
+TARP_API int _TARP_FN(_TARP_ARRAY_T, Remove)(_TARP_ARRAY_T * _array, int _index)
 {
     assert(_array);
     assert(_index >= 0 && _index < _array->count);
@@ -103,7 +110,8 @@ int _TARP_FN(_TARP_ARRAY_T, Remove)(_TARP_ARRAY_T * _array, int _index)
     _array->count--;
     return 0;
 }
-int _TARP_FN(_TARP_ARRAY_T, RemoveRange)(_TARP_ARRAY_T * _array, int _from, int _to)
+
+TARP_API int _TARP_FN(_TARP_ARRAY_T, RemoveRange)(_TARP_ARRAY_T * _array, int _from, int _to)
 {
     assert(_array);
     assert(_from >= 0);
@@ -126,7 +134,7 @@ int _TARP_FN(_TARP_ARRAY_T, RemoveRange)(_TARP_ARRAY_T * _array, int _from, int 
     return 0;
 }
 
-_TARP_ITEM_T _TARP_FN(_TARP_ARRAY_T, At)(_TARP_ARRAY_T * _array, int _index)
+TARP_API _TARP_ITEM_T _TARP_FN(_TARP_ARRAY_T, At)(_TARP_ARRAY_T * _array, int _index)
 {
     assert(_array);
     assert(_array->count);
@@ -134,7 +142,7 @@ _TARP_ITEM_T _TARP_FN(_TARP_ARRAY_T, At)(_TARP_ARRAY_T * _array, int _index)
     return _array->array[_index];
 }
 
-_TARP_ITEM_T * _TARP_FN(_TARP_ARRAY_T, AtPtr)(_TARP_ARRAY_T * _array, int _index)
+TARP_API _TARP_ITEM_T * _TARP_FN(_TARP_ARRAY_T, AtPtr)(_TARP_ARRAY_T * _array, int _index)
 {
     assert(_array);
     assert(_array->count);
@@ -142,7 +150,7 @@ _TARP_ITEM_T * _TARP_FN(_TARP_ARRAY_T, AtPtr)(_TARP_ARRAY_T * _array, int _index
     return &_array->array[_index];
 }
 
-int _TARP_FN(_TARP_ARRAY_T, Find)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
+TARP_API int _TARP_FN(_TARP_ARRAY_T, Find)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
 {
     assert(_array);
     assert(_array->array);
@@ -163,7 +171,7 @@ int _TARP_FN(_TARP_ARRAY_T, Find)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
     return -1;
 }
 
-int _TARP_FN(_TARP_ARRAY_T, RemoveValue)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
+TARP_API int _TARP_FN(_TARP_ARRAY_T, RemoveValue)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
 {
     int idx = _TARP_FN(_TARP_ARRAY_T, Find)(_array, _value);
     if (idx != -1)
@@ -174,21 +182,21 @@ int _TARP_FN(_TARP_ARRAY_T, RemoveValue)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _v
     return 0;
 }
 
-_TARP_ITEM_T _TARP_FN(_TARP_ARRAY_T, Last)(_TARP_ARRAY_T * _array)
+TARP_API _TARP_ITEM_T _TARP_FN(_TARP_ARRAY_T, Last)(_TARP_ARRAY_T * _array)
 {
 	assert(_array);
 	assert(_array->count);
 	return _array->array[_array->count - 1];
 }
 
-_TARP_ITEM_T * _TARP_FN(_TARP_ARRAY_T, LastPtr)(_TARP_ARRAY_T * _array)
+TARP_API _TARP_ITEM_T * _TARP_FN(_TARP_ARRAY_T, LastPtr)(_TARP_ARRAY_T * _array)
 {
 	assert(_array);
 	assert(_array->count);
 	return &_array->array[_array->count - 1];
 }
 
-void _TARP_FN(_TARP_ARRAY_T, Swap)(_TARP_ARRAY_T * _a, _TARP_ARRAY_T * _b)
+TARP_API void _TARP_FN(_TARP_ARRAY_T, Swap)(_TARP_ARRAY_T * _a, _TARP_ARRAY_T * _b)
 {
 	_TARP_ITEM_T * c = _a->array;
 	int cc = _a->count;
