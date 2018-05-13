@@ -3744,7 +3744,34 @@ TARP_LOCAL tpBool _tpGLPrepareDrawing(tpContext * _ctx)
 
 TARP_LOCAL tpBool _tpGLFinishDrawing(tpContext * _ctx)
 {
-    //@TODO!!!111 reset drawing state to what will be cached in _tpGLPrepareDrawing
+    //reset gl state to what it was before we began drawing
+    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+
+    //we dont assert gl errors here for now...should we?
+    glActiveTexture(ctx->stateBackup.activeTexture);
+    ctx->stateBackup.depthTest ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+    glDepthMask(ctx->stateBackup.depthMask);
+    ctx->stateBackup.multisample ? glEnable(GL_MULTISAMPLE) : glDisable(GL_MULTISAMPLE);
+    ctx->stateBackup.stencilTest ? glEnable(GL_STENCIL_TEST) : glDisable(GL_STENCIL_TEST);
+    glStencilMask(ctx->stateBackup.stencilMask);
+    glStencilOp(ctx->stateBackup.stencilFail,
+                ctx->stateBackup.stencilPassDepthPass,
+                ctx->stateBackup.stencilPassDepthFail);
+    glClearStencil(ctx->stateBackup.clearStencil);
+    ctx->stateBackup.blending ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
+    glBlendFuncSeparate(ctx->stateBackup.blendSrcRGB,
+                        ctx->stateBackup.blendDestRGB,
+                        ctx->stateBackup.blendSrcAlpha,
+                        ctx->stateBackup.blendDestAlpha);
+    glBlendEquationSeparate(ctx->stateBackup.blendEquationRGB,
+                            ctx->stateBackup.blendEquationAlpha);
+
+    ctx->stateBackup.cullFace ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
+    glCullFace(ctx->stateBackup.cullFaceMode);
+    glFrontFace(ctx->stateBackup.frontFace);
+    glBindVertexArray(ctx->stateBackup.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->stateBackup.vbo);
+    glUseProgram(ctx->stateBackup.program);
 }
 
 TARP_LOCAL void _tpGLPrepareStencilPlanes(_tpGLContext * _ctx, tpBool _bIsClippingPath, int * _outTargetStencilPlane, int * _outTestStencilPlane)
