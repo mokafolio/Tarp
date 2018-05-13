@@ -5,19 +5,8 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
-
-//POSSIBLE PLATFORMS
-#define TARP_PLATFORM_OSX 1
-#define TARP_PLATFORM_LINUX 2
-//What else do we need?
-
-#if defined ( __APPLE__ )
-#define TARP_PLATFORM TARP_PLATFORM_OSX
-#define TARP_PLATFORM_UNIX
-#elif __linux__
-#define TARP_PLATFORM TARP_PLATFORM_LINUX
-#define TARP_PLATFORM_UNIX
-#endif
+#include <stdio.h>
+#include <float.h>
 
 //debug
 #if !defined(NDEBUG)
@@ -39,38 +28,6 @@
 #define TARP_KAPPA 0.55228474983
 
 // #define TARP_API extern
-
-#define TARP_INCLUDE_OPENGL_IMPLEMENTATION
-#ifdef TARP_INCLUDE_OPENGL_IMPLEMENTATION
-
-#include <stdio.h>
-#include <float.h>
-#include <math.h>
-
-//check if we need to include opengl
-#ifndef TARP_DONT_INCLUDE_GL
-#ifndef __gl_h_
-#if TARP_PLATFORM == TARP_PLATFORM_OSX
-#include <OpenGL/OpenGL.h> //for CGL functions
-//check if opengl 3+ is available
-#if CGL_VERSION_1_3 == 1
-#include <OpenGL/gl3.h>
-#include <OpenGL/gl3ext.h>
-#define __gl_h_ //to prevent other libraries such as glfw to include the old opengl headers
-#else
-#include <OpenGL/gl.h>
-#include <OpenGL/glext.h>
-#endif //CGL_VERSION_1_3
-#elif TARP_PLATFORM == TARP_PLATFORM_LINUX
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
-#include <GL/glx.h>
-#include <GL/glext.h>
-// #undef None //??? some glx thing
-// #undef GL_GLEXT_PROTOTYPES
-#endif
-#endif
-#endif
 
 #ifdef TARP_DEBUG
 #define _TARP_ASSERT_NO_GL_ERROR(_func) do { _func; \
@@ -119,8 +76,6 @@ exit(EXIT_FAILURE); \
 #define TARP_HALF_PI TARP_PI * 0.5
 
 #define TARP_MAX_CURVE_SUBDIVISIONS 16
-
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -231,152 +186,13 @@ typedef struct TARP_API
     char message[TARP_MAX_ERROR_MESSAGE];
 } tpError;
 
+//@TODO: I think we should just turn this into a handle
+//like everything else.
 typedef struct TARP_API
 {
     void * _impl;
     char errorMessage[TARP_MAX_ERROR_MESSAGE];
 } tpContext;
-
-/*struct _tpContextData;
-typedef struct _tpContextData tpContext;*/
-
-// // function signatures so that we can dynamically bind an implementation
-// typedef tpPath (*_tpPathCreateFn)();
-// typedef void (*_tpPathDestroyFn)(tpPath);
-// typedef tpBool (*_tpPathSetFillPaintTransformFn)(tpPath, const tpMat3 *);
-// typedef tpBool (*_tpPathSetStrokePaintTransformFn)(tpPath, const tpMat3 *);
-// typedef tpBool (*_tpPathAddCircleFn)(tpPath, tpFloat, tpFloat, tpFloat);
-// typedef tpBool (*_tpPathAddEllipseFn)(tpPath, tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef tpBool (*_tpPathAddRectFn)(tpPath, tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef tpBool (*_tpPathAddSegmentFn)(tpPath, tpFloat, tpFloat, tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef tpBool (*_tpPathMoveToFn)(tpPath, tpFloat, tpFloat);
-// typedef tpBool (*_tpPathLineToFn)(tpPath, tpFloat, tpFloat);
-// typedef tpBool (*_tpPathCubicCurveToFn)(tpPath, tpFloat, tpFloat, tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef tpBool (*_tpPathQuadraticCurveToFn)(tpPath, tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef tpBool (*_tpPathCloseFn)(tpPath);
-// typedef tpBool (*_tpPathRemoveContourFn)(tpPath, int);
-// typedef tpBool (*_tpPathClearFn)(tpPath);
-// typedef tpBool (*_tpPathRemoveSegmentFn)(tpPath, int, int);
-// typedef tpBool (*_tpPathRemoveSegmentsFn)(tpPath, int, int, int);
-// typedef tpBool (*_tpPathAddSegmentsFn)(tpPath, tpSegment *, int);
-// typedef tpBool (*_tpPathAddContourFn)(tpPath, tpSegment *, int, tpBool);
-
-// typedef tpStyle (*_tpStyleCreateFn)();
-// typedef void (*_tpStyleDestroyFn)(tpStyle);
-// typedef void (*_tpStyleSetDashArrayFn)(tpStyle, tpFloat *, int);
-// typedef void (*_tpStyleSetDashOffsetFn)(tpStyle, tpFloat);
-// typedef void (*_tpStyleSetFillColorFn)(tpStyle, tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef void (*_tpStyleSetStrokeColorFn)(tpStyle, tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef void (*_tpStyleSetFillGradientFn)(tpStyle, tpGradient);
-// typedef void (*_tpStyleSetStrokeGradientFn)(tpStyle, tpGradient);
-// typedef void (*_tpStyleSetStrokeWidthFn)(tpStyle, tpFloat);
-// typedef void (*_tpStyleSetStrokeJoinFn)(tpStyle, tpStrokeJoin);
-// typedef void (*_tpStyleSetScaleStrokeFn)(tpStyle, tpBool);
-// typedef void (*_tpStyleSetMiterLimitFn)(tpStyle, tpFloat);
-// typedef void (*_tpStyleSetStrokeCapFn)(tpStyle, tpStrokeCap);
-// typedef void (*_tpStyleSetFillRuleFn)(tpStyle, tpFillRule);
-// typedef void (*_tpStyleRemoveFillFn)(tpStyle);
-// typedef void (*_tpStyleRemoveStrokeFn)(tpStyle);
-// typedef tpFloat * (*_tpStyleDashArrayPtrFn)(tpStyle);
-// typedef int (*_tpStyleDashCountFn)(tpStyle);
-// typedef tpFloat (*_tpStyleDashOffsetFn)(tpStyle);
-// typedef tpPaint (*_tpStyleFillPaintFn)(tpStyle);
-// typedef tpPaint (*_tpStyleStrokePaintFn)(tpStyle);
-// typedef tpFloat (*_tpStyleStrokeWidthFn)(tpStyle);
-// typedef tpStrokeJoin (*_tpStyleStrokeJoinFn)(tpStyle);
-// typedef tpBool (*_tpStyleScaleStrokeFn)(tpStyle);
-// typedef tpFloat (*_tpStyleMiterLimitFn)(tpStyle);
-// typedef tpStrokeCap (*_tpStyleStrokeCapFn)(tpStyle);
-// typedef tpFillRule (*_tpStyleFillRuleFn)(tpStyle);
-
-// typedef tpGradient (*_tpGradientCreateLinearFn)(tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef void (*_tpGradientAddColorStopFn)(tpGradient, tpFloat, tpFloat, tpFloat, tpFloat, tpFloat);
-// typedef void (*_tpGradientDestroyFn)(tpGradient);
-
-// typedef tpBool (*_tpContextInitFn)(tpContext *);
-// typedef tpBool (*_tpContextDeallocateFn)(tpContext *);
-// typedef tpBool (*_tpPrepareDrawingFn)(tpContext *);
-// typedef tpBool (*_tpFinishDrawingFn)(tpContext *);
-// typedef tpBool (*_tpSetProjectionFn)(tpContext *, const tpMat4 *);
-// typedef tpBool (*_tpSetTransformFn)(tpContext *, const tpMat3 *);
-// typedef tpBool (*_tpResetTransformFn)(tpContext *);
-// typedef tpBool (*_tpDrawPathFn)(tpContext *, tpPath, const tpStyle);
-// typedef tpBool (*_tpBeginClippingFn)(tpContext *, tpPath);
-// typedef tpBool (*_tpEndClippingFn)(tpContext *);
-// typedef tpBool (*_tpResetClippingFn)(tpContext *);
-
-// Moka: While we could turn the API functions in to function pointers that we bind
-// to directly, I prefer having it in a separate struct so that the API functions
-// can be seen in the header for a cleaner documentation.
-// Note: In my tests this in direction did not have any measurable performance
-// penalty in release builds anyways, hooray!
-// typedef struct TARP_API
-// {
-//     _tpPathCreateFn pathCreate;
-//     _tpPathDestroyFn pathDestroy;
-//     _tpPathSetFillPaintTransformFn pathSetFillPaintTransform;
-//     _tpPathSetStrokePaintTransformFn pathSetStrokePaintTransform;
-//     _tpPathAddCircleFn pathAddCircle;
-//     _tpPathAddEllipseFn pathAddEllipse;
-//     _tpPathAddRectFn pathAddRect;
-//     _tpPathAddSegmentFn pathAddSegment;
-//     _tpPathMoveToFn pathMoveTo;
-//     _tpPathLineToFn pathLineTo;
-//     _tpPathCubicCurveToFn pathCubicCurveTo;
-//     _tpPathQuadraticCurveToFn pathQuadraticCurveTo;
-//     _tpPathCloseFn pathClose;
-//     _tpPathClearFn pathClear;
-//     _tpPathRemoveSegmentFn pathRemoveSegment;
-//     _tpPathRemoveSegmentsFn pathRemoveSegments;
-//     _tpPathRemoveContourFn pathRemoveContour;
-//     _tpPathAddSegmentsFn pathAddSegments;
-//     _tpPathAddContourFn pathAddContour;
-
-//     _tpStyleCreateFn styleCreate;
-//     _tpStyleDestroyFn styleDestroy;
-//     _tpStyleSetDashArrayFn styleSetDashArray;
-//     _tpStyleSetDashOffsetFn styleSetDashOffset;
-//     _tpStyleSetFillColorFn styleSetFillColor;
-//     _tpStyleSetStrokeColorFn styleSetStrokeColor;
-//     _tpStyleSetFillGradientFn styleSetFillGradient;
-//     _tpStyleSetStrokeGradientFn styleSetStrokeGradient;
-//     _tpStyleSetStrokeWidthFn styleSetStrokeWidth;
-//     _tpStyleSetStrokeJoinFn styleSetStrokeJoin;
-//     _tpStyleSetScaleStrokeFn styleSetScaleStroke;
-//     _tpStyleSetMiterLimitFn styleSetMiterLimit;
-//     _tpStyleSetStrokeCapFn styleSetStrokeCap;
-//     _tpStyleSetFillRuleFn styleSetFillRule;
-//     _tpStyleRemoveFillFn styleRemoveFill;
-//     _tpStyleRemoveStrokeFn styleRemoveStroke;
-
-//     _tpStyleDashArrayPtrFn styleDashArrayPtr;
-//     _tpStyleDashCountFn styleDashCount;
-//     _tpStyleDashOffsetFn styleDashOffset;
-//     _tpStyleFillPaintFn styleFillPaint;
-//     _tpStyleStrokePaintFn styleStrokePaint;
-//     _tpStyleStrokeWidthFn styleStrokeWidth;
-//     _tpStyleStrokeJoinFn styleStrokeJoin;
-//     _tpStyleScaleStrokeFn styleScaleStroke;
-//     _tpStyleMiterLimitFn styleMiterLimit;
-//     _tpStyleStrokeCapFn styleStrokeCap;
-//     _tpStyleFillRuleFn styleFillRule;
-
-//     _tpGradientCreateLinearFn gradientCreateLinear;
-//     _tpGradientAddColorStopFn gradientAddColorStop;
-//     _tpGradientDestroyFn gradientDestroy;
-
-//     _tpContextInitFn contextInit;
-//     _tpContextDeallocateFn contextDeallocate;
-//     _tpPrepareDrawingFn prepareDrawing;
-//     _tpFinishDrawingFn finishDrawing;
-//     _tpSetProjectionFn setProjection;
-//     _tpSetTransformFn setTransform;
-//     _tpResetTransformFn resetTransform;
-//     _tpDrawPathFn drawPath;
-//     _tpBeginClippingFn beginClipping;
-//     _tpEndClippingFn endClipping;
-//     _tpResetClippingFn resetClipping;
-// } tpImplementation;
 
 // Color Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -917,313 +733,6 @@ TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloa
     };
 }
 
-// TARP_API tpImplementation * tpGetImplementation()
-// {
-//     static tpImplementation s_impl;
-//     return &s_impl;
-// }
-
-// TARP_API void tpSetImplementation(tpImplementation _impl)
-// {
-//     *tpGetImplementation() = _impl;
-// }
-
-// TARP_API tpPath tpPathCreate()
-// {
-//     return tpGetImplementation()->pathCreate();
-// }
-
-// TARP_API void tpPathDestroy(tpPath _path)
-// {
-//     tpGetImplementation()->pathDestroy(_path);
-// }
-
-// TARP_API tpBool tpPathSetFillPaintTransform(tpPath _path, const tpMat3 * _transform)
-// {
-//     return tpGetImplementation()->pathSetFillPaintTransform(_path, _transform);
-// }
-
-// TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _transform)
-// {
-//     return tpGetImplementation()->pathSetStrokePaintTransform(_path, _transform);
-// }
-
-// TARP_API tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r)
-// {
-//     return tpGetImplementation()->pathAddCircle(_path, _x, _y, _r);
-// }
-
-// TARP_API tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
-// {
-//     return tpGetImplementation()->pathAddEllipse(_path, _x, _y, _width, _height);
-// }
-
-// TARP_API tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
-// {
-//     return tpGetImplementation()->pathAddRect(_path, _x, _y, _width, _height);
-// }
-
-// TARP_API tpBool tpPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y)
-// {
-//     return tpGetImplementation()->pathAddSegment(_path, _h0x, _h0y, _px, _py, _h1x, _h1y);
-// }
-
-// TARP_API tpBool tpPathMoveTo(tpPath _path, tpFloat _x, tpFloat _y)
-// {
-//     return tpGetImplementation()->pathMoveTo(_path, _x, _y);
-// }
-
-// TARP_API tpBool tpPathLineTo(tpPath _path, tpFloat _x, tpFloat _y)
-// {
-//     return tpGetImplementation()->pathLineTo(_path, _x, _y);
-// }
-
-// TARP_API tpBool tpPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _h1x, tpFloat _h1y, tpFloat _px, tpFloat _py)
-// {
-//     return tpGetImplementation()->pathCubicCurveTo(_path, _h0x, _h0y, _h1x, _h1y, _px, _py);
-// }
-
-// TARP_API tpBool tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, tpFloat _px, tpFloat _py)
-// {
-//     return tpGetImplementation()->pathQuadraticCurveTo(_path, _hx, _hy, _px, _py);
-// }
-
-// TARP_API tpBool tpPathClose(tpPath _path)
-// {
-//     return tpGetImplementation()->pathClose(_path);
-// }
-
-// TARP_API tpBool tpPathClear(tpPath _path)
-// {
-//     return tpGetImplementation()->pathClear(_path);
-// }
-
-// TARP_API tpBool tpPathRemoveContour(tpPath _path, int _index)
-// {
-//     return tpGetImplementation()->pathRemoveContour(_path, _index);
-// }
-
-// TARP_API tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _count)
-// {
-//     return tpGetImplementation()->pathAddSegments(_path, _segments, _count);
-// }
-
-// TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed)
-// {
-//     return tpGetImplementation()->pathAddContour(_path, _segments, _count, _bClosed);
-// }
-
-// TARP_API tpStyle tpStyleCreate()
-// {
-//     return tpGetImplementation()->styleCreate();
-// }
-
-// TARP_API void tpStyleDestroy(tpStyle _style)
-// {
-//     tpGetImplementation()->styleDestroy(_style);
-// }
-
-// TARP_API void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count)
-// {
-//     tpGetImplementation()->styleSetDashArray(_style, _dashArray, _count);
-// }
-
-// TARP_API void tpStyleSetDashOffset(tpStyle _style, tpFloat _offset)
-// {
-//     tpGetImplementation()->styleSetDashOffset(_style, _offset);
-// }
-
-// TARP_API void tpStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
-// {
-//     tpGetImplementation()->styleSetFillColor(_style, _r, _g, _b, _a);
-// }
-
-// TARP_API void tpStyleSetStrokeColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
-// {
-//     tpGetImplementation()->styleSetStrokeColor(_style, _r, _g, _b, _a);
-// }
-
-// TARP_API void tpStyleSetFillGradient(tpStyle _style, const tpGradient _gradient)
-// {
-//     tpGetImplementation()->styleSetFillGradient(_style, _gradient);
-// }
-
-// TARP_API void tpStyleSetStrokeGradient(tpStyle _style, const tpGradient _gradient)
-// {
-//     tpGetImplementation()->styleSetStrokeGradient(_style, _gradient);
-// }
-
-// TARP_API void tpStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth)
-// {
-//     tpGetImplementation()->styleSetStrokeWidth(_style, _strokeWidth);
-// }
-
-// TARP_API void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join)
-// {
-//     tpGetImplementation()->styleSetStrokeJoin(_style, _join);
-// }
-
-// TARP_API void tpStyleSetScaleStroke(tpStyle _style, tpBool _b)
-// {
-//     tpGetImplementation()->styleSetScaleStroke(_style, _b);
-// }
-
-// TARP_API void tpStyleSetMiterLimit(tpStyle _style, tpFloat _limit)
-// {
-//     tpGetImplementation()->styleSetMiterLimit(_style, _limit);
-// }
-
-// TARP_API void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap)
-// {
-//     tpGetImplementation()->styleSetStrokeCap(_style, _cap);
-// }
-
-// TARP_API void tpStyleSetFillRule(tpStyle _style, tpFillRule _fillType)
-// {
-//     tpGetImplementation()->styleSetFillRule(_style, _fillType);
-// }
-
-// TARP_API void tpStyleRemoveFill(tpStyle _style)
-// {
-//     tpGetImplementation()->styleRemoveFill(_style);
-// }
-
-// TARP_API void tpStyleRemoveStroke(tpStyle _style)
-// {
-//     tpGetImplementation()->styleRemoveStroke(_style);
-// }
-
-
-// TARP_API tpFloat * tpStyleDashArrayPtr(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleDashArrayPtr(_style);
-// }
-
-// TARP_API int tpStyleDashCount(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleDashCount(_style);
-// }
-
-// TARP_API tpFloat tpStyleDashOffset(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleDashOffset(_style);
-// }
-
-// TARP_API tpPaint tpStyleFillPaint(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleFillPaint(_style);
-// }
-
-// TARP_API tpPaint tpStyleStrokePaint(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleStrokePaint(_style);
-// }
-
-// TARP_API tpFloat tpStyleStrokeWidth(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleStrokeWidth(_style);
-// }
-
-// TARP_API tpStrokeJoin tpStyleStrokeJoin(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleStrokeJoin(_style);
-// }
-
-// TARP_API tpBool tpStyleScaleStroke(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleScaleStroke(_style);
-// }
-
-// TARP_API tpFloat tpStyleMiterLimit(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleMiterLimit(_style);
-// }
-
-// TARP_API tpStrokeCap tpStyleStrokeCap(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleStrokeCap(_style);
-// }
-
-// TARP_API tpFillRule tpStyleFillRule(tpStyle _style)
-// {
-//     return tpGetImplementation()->styleFillRule(_style);
-// }
-
-// TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
-// {
-//     return tpGetImplementation()->gradientCreateLinear(_x0, _y0, _x1, _y1);
-// }
-
-// TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset)
-// {
-//     tpGetImplementation()->gradientAddColorStop(_gradient, _r, _g, _b, _a, _offset);
-// }
-
-// TARP_API void tpGradientDestroy(tpGradient _gradient)
-// {
-//     tpGetImplementation()->gradientDestroy(_gradient);
-// }
-
-// TARP_API tpBool tpContextInit(tpContext * _context)
-// {
-//     return tpGetImplementation()->contextInit(_context);
-// }
-
-// TARP_API const char * tpContextErrorMessage(tpContext * _ctx)
-// {
-//     return _ctx->errorMessage;
-// }
-
-// TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
-// {
-//     return tpGetImplementation()->contextDeallocate(_ctx);
-// }
-
-// TARP_API tpBool tpPrepareDrawing(tpContext * _ctx)
-// {
-//     return tpGetImplementation()->prepareDrawing(_ctx);
-// }
-
-// TARP_API tpBool tpFinishDrawing(tpContext * _ctx)
-// {
-//     return tpGetImplementation()->finishDrawing(_ctx);
-// }
-
-// TARP_API tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
-// {
-//     return tpGetImplementation()->setProjection(_ctx, _projection);
-// }
-
-// TARP_API tpBool tpSetTransform(tpContext * _ctx, const tpMat3 * _transform)
-// {
-//     return tpGetImplementation()->setTransform(_ctx, _transform);
-// }
-
-// TARP_API tpBool tpResetTransform(tpContext * _ctx)
-// {
-//     return tpGetImplementation()->resetTransform(_ctx);
-// }
-
-// TARP_API tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
-// {
-//     return tpGetImplementation()->drawPath(_ctx, _path, _style);
-// }
-
-// TARP_API tpBool tpBeginClipping(tpContext * _ctx, tpPath _path)
-// {
-//     return tpGetImplementation()->beginClipping(_ctx, _path);
-// }
-
-// TARP_API tpBool tpEndClipping(tpContext * _ctx)
-// {
-//     return tpGetImplementation()->endClipping(_ctx);
-// }
-
-// TARP_API tpBool tpResetClipping(tpContext * _ctx)
-// {
-//     return tpGetImplementation()->resetClipping(_ctx);
-// }
-
 #endif //TARP_IMPLEMENTATION
 
 #ifdef TARP_INCLUDE_OPENGL_IMPLEMENTATION
@@ -1520,9 +1029,6 @@ struct TARP_LOCAL _tpGLContext
     int transformID;
     int projectionID;
     tpBool bTransformProjDirty;
-    // _tpGLPathPtrArray paths;
-    // _tpGLStylePtrArray styles;
-    // _tpGLGradientPtrArray gradients;
     tpStyle clippingStyle;
 
     //used to temporarily store vertex/stroke data (think double buffering)
@@ -1647,7 +1153,6 @@ TARP_LOCAL tpBool _createProgram(const char * _vertexShader, const char * _fragm
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLContextInit(tpContext * _ctx)
 TARP_API tpBool tpContextInit(tpContext * _ctx)
 {
     _ErrorMessage msg;
@@ -1688,8 +1193,6 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
     _TARP_ASSERT_NO_GL_ERROR(glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(tpFloat), ((char *)(2 * sizeof(float)))));
     _TARP_ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(1));
 
-    // _TARP_ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vbo));
-    // memset(_ctx->clippingStack, 0, sizeof(_ctx->clippingStack));
     ctx->clippingStackDepth = 0;
     ctx->currentClipStencilPlane = _kTpGLClippingStencilPlaneOne;
     ctx->bCanSwapStencilPlanes = tpTrue;
@@ -1702,9 +1205,6 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
     ctx->bTransformProjDirty = tpFalse;
     ctx->transformProjection = tpMat4MakeIdentity();
 
-    // _tpGLPathPtrArrayInit(&ctx->paths, 32);
-    // _tpGLGradientPtrArrayInit(&ctx->gradients, 8);
-    // _tpGLStylePtrArrayInit(&ctx->styles, 8);
     _tpVec2ArrayInit(&ctx->tmpVertices, 512);
     _tpBoolArrayInit(&ctx->tmpJoints, 256);
     _tpGLTextureVertexArrayInit(&ctx->tmpTexVertices, 64);
@@ -1718,7 +1218,6 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
     return ret;
 }
 
-// TARP_LOCAL tpBool _tpGLContextDeallocate(tpContext * _ctx)
 TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
 {
     int i;
@@ -1733,27 +1232,6 @@ TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
     glDeleteBuffers(1, &ctx->textureVao.vbo);
     glDeleteVertexArrays(1, &ctx->textureVao.vao);
 
-    // // deallocate all gradients
-    // for (i = 0; i < ctx->gradients.count; ++i)
-    // {
-    //     tpGradientDestroy((tpGradient) {_tpGLGradientPtrArrayAt(&ctx->gradients, i)});
-    // }
-    // _tpGLGradientPtrArrayDeallocate(&ctx->gradients);
-
-    // // deallocate all styles
-    // for (i = 0; i < ctx->styles.count; ++i)
-    // {
-    //     tpStyleDestroy((tpStyle) {_tpGLStylePtrArrayAt(&ctx->styles, i)});
-    // }
-    // _tpGLStylePtrArrayDeallocate(&ctx->styles);
-
-    // // deallocate all paths
-    // for (i = 0; i < ctx->paths.count; ++i)
-    // {
-    //     tpPathDestroy((tpPath) {_tpGLPathPtrArrayAt(&ctx->paths, i)});
-    // }
-    // _tpGLPathPtrArrayDeallocate(&ctx->paths);
-
     _tpBoolArrayDeallocate(&ctx->tmpJoints);
     _tpVec2ArrayDeallocate(&ctx->tmpVertices);
     _tpGLTextureVertexArrayDeallocate(&ctx->tmpTexVertices);
@@ -1762,26 +1240,8 @@ TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
     return tpFalse;
 }
 
-// tpBool _tpGLIsValidPath(_tpGLPath * _path)
-// {
-//     return _tpGLPathPtrArrayFind(&_path->context->paths, _path) != -1;
-// }
-
-// tpBool _tpGLIsValidStyle(_tpGLStyle * _style)
-// {
-//     return _tpGLStylePtrArrayFind(&_style->context->styles, _style) != -1;
-// }
-
-// tpBool _tpGLIsValidGradient(_tpGLGradient * _gradient)
-// {
-//     return _tpGLGradientPtrArrayFind(&_gradient->context->gradients, _gradient) != -1;
-// }
-
-// TARP_LOCAL tpPath _tpGLPathCreate()
 TARP_API tpPath tpPathCreate()
 {
-    // _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
-
     _tpGLPath * path = malloc(sizeof(_tpGLPath));
     _tpGLContourArrayInit(&path->contours, 4);
     path->currentContourIndex = -1;
@@ -1801,9 +1261,6 @@ TARP_API tpPath tpPathCreate()
     _tpGLGradientCacheDataInit(&path->fillGradientData, &path->boundsCache);
     _tpGLGradientCacheDataInit(&path->strokeGradientData, &path->strokeBoundsCache);
 
-    // path->context = ctx;
-    // _tpGLPathPtrArrayAppend(&ctx->paths, path);
-
     path->lastDrawContext = NULL;
     path->lastTransformID = 0;
 
@@ -1815,12 +1272,9 @@ TARP_API tpPath tpPathCreate()
     return (tpPath) {path};
 }
 
-// TARP_LOCAL void _tpGLPathDestroy(tpPath _path)
 TARP_API void tpPathDestroy(tpPath _path)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
-    // _tpGLPathPtrArrayRemoveValue(&p->context->paths, p);
     _tpVec2ArrayDeallocate(&p->geometryCache);
     _tpGLTextureVertexArrayDeallocate(&p->textureGeometryCache);
     _tpBoolArrayDeallocate(&p->jointCache);
@@ -1892,11 +1346,9 @@ TARP_LOCAL tpBool _tpGLContourAddSegment(
     return _tpGLContourAddSegments(_p, _c, &seg, 1);
 }
 
-// TARP_LOCAL tpBool _tpGLPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y)
 TARP_API tpBool tpPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (!c)
     {
@@ -1910,11 +1362,9 @@ TARP_API tpBool tpPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFlo
     return _tpGLContourAddSegment(p, c, _h0x, _h0y, _px, _py, _h1x, _h1y);
 }
 
-// TARP_LOCAL tpBool _tpGLPathLineTo(tpPath _path, tpFloat _x, tpFloat _y)
 TARP_API tpBool tpPathLineTo(tpPath _path, tpFloat _x, tpFloat _y)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (!c || c->lastSegmentIndex == -1)
     {
@@ -1925,22 +1375,17 @@ TARP_API tpBool tpPathLineTo(tpPath _path, tpFloat _x, tpFloat _y)
     return _tpGLContourAddSegment(p, c, _x, _y, _x, _y, _x, _y);
 }
 
-// TARP_LOCAL tpBool _tpGLPathMoveTo(tpPath _path, tpFloat _x, tpFloat _y)
 TARP_API tpBool tpPathMoveTo(tpPath _path, tpFloat _x, tpFloat _y)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
-
     _tpGLContour * c = _tpGLPathNextEmptyContour(p);
 
     return _tpGLContourAddSegment(p, c, _x, _y, _x, _y, _x, _y);
 }
 
-// TARP_LOCAL tpBool _tpGLPathClear(tpPath _path)
 TARP_API tpBool tpPathClear(tpPath _path)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
     p->currentContourIndex = -1;
     for (int i = 0; i < p->contours.count; ++i)
     {
@@ -1952,11 +1397,9 @@ TARP_API tpBool tpPathClear(tpPath _path)
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _h1x, tpFloat _h1y, tpFloat _px, tpFloat _py)
 TARP_API tpBool tpPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _h1x, tpFloat _h1y, tpFloat _px, tpFloat _py)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (!c || c->lastSegmentIndex == -1)
     {
@@ -1968,11 +1411,9 @@ TARP_API tpBool tpPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpF
     return _tpGLContourAddSegment(p, c, _h1x, _h1y, _px, _py, _px, _py);
 }
 
-// TARP_LOCAL tpBool _tpGLPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, tpFloat _px, tpFloat _py)
 TARP_API tpBool tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, tpFloat _px, tpFloat _py)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (!c || c->lastSegmentIndex == -1)
     {
@@ -1984,11 +1425,9 @@ TARP_API tpBool tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, t
     return _tpGLContourAddSegment(p, c, _hx, _hy, _px, _py, _px, _py);
 }
 
-// TARP_LOCAL tpBool _tpGLPathClose(tpPath _path)
 TARP_API tpBool tpPathClose(tpPath _path)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (c->segments.count > 1)
     {
@@ -2000,7 +1439,6 @@ TARP_API tpBool tpPathClose(tpPath _path)
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLPathRemoveContour(tpPath _path, int _index)
 TARP_API tpBool tpPathRemoveContour(tpPath _path, int _index)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
@@ -2012,7 +1450,6 @@ TARP_API tpBool tpPathRemoveContour(tpPath _path, int _index)
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLPathRemoveSegment(tpPath _path, int _contourIndex, int _index)
 TARP_API tpBool tpPathRemoveSegment(tpPath _path, int _contourIndex, int _index)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
@@ -2023,7 +1460,6 @@ TARP_API tpBool tpPathRemoveSegment(tpPath _path, int _contourIndex, int _index)
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLPathRemoveSegments(tpPath _path, int _contourIndex, int _from, int _to)
 TARP_API tpBool tpPathRemoveSegments(tpPath _path, int _contourIndex, int _from, int _to)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
@@ -2049,11 +1485,9 @@ TARP_LOCAL tpBool _tpGLPathAddSegmentsToCurrentContour(_tpGLPath * _p, _tpGLCont
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLPathAddSegments(tpPath _path, tpSegment * _segments, int _count)
 TARP_API tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _count)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (!c)
     {
@@ -2064,11 +1498,9 @@ TARP_API tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _coun
     return _tpGLPathAddSegmentsToCurrentContour(p, c, _segments, _count);
 }
 
-// TARP_LOCAL tpBool _tpGLPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed)
 TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
     _tpGLContour * c = _tpGLPathCreateNextContour(p);
     assert(c);
 
@@ -2080,14 +1512,12 @@ TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r)
 TARP_API tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r)
 {
     tpFloat dr = _r * 2.0;
     return tpPathAddEllipse(_path, _x, _y, dr, dr);
 }
 
-// TARP_LOCAL tpBool _tpGLPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
 TARP_API tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
 {
     static tpVec2 s_unitSegments[12] =
@@ -2125,14 +1555,12 @@ TARP_API tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
 TARP_API tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
 {
     tpSegment segs[4];
     tpFloat tmpa, tmpb;
 
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
 
     _tpGLContour * c = _tpGLPathNextEmptyContour(p);
 
@@ -2162,33 +1590,7 @@ TARP_LOCAL void _tpGLMarkPathGeometryDirty(_tpGLPath * _p)
         c->bLengthDirty = tpTrue;
     }
 }
-/*
 
-tpBool _tpGLPathSetTransform(tpPath _path, const tpMat3 * _transform)
-{
-    tpVec2 scale, skew, translation;
-    tpFloat rotation;
-    _tpGLPath * p;
-
-    p = (_tpGLPath *)_path.pointer;
-    // assert(_tpGLIsValidPath(p));
-
-    tpMat3Decompose(_transform, &translation, &scale, &skew, &rotation);
-    //we only force a reflattening of the path if the scale changed.
-    //TODO: this should take skewing into account, too AFAIK
-    if (p->lastTransformScale < scale.x || p->lastTransformScale < scale.y)
-    {
-        p->lastTransformScale = TARP_MAX(scale.x, scale.y);
-        _tpGLMarkPathGeometryDirty(p);
-    }
-    p->transform = *_transform;
-    p->renderTransform = tpMat4MakeFrom2DTransform(_transform);
-    p->lastDrawContext = NULL;
-
-    return tpFalse;
-}*/
-
-// TARP_LOCAL tpBool _tpGLPathSetFillPaintTransform(tpPath _path, const tpMat3 * _transform)
 TARP_API tpBool tpPathSetFillPaintTransform(tpPath _path, const tpMat3 * _transform)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
@@ -2197,7 +1599,6 @@ TARP_API tpBool tpPathSetFillPaintTransform(tpPath _path, const tpMat3 * _transf
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _transform)
 TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _transform)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
@@ -2206,10 +1607,8 @@ TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _tran
     return tpFalse;
 }
 
-// TARP_LOCAL tpStyle _tpGLStyleCreate(tpContext * _ctx)
 TARP_API tpStyle tpStyleCreate()
 {
-    // _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
     _tpGLStyle * style = malloc(sizeof(_tpGLStyle));
 
     style->fill.data.color = tpColorMake(1, 1, 1, 1);
@@ -2225,27 +1624,18 @@ TARP_API tpStyle tpStyleCreate()
     style->miterLimit = 4;
     style->bScaleStroke = tpTrue;
 
-    // style->context = ctx;
-
-    // _tpGLStylePtrArrayAppend(&ctx->styles, style);
-
     return (tpStyle) {style};
 }
 
-// TARP_LOCAL void _tpGLStyleDestroy(tpStyle _style)
 TARP_API void tpStyleDestroy(tpStyle _style)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-    // _tpGLStylePtrArrayRemoveValue(&s->context->styles, s);
     free(s);
 }
 
-// TARP_LOCAL void _tpGLStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count)
 TARP_API void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
 
     assert(_count < TARP_MAX_DASH_ARRAY_SIZE);
 
@@ -2256,197 +1646,146 @@ TARP_API void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _cou
     s->dashCount = _count;
 }
 
-// TARP_LOCAL void _tpGLStyleSetDashOffset(tpStyle _style, tpFloat _offset)
 TARP_API void tpStyleSetDashOffset(tpStyle _style, tpFloat _offset)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->dashOffset = _offset;
 }
 
-// TARP_LOCAL void _tpGLStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
 TARP_API void tpStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
 
     s->fill.data.color = tpColorMake(_r, _g, _b, _a);
     s->fill.type = kTpPaintTypeColor;
 }
 
-// TARP_LOCAL void _tpGLStyleSetStrokeColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
 TARP_API void tpStyleSetStrokeColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->stroke.data.color = tpColorMake(_r, _g, _b, _a);
     s->stroke.type = kTpPaintTypeColor;
 }
 
-// TARP_LOCAL void _tpGLStyleSetFillGradient(tpStyle _style, const tpGradient _gradient)
 TARP_API void tpStyleSetFillGradient(tpStyle _style, const tpGradient _gradient)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->fill.data.gradient = _gradient;
     s->fill.type = kTpPaintTypeGradient;
 }
 
-// TARP_LOCAL void _tpGLStyleSetStrokeGradient(tpStyle _style, const tpGradient _gradient)
 TARP_API void tpStyleSetStrokeGradient(tpStyle _style, const tpGradient _gradient)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->stroke.data.gradient = _gradient;
     s->stroke.type = kTpPaintTypeGradient;
 }
 
-// TARP_LOCAL void _tpGLStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth)
 TARP_API void tpStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->strokeWidth = _strokeWidth;
 }
 
-// TARP_LOCAL void _tpGLStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join)
 TARP_API void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->strokeJoin = _join;
 }
 
-// TARP_LOCAL void _tpGLStyleSetMiterLimit(tpStyle _style, tpFloat _limit)
 TARP_API void tpStyleSetMiterLimit(tpStyle _style, tpFloat _limit)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->miterLimit = _limit;
 }
 
-// TARP_LOCAL void _tpGLStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap)
 TARP_API void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->strokeCap = _cap;
 }
 
-// TARP_LOCAL void _tpGLStyleSetScaleStroke(tpStyle _style, tpBool _b)
 TARP_API void tpStyleSetScaleStroke(tpStyle _style, tpBool _b)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->bScaleStroke = _b;
 }
 
-// TARP_LOCAL void _tpGLStyleSetFillRule(tpStyle _style, tpFillRule _rule)
 TARP_API void tpStyleSetFillRule(tpStyle _style, tpFillRule _rule)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->fillRule = _rule;
 }
 
-// TARP_LOCAL void _tpGLStyleRemoveFill(tpStyle _style)
 TARP_API void tpStyleRemoveFill(tpStyle _style)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->fill.type = kTpPaintTypeNone;
 }
 
-// TARP_LOCAL void _tpGLStyleRemoveStroke(tpStyle _style)
 TARP_API void tpStyleRemoveStroke(tpStyle _style)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    // assert(_tpGLIsValidStyle(s));
-
     s->stroke.type = kTpPaintTypeNone;
 }
 
-// TARP_LOCAL tpFloat * _tpGLStyleDashArrayPtr(tpStyle _style)
 TARP_API tpFloat * tpStyleDashArrayPtr(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->dashArray;
 }
 
-// TARP_LOCAL int _tpGLStyleDashCount(tpStyle _style)
 TARP_API int tpStyleDashCount(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->dashCount;
 }
 
-// TARP_LOCAL tpFloat _tpGLStyleDashOffset(tpStyle _style)
 TARP_API tpFloat tpStyleDashOffset(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->dashOffset;
 }
 
-// TARP_LOCAL tpPaint _tpGLStyleFillPaint(tpStyle _style)
 TARP_API tpPaint tpStyleFillPaint(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->fill;
 }
 
-// TARP_LOCAL tpPaint _tpGLStyleStrokePaint(tpStyle _style)
 TARP_API tpPaint tpStyleStrokePaint(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->stroke;
 }
 
-// TARP_LOCAL tpFloat _tpGLStyleStrokeWidth(tpStyle _style)
 TARP_API tpFloat tpStyleStrokeWidth(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->strokeWidth;
 }
 
-// TARP_LOCAL tpStrokeJoin _tpGLStyleStrokeJoin(tpStyle _style)
 TARP_API tpStrokeJoin tpStyleStrokeJoin(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->strokeJoin;
 }
 
-// TARP_LOCAL tpBool _tpGLStyleScaleStroke(tpStyle _style)
 TARP_API tpBool tpStyleScaleStroke(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->bScaleStroke;
 }
 
-// TARP_LOCAL tpFloat _tpGLStyleMiterLimit(tpStyle _style)
 TARP_API tpFloat tpStyleMiterLimit(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->miterLimit;
 }
 
-// TARP_LOCAL tpStrokeCap _tpGLStyleStrokeCap(tpStyle _style)
 TARP_API tpStrokeCap tpStyleStrokeCap(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->strokeCap;
 }
 
-// TARP_LOCAL tpFillRule _tpGLStyleFillRule(tpStyle _style)
 TARP_API tpFillRule tpStyleFillRule(tpStyle _style)
 {
     return ((_tpGLStyle *)_style.pointer)->fillRule;
 }
 
-// TARP_LOCAL tpGradient _tpGLGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
 TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
 {
-    // _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
     static int s_id = 0;
 
     _tpGLGradient * ret = malloc(sizeof(_tpGLGradient));
@@ -2469,28 +1808,21 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
     _TARP_ASSERT_NO_GL_ERROR(glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
     _TARP_ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, 0));
 
-    // _tpGLGradientPtrArrayAppend(&ctx->gradients, ret);
-
     return (tpGradient) {ret};
 }
 
-// TARP_LOCAL void _tpGLGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset)
 TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset)
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
-    // assert(_tpGLIsValidGradient(g));
     tpColorStop stop = {tpColorMake(_r, _g, _b, _a), _offset};
     _tpColorStopArrayAppendPtr(&g->stops, &stop);
 }
 
-// TARP_LOCAL void _tpGLGradientDestroy(tpGradient _gradient)
 TARP_API void tpGradientDestroy(tpGradient _gradient)
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
-    // assert(_tpGLIsValidGradient(g));
     _TARP_ASSERT_NO_GL_ERROR(glDeleteTextures(1, &g->rampTexture));
     _tpColorStopArrayDeallocate(&g->stops);
-    // _tpGLGradientPtrArrayRemoveValue(&g->context->gradients, g);
     free(g);
 }
 
@@ -3717,7 +3049,6 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * 
     }
 }
 
-// TARP_LOCAL tpBool _tpGLPrepareDrawing(tpContext * _ctx)
 TARP_API tpBool tpPrepareDrawing(tpContext * _ctx)
 {
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
@@ -3772,7 +3103,6 @@ TARP_API tpBool tpPrepareDrawing(tpContext * _ctx)
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLFinishDrawing(tpContext * _ctx)
 TARP_API tpBool tpFinishDrawing(tpContext * _ctx)
 {
     //reset gl state to what it was before we began drawing
@@ -4069,7 +3399,6 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 TARP_API tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 {
     return _tpGLDrawPathImpl((_tpGLContext *)_ctx->_impl, (_tpGLPath *)_path.pointer, _style, tpFalse);
@@ -4099,13 +3428,11 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx, _tpGLPath * _pa
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLBeginClipping(tpContext * _ctx, tpPath _path)
 TARP_API tpBool tpBeginClipping(tpContext * _ctx, tpPath _path)
 {
     return _tpGLGenerateClippingMask((_tpGLContext *)_ctx->_impl, (_tpGLPath *)_path.pointer, tpFalse);
 }
 
-// TARP_LOCAL tpBool _tpGLEndClipping(tpContext * _ctx)
 TARP_API tpBool tpEndClipping(tpContext * _ctx)
 {
     _tpGLPath * p;
@@ -4148,7 +3475,6 @@ TARP_API tpBool tpEndClipping(tpContext * _ctx)
     }
 }
 
-// TARP_LOCAL tpBool _tpGLResetClipping(tpContext * _ctx)
 TARP_API tpBool tpResetClipping(tpContext * _ctx)
 {
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
@@ -4160,7 +3486,6 @@ TARP_API tpBool tpResetClipping(tpContext * _ctx)
     ctx->clippingStackDepth = 0;
 }
 
-// TARP_LOCAL tpBool _tpGLSetProjection(tpContext * _ctx, const tpMat4 * _projection)
 TARP_API tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
 {
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
@@ -4171,7 +3496,6 @@ TARP_API tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLSetTransform(tpContext * _ctx, const tpMat3 * _transform)
 TARP_API tpBool tpSetTransform(tpContext * _ctx, const tpMat3 * _transform)
 {
     tpVec2 scale, skew, translation;
@@ -4187,7 +3511,6 @@ TARP_API tpBool tpSetTransform(tpContext * _ctx, const tpMat3 * _transform)
     return tpFalse;
 }
 
-// TARP_LOCAL tpBool _tpGLResetTransform(tpContext * _ctx)
 TARP_API tpBool tpResetTransform(tpContext * _ctx)
 {
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
@@ -4198,77 +3521,6 @@ TARP_API tpBool tpResetTransform(tpContext * _ctx)
     return tpFalse;
 }
 
-// TARP_API tpImplementation tpOpenGLImplementation()
-// {
-//     tpImplementation ret;
-
-//     ret.pathCreate = _tpGLPathCreate;
-//     ret.pathDestroy = _tpGLPathDestroy;
-//     ret.pathSetFillPaintTransform = _tpGLPathSetFillPaintTransform;
-//     ret.pathSetStrokePaintTransform = _tpGLPathSetStrokePaintTransform;
-//     ret.pathAddCircle = _tpGLPathAddCircle;
-//     ret.pathAddEllipse = _tpGLPathAddEllipse;
-//     ret.pathAddRect = _tpGLPathAddRect;
-//     ret.pathAddSegment = _tpGLPathAddSegment;
-//     ret.pathMoveTo = _tpGLPathMoveTo;
-//     ret.pathLineTo = _tpGLPathLineTo;
-//     ret.pathCubicCurveTo = _tpGLPathCubicCurveTo;
-//     ret.pathQuadraticCurveTo = _tpGLPathQuadraticCurveTo;
-//     ret.pathClose = _tpGLPathClose;
-//     ret.pathClear = _tpGLPathClear;
-//     ret.pathRemoveSegment = _tpGLPathRemoveSegment;
-//     ret.pathRemoveSegments = _tpGLPathRemoveSegments;
-//     ret.pathRemoveContour = _tpGLPathRemoveContour;
-//     ret.pathAddSegments = _tpGLPathAddSegments;
-//     ret.pathAddContour = _tpGLPathAddContour;
-
-//     ret.styleCreate = _tpGLStyleCreate;
-//     ret.styleDestroy = _tpGLStyleDestroy;
-//     ret.styleSetDashArray = _tpGLStyleSetDashArray;
-//     ret.styleSetDashOffset = _tpGLStyleSetDashOffset;
-//     ret.styleSetFillColor = _tpGLStyleSetFillColor;
-//     ret.styleSetStrokeColor = _tpGLStyleSetStrokeColor;
-//     ret.styleSetFillGradient = _tpGLStyleSetFillGradient;
-//     ret.styleSetStrokeGradient = _tpGLStyleSetStrokeGradient;
-//     ret.styleSetStrokeWidth = _tpGLStyleSetStrokeWidth;
-//     ret.styleSetStrokeJoin = _tpGLStyleSetStrokeJoin;
-//     ret.styleSetScaleStroke = _tpGLStyleSetScaleStroke;
-//     ret.styleSetMiterLimit = _tpGLStyleSetMiterLimit;
-//     ret.styleSetStrokeCap = _tpGLStyleSetStrokeCap;
-//     ret.styleSetFillRule = _tpGLStyleSetFillRule;
-//     ret.styleRemoveFill = _tpGLStyleRemoveFill;
-//     ret.styleRemoveStroke = _tpGLStyleRemoveStroke;
-
-//     ret.styleDashArrayPtr = _tpGLStyleDashArrayPtr;
-//     ret.styleDashCount = _tpGLStyleDashCount;
-//     ret.styleDashOffset = _tpGLStyleDashOffset;
-//     ret.styleFillPaint = _tpGLStyleFillPaint;
-//     ret.styleStrokePaint = _tpGLStyleStrokePaint;
-//     ret.styleStrokeWidth = _tpGLStyleStrokeWidth;
-//     ret.styleStrokeJoin = _tpGLStyleStrokeJoin;
-//     ret.styleScaleStroke = _tpGLStyleScaleStroke;
-//     ret.styleMiterLimit = _tpGLStyleMiterLimit;
-//     ret.styleStrokeCap = _tpGLStyleStrokeCap;
-//     ret.styleFillRule = _tpGLStyleFillRule;
-
-//     ret.gradientCreateLinear = _tpGLGradientCreateLinear;
-//     ret.gradientAddColorStop = _tpGLGradientAddColorStop;
-//     ret.gradientDestroy = _tpGLGradientDestroy;
-
-//     ret.contextInit = _tpGLContextInit;
-//     ret.contextDeallocate = _tpGLContextDeallocate;
-//     ret.prepareDrawing = _tpGLPrepareDrawing;
-//     ret.finishDrawing = _tpGLFinishDrawing;
-//     ret.setProjection = _tpGLSetProjection;
-//     ret.setTransform = _tpGLSetTransform;
-//     ret.resetTransform = _tpGLResetTransform;
-//     ret.drawPath = _tpGLDrawPath;
-//     ret.beginClipping = _tpGLBeginClipping;
-//     ret.endClipping = _tpGLEndClipping;
-//     ret.resetClipping = _tpGLResetClipping;
-
-//     return ret;
-// }
 #endif //TARP_IMPLEMENTATION
 #endif //TARP_INCLUDE_OPENGL_IMPLEMENTATION
 

@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8.11)
 
-set(CMAKE_C_FLAGS "-std=c89") 
+#set(CMAKE_C_FLAGS "-std=c89") 
 
 project (Tarp C)
 

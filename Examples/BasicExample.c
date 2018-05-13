@@ -1,11 +1,14 @@
+//include opengl
+#include <GL/gl3w.h>
+
+// we use GLFW to open a simple window
+#include <GLFW/glfw3.h>
+
 // tell Tarp to include the opengl implementation
 #define TARP_INCLUDE_OPENGL_IMPLEMENTATION
 // tell Tarp to also include function definitions
 #define TARP_IMPLEMENTATION
 #include <Tarp/Tarp.h>
-
-// we use GLFW to open a simple window
-#include <GLFW/glfw3.h>
 
 // for timing
 #include <sys/time.h>
@@ -203,7 +206,7 @@ static void updateTigerDrawing(tpContext * _context, void * _userData, tpBool _b
 
     tpBeginClipping(_context, td->clipPath);
     tpSetTransform(_context, &rot);
-    for(int i = 0; i < td->pathCount; ++i)
+    for (int i = 0; i < td->pathCount; ++i)
     {
         tpDrawPath(_context, td->paths[i].path, td->paths[i].style);
     }
@@ -234,6 +237,13 @@ int main(int argc, char * argv[])
     if (window)
     {
         glfwMakeContextCurrent(window);
+
+        //init opengl function pointers
+        if (gl3wInit())
+        {
+            fprintf(stderr, "failed to initialize OpenGL\n");
+            return EXIT_FAILURE;
+        }
 
         int wwidth, wheight;
         glfwGetWindowSize(window, &wwidth, &wheight);
