@@ -1475,6 +1475,9 @@ typedef struct TARP_LOCAL
     GLboolean multisample;
     GLboolean stencilTest;
     GLuint stencilMask;
+    GLenum stencilFail;
+    GLenum stencilPassDepthPass;
+    GLenum stencilPassDepthFail;
     GLuint clearStencil;
     GLboolean blending;
     GLenum blendSrcRGB;
@@ -3686,37 +3689,30 @@ TARP_LOCAL tpBool _tpGLPrepareDrawing(tpContext * _ctx)
 {
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
 
-    //TODO: Cache previous opengl state of everything we change so we can reset it in
-    // tpFinishDrawing
-
-    // Backup GL state
-    // GLenum activeTexture;
-    // GLboolean depthTest;
-    // GLboolean depthMask;
-    // GLboolean multisample;
-    // GLboolean stencilTest;
-    // GLuint stencilMask;
-    // GLuint clearStencil;
-    // GLboolean blending;
-    // GLenum blendSrcRGB;
-    // GLenum blendDestRGB;
-    // GLenum blendSrcAlpha;
-    // GLenum blendDestAlpha;
-    // GLenum blendEquationRGB;
-    // GLenum blendEquationAlpha;
-    // GLboolean cullFace;
-    // GLenum cullFaceMode;
-    // Glenum frontFace;
-    // GLuint vao;
-    // GLuint vbo;
-    // GLuint program;
-
+    //cache previous render state so we can reset it in tpFinishDrawing
     glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint *)&ctx->stateBackup.activeTexture);
     ctx->stateBackup.depthTest = glIsEnabled(GL_DEPTH_TEST);
     glGetIntegerv(GL_DEPTH_WRITEMASK, &ctx->stateBackup.depthMask);
     ctx->stateBackup.multisample = glIsEnabled(GL_MULTISAMPLE);
     ctx->stateBackup.stencilTest = glIsEnabled(GL_STENCIL_TEST);
     glGetIntegerv(GL_STENCIL_WRITEMASK, (GLint *)&ctx->stateBackup.stencilMask);
+    glGetIntegerv(GL_STENCIL_FAIL, (GLint *)&ctx->stateBackup.stencilFail);
+    glGetIntegerv(GL_STENCIL_PASS_DEPTH_PASS, (GLint *)&ctx->stateBackup.stencilPassDepthPass);
+    glGetIntegerv(GL_STENCIL_PASS_DEPTH_FAIL, (GLint *)&ctx->stateBackup.stencilPassDepthFail);
+    glGetIntegerv(GL_STENCIL_CLEAR_VALUE, (GLint *)&ctx->stateBackup.clearStencil);
+    ctx->stateBackup.blending = glIsEnabled(GL_BLEND);
+    glGetIntegerv(GL_BLEND_SRC_RGB, (GLint *)&ctx->stateBackup.blendSrcRGB);
+    glGetIntegerv(GL_BLEND_DST_RGB, (GLint *)&ctx->stateBackup.blendDestRGB);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, (GLint *)&ctx->stateBackup.blendSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, (GLint *)&ctx->stateBackup.blendDestAlpha);
+    glGetIntegerv(GL_BLEND_EQUATION_RGB, (GLint *)&ctx->stateBackup.blendEquationRGB);
+    glGetIntegerv(GL_BLEND_EQUATION_ALPHA, (GLint *)&ctx->stateBackup.blendEquationAlpha);
+    ctx->stateBackup.cullFace = glIsEnabled(GL_CULL_FACE);
+    glGetIntegerv(GL_CULL_FACE_MODE, (GLint *)&ctx->stateBackup.cullFaceMode);
+    glGetIntegerv(GL_FRONT_FACE, (GLint *)&ctx->stateBackup.frontFace);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, (GLint *)&ctx->stateBackup.vao);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, (GLint *)&ctx->stateBackup.vbo);
+    glGetIntegerv(GL_CURRENT_PROGRAM, (GLint *)&ctx->stateBackup.program);
 
     _TARP_ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
 
