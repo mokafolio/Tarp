@@ -81,6 +81,18 @@ exit(EXIT_FAILURE); \
 #define TARP_IMPLEMENTATION
 #endif //TARP_IMPLEMENTATION_OPENGL
 
+//helper to generate a handle class.
+//the internal emtpy flag struct is a hacky
+//way of making it typesafe.
+#define TARP_HANDLE(_t) \
+typedef struct TARP_API \
+{ \
+    void * pointer; \
+    struct _t ## Flag \
+    { \
+    } __flag; \
+} _t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -129,13 +141,9 @@ typedef enum TARP_API
     tpTrue = 1
 } tpBool;
 
-typedef struct TARP_API
-{
-    void * pointer;
-} tpHandle;
-typedef tpHandle tpPath;
-typedef tpHandle tpStyle;
-typedef tpHandle tpGradient;
+TARP_HANDLE(tpPath);
+TARP_HANDLE(tpStyle);
+TARP_HANDLE(tpGradient);
 
 // Structures
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
