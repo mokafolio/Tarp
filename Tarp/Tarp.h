@@ -1467,6 +1467,30 @@ typedef struct TARP_LOCAL
     GLuint vboSize;
 } _tpGLVAO;
 
+typedef struct TARP_LOCAL
+{
+    GLenum activeTexture;
+    GLboolean depthTest;
+    GLint depthMask;
+    GLboolean multisample;
+    GLboolean stencilTest;
+    GLuint stencilMask;
+    GLuint clearStencil;
+    GLboolean blending;
+    GLenum blendSrcRGB;
+    GLenum blendDestRGB;
+    GLenum blendSrcAlpha;
+    GLenum blendDestAlpha;
+    GLenum blendEquationRGB;
+    GLenum blendEquationAlpha;
+    GLboolean cullFace;
+    GLenum cullFaceMode;
+    GLenum frontFace;
+    GLuint vao;
+    GLuint vbo;
+    GLuint program;
+} _tpGLStateBackup;
+
 struct TARP_LOCAL _tpGLContext
 {
     GLuint program;
@@ -1500,6 +1524,8 @@ struct TARP_LOCAL _tpGLContext
     _tpGLTextureVertexArray tmpTexVertices;
 
     _tpColorStopArray tmpColorStops;
+
+    _tpGLStateBackup stateBackup;
     char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
 };
 
@@ -2530,9 +2556,9 @@ TARP_LOCAL void _tpGLMakeCapOrJoinRound2(tpVec2 _p, tpVec2 _d, tpFloat _theta, t
 }
 
 TARP_LOCAL void _tpGLMakeJoinRound(tpVec2 _p,
-                        tpVec2 _e0, tpVec2 _e1,
-                        tpVec2 _perp0, tpVec2 _perp1,
-                        _tpVec2Array * _outVertices)
+                                   tpVec2 _e0, tpVec2 _e1,
+                                   tpVec2 _perp0, tpVec2 _perp1,
+                                   _tpVec2Array * _outVertices)
 {
     tpVec2 nperp0, nperp1, last, current;
     tpFloat angle, theta, stepSize, cosa, sina;
@@ -2571,8 +2597,8 @@ TARP_LOCAL void _tpGLMakeJoinRound(tpVec2 _p,
 }
 
 TARP_LOCAL void _tpGLMakeJoinBevel(tpVec2 _lePrev, tpVec2 _rePrev,
-                        tpVec2 _le, tpVec2 _re,
-                        tpFloat _cross, _tpVec2Array * _outVertices)
+                                   tpVec2 _le, tpVec2 _re,
+                                   tpFloat _cross, _tpVec2Array * _outVertices)
 {
     if (_cross < 0)
     {
@@ -2590,8 +2616,8 @@ TARP_LOCAL void _tpGLMakeJoinBevel(tpVec2 _lePrev, tpVec2 _rePrev,
 }
 
 TARP_LOCAL tpBool _tpGLIntersectLines(tpVec2 _p0, tpVec2 _d0,
-                           tpVec2 _p1, tpVec2 _d1,
-                           tpVec2 * _outResult)
+                                      tpVec2 _p1, tpVec2 _d1,
+                                      tpVec2 * _outResult)
 {
     tpFloat cross, t;
     tpVec2 delta, doff;
@@ -2611,10 +2637,10 @@ TARP_LOCAL tpBool _tpGLIntersectLines(tpVec2 _p0, tpVec2 _d0,
 }
 
 TARP_LOCAL void _tpGLMakeJoinMiter(tpVec2 _p,
-                        tpVec2 _e0, tpVec2 _e1,
-                        tpVec2 _dir0, tpVec2 _dir1,
-                        tpFloat _cross,
-                        _tpVec2Array * _outVertices)
+                                   tpVec2 _e0, tpVec2 _e1,
+                                   tpVec2 _dir0, tpVec2 _dir1,
+                                   tpFloat _cross,
+                                   _tpVec2Array * _outVertices)
 {
     tpFloat t;
     tpVec2 intersection;
@@ -2626,13 +2652,13 @@ TARP_LOCAL void _tpGLMakeJoinMiter(tpVec2 _p,
 }
 
 TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
-                   tpVec2 _p,
-                   tpVec2 _dir0, tpVec2 _dir1,
-                   tpVec2 _perp0, tpVec2 _perp1,
-                   tpVec2 _lePrev, tpVec2 _rePrev,
-                   tpVec2 _le, tpVec2 _re,
-                   tpFloat _cross, tpFloat _miterLimit,
-                   _tpVec2Array * _outVertices)
+                              tpVec2 _p,
+                              tpVec2 _dir0, tpVec2 _dir1,
+                              tpVec2 _perp0, tpVec2 _perp1,
+                              tpVec2 _lePrev, tpVec2 _rePrev,
+                              tpVec2 _le, tpVec2 _re,
+                              tpFloat _cross, tpFloat _miterLimit,
+                              _tpVec2Array * _outVertices)
 {
     tpVec2 nperp0, nperp1;
     tpFloat miterLen, theta;
@@ -2679,9 +2705,9 @@ TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
 }
 
 TARP_LOCAL void _tpGLMakeCapSquare(tpVec2 _p,
-                        tpVec2 _dir,
-                        tpVec2 _le, tpVec2 _re,
-                        _tpVec2Array * _outVertices)
+                                   tpVec2 _dir,
+                                   tpVec2 _le, tpVec2 _re,
+                                   _tpVec2Array * _outVertices)
 {
     tpVec2 a, b;
     a = tpVec2Add(_re, _dir);
@@ -2691,9 +2717,9 @@ TARP_LOCAL void _tpGLMakeCapSquare(tpVec2 _p,
 }
 
 TARP_LOCAL void _tpGLMakeCapRound(tpVec2 _p,
-                       tpVec2 _perp,
-                       tpVec2 _e0, tpVec2 _e1,
-                       _tpVec2Array * _outVertices)
+                                  tpVec2 _perp,
+                                  tpVec2 _e0, tpVec2 _e1,
+                                  _tpVec2Array * _outVertices)
 {
     tpFloat angle, stepSize, sina, cosa;
     tpVec2 last, current;
@@ -2724,12 +2750,12 @@ TARP_LOCAL void _tpGLMakeCapRound(tpVec2 _p,
 }
 
 TARP_LOCAL void _tpGLMakeCap(tpStrokeCap _type,
-                  tpVec2 _p,
-                  tpVec2 _dir,
-                  tpVec2 _perp,
-                  tpVec2 _le, tpVec2 _re,
-                  tpBool _bStart,
-                  _tpVec2Array * _outVertices)
+                             tpVec2 _p,
+                             tpVec2 _dir,
+                             tpVec2 _perp,
+                             tpVec2 _le, tpVec2 _re,
+                             tpBool _bStart,
+                             _tpVec2Array * _outVertices)
 {
     switch (_type)
     {
@@ -3115,15 +3141,15 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec
 }
 
 TARP_LOCAL void _tpGLFlattenCurve(_tpGLPath * _path,
-                       const _tpGLCurve * _curve,
-                       tpFloat _angleTolerance,
-                       int _bIsClosed,
-                       int _bFirstCurve,
-                       int _bLastCurve,
-                       _tpVec2Array * _outVertices,
-                       _tpBoolArray * _outJoints,
-                       _tpGLRect * _bounds,
-                       int * _vertexCount)
+                                  const _tpGLCurve * _curve,
+                                  tpFloat _angleTolerance,
+                                  int _bIsClosed,
+                                  int _bFirstCurve,
+                                  int _bLastCurve,
+                                  _tpVec2Array * _outVertices,
+                                  _tpBoolArray * _outJoints,
+                                  _tpGLRect * _bounds,
+                                  int * _vertexCount)
 {
     _tpGLCurve stack[TARP_MAX_CURVE_SUBDIVISIONS];
     _tpGLCurvePair cp;
@@ -3189,11 +3215,11 @@ TARP_LOCAL void _tpGLMergeBounds(_tpGLRect * _a, const _tpGLRect * _b)
 }
 
 TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
-                     tpFloat _angleTolerance,
-                     const tpMat3 * _transform,
-                     _tpVec2Array * _outVertices,
-                     _tpBoolArray * _outJoints,
-                     _tpGLRect * _outBounds)
+                                tpFloat _angleTolerance,
+                                const tpMat3 * _transform,
+                                _tpVec2Array * _outVertices,
+                                _tpBoolArray * _outJoints,
+                                _tpGLRect * _outBounds)
 {
     _tpGLRect contourBounds;
     int i = 0;
@@ -3442,7 +3468,7 @@ TARP_LOCAL void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
 }
 
 TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
-                    const tpPaint * _paint, const _tpGLGradientCacheData * _gradCache)
+                               const tpPaint * _paint, const _tpGLGradientCacheData * _gradCache)
 {
     if (_paint->type == kTpPaintTypeColor)
     {
@@ -3549,12 +3575,12 @@ typedef struct TARP_LOCAL
 } TexVertex;
 
 TARP_LOCAL void _tpGLGradientLinearGeometry(_tpGLContext * _ctx,
-                                 _tpGLGradient * _grad,
-                                 const tpMat3 * _paintTransform,
-                                 const _tpGLRect * _bounds,
-                                 _tpGLTextureVertexArray * _vertices,
-                                 int * _outVertexOffset,
-                                 int * _outVertexCount)
+        _tpGLGradient * _grad,
+        const tpMat3 * _paintTransform,
+        const _tpGLRect * _bounds,
+        _tpGLTextureVertexArray * _vertices,
+        int * _outVertexOffset,
+        int * _outVertexCount)
 {
     // regenerate the geometry for this path/gradient combo
     _tpGLTextureVertex vertices[8];
@@ -3615,8 +3641,8 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(_tpGLContext * _ctx,
 }
 
 TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * _grad,
-                                _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices,
-                                const tpMat3 * _paintTransform, tpBool _bPaintTransformDirty)
+        _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices,
+        const tpMat3 * _paintTransform, tpBool _bPaintTransformDirty)
 {
     _tpGLGradient * grad = _grad;
 
@@ -3662,6 +3688,36 @@ TARP_LOCAL tpBool _tpGLPrepareDrawing(tpContext * _ctx)
 
     //TODO: Cache previous opengl state of everything we change so we can reset it in
     // tpFinishDrawing
+
+    // Backup GL state
+    // GLenum activeTexture;
+    // GLboolean depthTest;
+    // GLboolean depthMask;
+    // GLboolean multisample;
+    // GLboolean stencilTest;
+    // GLuint stencilMask;
+    // GLuint clearStencil;
+    // GLboolean blending;
+    // GLenum blendSrcRGB;
+    // GLenum blendDestRGB;
+    // GLenum blendSrcAlpha;
+    // GLenum blendDestAlpha;
+    // GLenum blendEquationRGB;
+    // GLenum blendEquationAlpha;
+    // GLboolean cullFace;
+    // GLenum cullFaceMode;
+    // Glenum frontFace;
+    // GLuint vao;
+    // GLuint vbo;
+    // GLuint program;
+
+    glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint *)&ctx->stateBackup.activeTexture);
+    ctx->stateBackup.depthTest = glIsEnabled(GL_DEPTH_TEST);
+    glGetIntegerv(GL_DEPTH_WRITEMASK, &ctx->stateBackup.depthMask);
+    ctx->stateBackup.multisample = glIsEnabled(GL_MULTISAMPLE);
+    ctx->stateBackup.stencilTest = glIsEnabled(GL_STENCIL_TEST);
+    glGetIntegerv(GL_STENCIL_WRITEMASK, (GLint *)&ctx->stateBackup.stencilMask);
+
     _TARP_ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
 
     _TARP_ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
