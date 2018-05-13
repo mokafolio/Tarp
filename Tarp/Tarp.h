@@ -77,6 +77,10 @@ exit(EXIT_FAILURE); \
 
 #define TARP_MAX_CURVE_SUBDIVISIONS 16
 
+#ifdef TARP_IMPLEMENTATION_OPENGL
+#define TARP_IMPLEMENTATION
+#endif //TARP_IMPLEMENTATION_OPENGL
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -733,18 +737,12 @@ TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloa
     };
 }
 
-#endif //TARP_IMPLEMENTATION
-
-#ifdef TARP_INCLUDE_OPENGL_IMPLEMENTATION
-
-// TARP_API tpImplementation tpOpenGLImplementation();
-
-#ifdef TARP_IMPLEMENTATION
-
 TARP_API const char * tpContextErrorMessage(tpContext * _ctx)
 {
     return _ctx->errorMessage;
 }
+
+#ifdef TARP_IMPLEMENTATION_OPENGL
 
 //The shader programs used by the renderer
 static const char * _vertexShaderCode =
@@ -3521,8 +3519,8 @@ TARP_API tpBool tpResetTransform(tpContext * _ctx)
     return tpFalse;
 }
 
+#endif //TARP_IMPLEMENTATION_OPENGL
 #endif //TARP_IMPLEMENTATION
-#endif //TARP_INCLUDE_OPENGL_IMPLEMENTATION
 
 #ifdef __cplusplus
 }

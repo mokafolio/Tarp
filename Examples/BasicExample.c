@@ -4,10 +4,8 @@
 // we use GLFW to open a simple window
 #include <GLFW/glfw3.h>
 
-// tell Tarp to include the opengl implementation
-#define TARP_INCLUDE_OPENGL_IMPLEMENTATION
-// tell Tarp to also include function definitions
-#define TARP_IMPLEMENTATION
+// tell Tarp to compile the opengl implementations
+#define TARP_IMPLEMENTATION_OPENGL
 #include <Tarp/Tarp.h>
 
 // for timing
