@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8.11)
 
-set(CMAKE_C_FLAGS "-std=c89 -pedantic-errors") 
+#set(CMAKE_C_FLAGS "-std=c89 -pedantic-errors") 
 
 project (Tarp C)
 

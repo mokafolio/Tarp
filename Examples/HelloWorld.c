@@ -11,6 +11,7 @@
 
 int main(int argc, char * argv[])
 {
+    /* this example is compile in pedantic c89, so we declare the variables up here */
     tpContext ctx;
     tpBool err;
     GLFWwindow * window;
@@ -46,8 +47,6 @@ int main(int argc, char * argv[])
             printf("Could not init Tarp context: %s\n", tpContextErrorMessage(&ctx));
             return EXIT_FAILURE;
         }
-
-
 
         /* clean up tarp */
         tpContextDeallocate(&ctx);
