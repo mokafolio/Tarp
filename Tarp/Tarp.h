@@ -8,26 +8,25 @@
 #include <stdio.h>
 #include <float.h>
 
-//debug
+/* debug */
 #if !defined(NDEBUG)
 #define TARP_DEBUG
 #else
 #undef TARP_DEBUG
 #endif
 
-//visibility
+/* visibility */
+/* @TODO: Allow to overwrite these */
 #define TARP_API  __attribute__ ((visibility("default")))
 #define TARP_LOCAL __attribute__ ((visibility("hidden")))
 
-// some settings
+/* some settings */
 #define TARP_MAX_COLOR_STOPS 128
 #define TARP_MAX_DASH_ARRAY_SIZE 64
 #define TARP_MAX_ERROR_MESSAGE 256
 
-// some constants
+/* some constants */
 #define TARP_KAPPA 0.55228474983
-
-// #define TARP_API extern
 
 #ifdef TARP_DEBUG
 #define _TARP_ASSERT_NO_GL_ERROR(_func) do { _func; \
@@ -62,12 +61,12 @@ exit(EXIT_FAILURE); \
 #define _TARP_ASSERT_NO_GL_ERROR(_func) _func
 #endif
 
-//some helper macros used by the opengl implementation
+/* some helper macros */
 #define TARP_MIN(a,b) (((a)<(b))?(a):(b))
 #define TARP_MAX(a,b) (((a)>(b))?(a):(b))
 #define TARP_CLAMP(a,l,h) TARP_MAX(TARP_MIN(a, h),l)
 
-//some tarp related opengl related settings
+/* some tarp related opengl related settings */
 #define TARP_GL_RAMP_TEXTURE_SIZE 1024
 #define TARP_GL_MAX_CLIPPING_STACK_DEPTH 64
 #define TARP_GL_ERROR_MESSAGE_SIZE 512
@@ -79,26 +78,37 @@ exit(EXIT_FAILURE); \
 
 #ifdef TARP_IMPLEMENTATION_OPENGL
 #define TARP_IMPLEMENTATION
-#endif //TARP_IMPLEMENTATION_OPENGL
+#endif /* TARP_IMPLEMENTATION_OPENGL */
 
-//helper to generate a handle class.
-//the internal emtpy flag struct is a hacky
-//way of making it typesafe.
-#define TARP_HANDLE(_t) \
+/*
+helper to generate a handle class.
+the internal emtpy flag struct is a hacky
+way of making it typesafe.
+*/
+/*#define TARP_HANDLE(_t) \
 typedef struct TARP_API \
 { \
     void * pointer; \
     struct _t ## Flag \
     { \
+        int __nada[]; \
     } __flag; \
-} _t;
+} _t*/
+
+#define TARP_HANDLE(_t) \
+typedef struct TARP_API \
+{ \
+    void * pointer; \
+} _t
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Constants
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/*
+Constants
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 typedef enum TARP_API
 {
     kTpGradientTypeLinear,
@@ -132,8 +142,10 @@ typedef enum
     kTpStrokeJoinBevel
 } tpStrokeJoin;
 
-// Basic Types
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/*
+Basic Types
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 typedef float tpFloat;
 typedef enum TARP_API
 {
@@ -145,8 +157,10 @@ TARP_HANDLE(tpPath);
 TARP_HANDLE(tpStyle);
 TARP_HANDLE(tpGradient);
 
-// Structures
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/*
+Structures
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 typedef struct TARP_API
 {
     tpFloat r, g, b, a;
@@ -198,22 +212,26 @@ typedef struct TARP_API
     char message[TARP_MAX_ERROR_MESSAGE];
 } tpError;
 
-//@TODO: I think we should just turn this into a handle
-//like everything else.
+/*
+@TODO: I think we should just turn this into a handle
+like everything else.
+*/
 typedef struct TARP_API
 {
     void * _impl;
     char errorMessage[TARP_MAX_ERROR_MESSAGE];
 } tpContext;
 
-// Color Functions
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+/*
+Color Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 TARP_API tpColor tpColorMake(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
 
-// Vector Functions
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+/*
+Vector Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 TARP_API tpVec2 tpVec2Make(tpFloat _x, tpFloat _y);
 
 TARP_API tpVec2 tpVec2Add(tpVec2 _a, tpVec2 _b);
@@ -247,12 +265,13 @@ TARP_API tpFloat tpVec2Distance(tpVec2 _a, tpVec2 _b);
 TARP_API tpFloat tpVec2DistanceSquared(tpVec2 _a, tpVec2 _b);
 
 
-// Matrix Functions
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-TARP_API tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, //row1
-                           tpFloat _v3, tpFloat _v4, tpFloat _v5, //row2
-                           tpFloat _v6, tpFloat _v7, tpFloat _v8); //row3
+/*
+Matrix Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+TARP_API tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, /* row1 */
+                           tpFloat _v3, tpFloat _v4, tpFloat _v5, /* row2 */
+                           tpFloat _v6, tpFloat _v7, tpFloat _v8); /* row3 */
 
 TARP_API tpMat3 tpMat3MakeIdentity();
 
@@ -273,10 +292,10 @@ TARP_API tpVec2 tpMat3MultVec2(const tpMat3 * _mat, tpVec2 _vec);
 
 TARP_API tpMat3 tpMat3Mult(const tpMat3 * _a, const tpMat3 * _b);
 
-TARP_API tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3, //row1
-                           tpFloat _v4, tpFloat _v5, tpFloat _v6, tpFloat _v7, //row2
-                           tpFloat _v8, tpFloat _v9, tpFloat _v10, tpFloat _v11, //row3
-                           tpFloat _v12, tpFloat _v13, tpFloat _v14, tpFloat _v15); //row4
+TARP_API tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3, /* row1 */
+                           tpFloat _v4, tpFloat _v5, tpFloat _v6, tpFloat _v7, /* row2 */
+                           tpFloat _v8, tpFloat _v9, tpFloat _v10, tpFloat _v11, /* row3 */
+                           tpFloat _v12, tpFloat _v13, tpFloat _v14, tpFloat _v15); /* row4 */
 
 TARP_API tpMat4 tpMat4MakeIdentity();
 
@@ -287,15 +306,17 @@ TARP_API tpMat4 tpMat4MakeFrom2DTransform(const tpMat3 * _transform);
 TARP_API tpMat4 tpMat4Mult(const tpMat4 * _a, const tpMat4 * _b);
 
 
-// Segment Functions
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+/*
+Segment Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y);
 
 
-// Path Functions
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+/*
+Path Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 TARP_API tpPath tpPathCreate();
 
 TARP_API void tpPathDestroy(tpPath _path);
@@ -335,9 +356,10 @@ TARP_API tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _coun
 TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed);
 
 
-// Style Functions
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+/*
+Style Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 TARP_API tpStyle tpStyleCreate();
 
 TARP_API void tpStyleDestroy(tpStyle _style);
@@ -393,9 +415,10 @@ TARP_API tpStrokeCap tpStyleStrokeCap(tpStyle _style);
 TARP_API tpFillRule tpStyleFillRule(tpStyle _style);
 
 
-// Gradient Functions
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+/*
+Gradient Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
 TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset);
@@ -403,9 +426,10 @@ TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _
 TARP_API void tpGradientDestroy(tpGradient _gradient);
 
 
-// Context Functions
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+/*
+Context Related Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 TARP_API tpBool tpContextInit(tpContext * _ctx);
 
 TARP_API const char * tpContextErrorMessage(tpContext * _ctx);
@@ -430,48 +454,55 @@ TARP_API tpBool tpEndClipping(tpContext * _ctx);
 
 TARP_API tpBool tpResetClipping(tpContext * _ctx);
 
+TARP_API const char * tpImplementation();
 
-// TARP_API tpImplementation * tpGetImplementation();
-
-// TARP_API void tpSetImplementation(tpImplementation _impl);
 
 #ifdef TARP_IMPLEMENTATION
 
-// Implementations
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/*
+Implementations
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 TARP_API tpColor tpColorMake(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
 {
-    return (tpColor) {_r, _g, _b, _a};
+    tpColor ret; ret.r = _r; ret.g = _g; ret.b = _b; ret.a = _a;
+    return ret;
 }
 
 TARP_API tpVec2 tpVec2Make(tpFloat _x, tpFloat _y)
 {
-    return (tpVec2) {_x, _y};
+    tpVec2 ret; ret.x = _x; ret.y = _y;
+    return ret;
 }
 
 TARP_API tpVec2 tpVec2Add(tpVec2 _a, tpVec2 _b)
 {
-    return (tpVec2) {_a.x + _b.x, _a.y + _b.y};
+    tpVec2 ret; ret.x = _a.x + _b.x; ret.y = _a.y + _b.y;
+    return ret;
 }
 
 TARP_API tpVec2 tpVec2Sub(tpVec2 _a, tpVec2 _b)
 {
-    return (tpVec2) {_a.x - _b.x, _a.y - _b.y};
+    tpVec2 ret; ret.x = _a.x - _b.x; ret.y = _a.y - _b.y;
+    return ret;
 }
 
 TARP_API tpVec2 tpVec2Mult(tpVec2 _a, tpVec2 _b)
 {
-    return (tpVec2) {_a.x * _b.x, _a.y * _b.y};
+    tpVec2 ret; ret.x = _a.x * _b.x; ret.y = _a.y * _b.y;
+    return ret;
 }
 
 TARP_API tpVec2 tpVec2MultScalar(tpVec2 _a, tpFloat _b)
 {
-    return (tpVec2) {_a.x * _b, _a.y * _b};
+    tpVec2 ret; ret.x = _a.x * _b; ret.y = _a.y * _b;
+    return ret;
 }
 
 TARP_API tpVec2 tpVec2Div(tpVec2 _a, tpVec2 _b)
 {
-    return (tpVec2) {_a.x / _b.x, _a.y / _b.y};
+    tpVec2 ret; ret.x = _a.x / _b.x; ret.y = _a.y / _b.y;
+    return ret;
 }
 
 TARP_API tpBool tpVec2Equals(tpVec2 _a, tpVec2 _b)
@@ -498,13 +529,16 @@ TARP_API void tpVec2NormalizeSelf(tpVec2 * _vec)
 
 TARP_API tpVec2 tpVec2Normalize(tpVec2 _vec)
 {
+    tpVec2 ret = _vec;
     tpFloat s = 1.0 / tpVec2Length(_vec);
-    return (tpVec2) {_vec.x * s, _vec.y * s};
+    ret.x *= s; ret.y *= s;
+    return ret;
 }
 
 TARP_API tpVec2 tpVec2Perp(tpVec2 _a)
 {
-    return (tpVec2) {_a.y, -_a.x};
+    tpVec2 ret; ret.x = _a.y; ret.y = -_a.x;
+    return ret;
 }
 
 TARP_API tpFloat tpVec2Dot(tpVec2 _a, tpVec2 _b)
@@ -531,22 +565,18 @@ TARP_API tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2,
                            tpFloat _v3, tpFloat _v4, tpFloat _v5,
                            tpFloat _v6, tpFloat _v7, tpFloat _v8)
 {
-    return (tpMat3)
-    {
-        _v0, _v3, _v6,
-             _v1, _v4, _v7,
-             _v2, _v5, _v8
-    };
+    tpMat3 ret;
+    ret.v[0] = _v0; ret.v[1] = _v3; ret.v[2] = _v6;
+    ret.v[3] = _v1; ret.v[4] = _v4; ret.v[5] = _v7;
+    ret.v[6] = _v2; ret.v[7] = _v5; ret.v[8] = _v8;
+    return ret;
 }
 
 TARP_API tpMat3 tpMat3MakeIdentity()
 {
-    return (tpMat3)
-    {
-        1, 0, 0,
-        0, 1, 0,
-        0, 0, 1
-    };
+    return tpMat3Make(1, 0, 0,
+                      0, 1, 0,
+                      0, 0, 1);
 }
 
 TARP_API tpMat3 tpMat3MakeTranslation(tpFloat _x, tpFloat _y)
@@ -581,14 +611,16 @@ TARP_API tpMat3 tpMat3MakeRotation(tpFloat _angle)
 
 TARP_API int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation)
 {
+    tpFloat a, b, c, d, det;
+
     _outTranslation->x = _mat->v[6];
     _outTranslation->y = _mat->v[7];
 
-    tpFloat a = _mat->v[0];
-    tpFloat b = _mat->v[3];
-    tpFloat c = _mat->v[1];;
-    tpFloat d = _mat->v[4];;
-    tpFloat det = a * d - b * c;
+    a = _mat->v[0];
+    b = _mat->v[3];
+    c = _mat->v[1];;
+    d = _mat->v[4];;
+    det = a * d - b * c;
 
     if (a != 0 || b != 0)
     {
@@ -608,7 +640,7 @@ TARP_API int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVe
         _outSkew->x = 0;
         _outSkew->y = atan2(a * c + b * d, s * s);
     }
-    else     // a = b = c = d = 0
+    else /* a = b = c = d = 0 */
     {
         *_outRotation = 0;
         _outScale->x = 0;
@@ -632,24 +664,20 @@ TARP_API tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3,
                            tpFloat _v8, tpFloat _v9, tpFloat _v10, tpFloat _v11,
                            tpFloat _v12, tpFloat _v13, tpFloat _v14, tpFloat _v15)
 {
-    return (tpMat4)
-    {
-        _v0, _v4, _v8, _v12,
-             _v1, _v5, _v9, _v13,
-             _v2, _v6, _v10, _v14,
-             _v3, _v7, _v11, _v15
-    };
+    tpMat4 ret;
+    ret.v[0] = _v0; ret.v[1] = _v4; ret.v[2] = _v8; ret.v[3] = _v12;
+    ret.v[4] = _v1; ret.v[5] = _v5; ret.v[6] = _v9; ret.v[7] = _v13;
+    ret.v[8] = _v2; ret.v[9] = _v6; ret.v[10] = _v10; ret.v[11] = _v14;
+    ret.v[12] = _v3; ret.v[13] = _v7; ret.v[14] = _v11; ret.v[15] = _v15;
+    return ret;
 }
 
 TARP_API tpMat4 tpMat4MakeIdentity()
 {
-    return (tpMat4)
-    {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    };
+    return tpMat4Make( 1, 0, 0, 0,
+                       0, 1, 0, 0,
+                       0, 0, 1, 0,
+                       0, 0, 0, 1);
 }
 
 TARP_API tpMat4 tpMat4MakeOrtho(tpFloat _left, tpFloat _right, tpFloat _bottom, tpFloat _top, tpFloat _near, tpFloat _far)
@@ -677,72 +705,72 @@ TARP_API tpMat4 tpMat4MakeFrom2DTransform(const tpMat3 * _transform)
 
 TARP_API tpMat4 tpMat4Mult(const tpMat4 * _a, const tpMat4 * _b)
 {
-    return (tpMat4)
-    {
-        //column one
-        _b->v[0] * _a->v[0] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[8]  + _b->v[3] * _a->v[12],
-        _b->v[0] * _a->v[1] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[9]  + _b->v[3] * _a->v[13],
-        _b->v[0] * _a->v[2] + _b->v[1] * _a->v[6] + _b->v[2] * _a->v[10] + _b->v[3] * _a->v[14],
-        _b->v[0] * _a->v[3] + _b->v[1] * _a->v[7] + _b->v[2] * _a->v[11] + _b->v[3] * _a->v[15],
+    tpMat4 ret;
 
-        //column two
-        _b->v[4] * _a->v[0] + _b->v[5] * _a->v[4] + _b->v[6] * _a->v[8]  + _b->v[7] * _a->v[12],
-        _b->v[4] * _a->v[1] + _b->v[5] * _a->v[5] + _b->v[6] * _a->v[9]  + _b->v[7] * _a->v[13],
-        _b->v[4] * _a->v[2] + _b->v[5] * _a->v[6] + _b->v[6] * _a->v[10] + _b->v[7] * _a->v[14],
-        _b->v[4] * _a->v[3] + _b->v[5] * _a->v[7] + _b->v[6] * _a->v[11] + _b->v[7] * _a->v[15],
+    /* column one */
+    ret.v[0] = _b->v[0] * _a->v[0] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[8]  + _b->v[3] * _a->v[12];
+    ret.v[4] = _b->v[0] * _a->v[1] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[9]  + _b->v[3] * _a->v[13];
+    ret.v[8] = _b->v[0] * _a->v[2] + _b->v[1] * _a->v[6] + _b->v[2] * _a->v[10] + _b->v[3] * _a->v[14];
+    ret.v[12] = _b->v[0] * _a->v[3] + _b->v[1] * _a->v[7] + _b->v[2] * _a->v[11] + _b->v[3] * _a->v[15];
 
-        //column three
-        _b->v[8] * _a->v[0] + _b->v[9] * _a->v[4] + _b->v[10] * _a->v[8]  + _b->v[11] * _a->v[12],
-        _b->v[8] * _a->v[1] + _b->v[9] * _a->v[5] + _b->v[10] * _a->v[9]  + _b->v[11] * _a->v[13],
-        _b->v[8] * _a->v[2] + _b->v[9] * _a->v[6] + _b->v[10] * _a->v[10] + _b->v[11] * _a->v[14],
-        _b->v[8] * _a->v[3] + _b->v[9] * _a->v[7] + _b->v[10] * _a->v[11] + _b->v[11] * _a->v[15],
+    /* column two */
+    ret.v[1] = _b->v[4] * _a->v[0] + _b->v[5] * _a->v[4] + _b->v[6] * _a->v[8]  + _b->v[7] * _a->v[12];
+    ret.v[5] = _b->v[4] * _a->v[1] + _b->v[5] * _a->v[5] + _b->v[6] * _a->v[9]  + _b->v[7] * _a->v[13];
+    ret.v[9] = _b->v[4] * _a->v[2] + _b->v[5] * _a->v[6] + _b->v[6] * _a->v[10] + _b->v[7] * _a->v[14];
+    ret.v[13] = _b->v[4] * _a->v[3] + _b->v[5] * _a->v[7] + _b->v[6] * _a->v[11] + _b->v[7] * _a->v[15];
 
-        //column four
-        _b->v[12] * _a->v[0] + _b->v[13] * _a->v[4] + _b->v[14] * _a->v[8]  + _b->v[15] * _a->v[12],
-        _b->v[12] * _a->v[1] + _b->v[13] * _a->v[5] + _b->v[14] * _a->v[9]  + _b->v[15] * _a->v[13],
-        _b->v[12] * _a->v[2] + _b->v[13] * _a->v[6] + _b->v[14] * _a->v[10] + _b->v[15] * _a->v[14],
-        _b->v[12] * _a->v[3] + _b->v[13] * _a->v[7] + _b->v[14] * _a->v[11] + _b->v[15] * _a->v[15]
-    };
+    /* column three */
+    ret.v[2] = _b->v[8] * _a->v[0] + _b->v[9] * _a->v[4] + _b->v[10] * _a->v[8]  + _b->v[11] * _a->v[12];
+    ret.v[6] = _b->v[8] * _a->v[1] + _b->v[9] * _a->v[5] + _b->v[10] * _a->v[9]  + _b->v[11] * _a->v[13];
+    ret.v[10] = _b->v[8] * _a->v[2] + _b->v[9] * _a->v[6] + _b->v[10] * _a->v[10] + _b->v[11] * _a->v[14];
+    ret.v[14] = _b->v[8] * _a->v[3] + _b->v[9] * _a->v[7] + _b->v[10] * _a->v[11] + _b->v[11] * _a->v[15];
+
+    /* column four */
+    ret.v[3] = _b->v[12] * _a->v[0] + _b->v[13] * _a->v[4] + _b->v[14] * _a->v[8]  + _b->v[15] * _a->v[12];
+    ret.v[7] = _b->v[12] * _a->v[1] + _b->v[13] * _a->v[5] + _b->v[14] * _a->v[9]  + _b->v[15] * _a->v[13];
+    ret.v[11] = _b->v[12] * _a->v[2] + _b->v[13] * _a->v[6] + _b->v[14] * _a->v[10] + _b->v[15] * _a->v[14];
+    ret.v[15] = _b->v[12] * _a->v[3] + _b->v[13] * _a->v[7] + _b->v[14] * _a->v[11] + _b->v[15] * _a->v[15];
+
+    return ret;
 }
 
 TARP_API tpVec2 tpMat3MultVec2(const tpMat3 * _mat, tpVec2 _vec)
 {
-    return (tpVec2)
-    {
-        (_vec.x * _mat->v[0] + _vec.y * _mat->v[3] + _mat->v[6]),
-        (_vec.x * _mat->v[1] + _vec.y * _mat->v[4] + _mat->v[7])
-    };
+    tpVec2 ret;
+    ret.x = _vec.x * _mat->v[0] + _vec.y * _mat->v[3] + _mat->v[6];
+    ret.y = _vec.x * _mat->v[1] + _vec.y * _mat->v[4] + _mat->v[7];
+    return ret;
 }
 
 TARP_API tpMat3 tpMat3Mult(const tpMat3 * _a, const tpMat3 * _b)
 {
-    return (tpMat3)
-    {
-        //column one
-        _b->v[0] * _a->v[0] + _b->v[1] * _a->v[3] + _b->v[2] * _a->v[6],
-        _b->v[0] * _a->v[1] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[7],
-        _b->v[0] * _a->v[2] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[8],
+    tpMat3 ret;
 
-        //column two
-        _b->v[3] * _a->v[0] + _b->v[4] * _a->v[3] + _b->v[5] * _a->v[6],
-        _b->v[3] * _a->v[1] + _b->v[4] * _a->v[4] + _b->v[5] * _a->v[7],
-        _b->v[3] * _a->v[2] + _b->v[4] * _a->v[5] + _b->v[5] * _a->v[8],
+    /* column one */
+    ret.v[0] = _b->v[0] * _a->v[0] + _b->v[1] * _a->v[3] + _b->v[2] * _a->v[6];
+    ret.v[3] = _b->v[0] * _a->v[1] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[7];
+    ret.v[6] = _b->v[0] * _a->v[2] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[8];
 
-        //column three
-        _b->v[6] * _a->v[0] + _b->v[7] * _a->v[3] + _b->v[8] * _a->v[6],
-        _b->v[6] * _a->v[1] + _b->v[7] * _a->v[4] + _b->v[8] * _a->v[7],
-        _b->v[6] * _a->v[2] + _b->v[7] * _a->v[5] + _b->v[8] * _a->v[8]
-    };
+    /* column two */
+    ret.v[1] = _b->v[3] * _a->v[0] + _b->v[4] * _a->v[3] + _b->v[5] * _a->v[6];
+    ret.v[4] = _b->v[3] * _a->v[1] + _b->v[4] * _a->v[4] + _b->v[5] * _a->v[7];
+    ret.v[7] = _b->v[3] * _a->v[2] + _b->v[4] * _a->v[5] + _b->v[5] * _a->v[8];
+
+    /* column three */
+    ret.v[2] = _b->v[6] * _a->v[0] + _b->v[7] * _a->v[3] + _b->v[8] * _a->v[6];
+    ret.v[5] = _b->v[6] * _a->v[1] + _b->v[7] * _a->v[4] + _b->v[8] * _a->v[7];
+    ret.v[8] = _b->v[6] * _a->v[2] + _b->v[7] * _a->v[5] + _b->v[8] * _a->v[8];
+
+    return ret;
 }
 
 TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y)
 {
-    return (tpSegment)
-    {
-        {_h0x, _h0y},
-        {_px, _py},
-        {_h1x, _h1y}
-    };
+    tpSegment ret;
+    ret.handleIn = tpVec2Make(_h0x, _h0y);
+    ret.position = tpVec2Make(_px, _py);
+    ret.handleOut = tpVec2Make(_h1x, _h1y);
+    return ret;
 }
 
 TARP_API const char * tpContextErrorMessage(tpContext * _ctx)
@@ -752,7 +780,7 @@ TARP_API const char * tpContextErrorMessage(tpContext * _ctx)
 
 #ifdef TARP_IMPLEMENTATION_OPENGL
 
-//The shader programs used by the renderer
+/* The shader programs used by the renderer */
 static const char * _vertexShaderCode =
     "#version 150 \n"
     "uniform mat4 transformProjection; \n"
@@ -794,21 +822,22 @@ static const char * _fragmentShaderCodeTexture =
     "void main() \n"
     "{ \n"
     "pixelColor = texture(tex, itc); \n"
-    // "pixelColor = vec4(0, 0, 0, 1.0);\n"
     "} \n";
 
 typedef struct _tpGLContext _tpGLContext;
 
 typedef enum TARP_LOCAL
 {
-    //The mask values are important! FillRaster needs to have at least
-    //2 bits. These need to be the lower bits in order to work with the
-    //Increment, Decrement stencil operations
-    //http://www.opengl.org/discussion_boards/showthread.php/149740-glStencilOp-s-GL_INCR-GL_DECR-behaviour-when-masked
-    _kTpGLFillRasterStencilPlane = 0x1F, //binary mask    00011111
-    _kTpGLClippingStencilPlaneOne = 1 << 5, //binary mask     00100000
-    _kTpGLClippingStencilPlaneTwo = 1 << 6, //binary mask     01000000
-    _kTpGLStrokeRasterStencilPlane = 1 << 7 //binary mask 10000000
+    /*
+    The mask values are important! FillRaster needs to have at least
+    2 bits. These need to be the lower bits in order to work with the
+    Increment, Decrement stencil operations
+    http://www.opengl.org/discussion_boards/showthread.php/149740-glStencilOp-s-GL_INCR-GL_DECR-behaviour-when-masked
+    */
+    _kTpGLFillRasterStencilPlane = 0x1F, /* binary mask    00011111 */
+    _kTpGLClippingStencilPlaneOne = 1 << 5, /* binary mask     00100000 */
+    _kTpGLClippingStencilPlaneTwo = 1 << 6, /* binary mask     01000000 */
+    _kTpGLStrokeRasterStencilPlane = 1 << 7 /* binary mask 10000000 */
 } _tpGLStencilPlane;
 
 typedef struct TARP_LOCAL
@@ -856,7 +885,7 @@ typedef struct TARP_LOCAL
     int lastSegmentIndex;
     tpBool bIsClosed;
 
-    //some rendering specific data
+    /* some rendering specific data */
     int fillVertexOffset;
     int fillVertexCount;
     int strokeVertexOffset;
@@ -903,7 +932,7 @@ typedef struct TARP_LOCAL
     _tpColorStopArray stops;
     tpGradientType type;
 
-    //rendering specific data/caches
+    /* rendering specific data/caches */
     tpBool bDirty;
     GLuint rampTexture;
 } _tpGLGradient;
@@ -911,7 +940,7 @@ typedef struct TARP_LOCAL
 typedef struct TARP_LOCAL
 {
     int lastGradientID;
-    _tpGLRect * bounds; //the bounds used by this gradient (i.e. stroke or fill)
+    _tpGLRect * bounds; /* the bounds used by this gradient (i.e. stroke or fill) */
     int vertexOffset;
     int vertexCount;
 
@@ -924,7 +953,7 @@ typedef struct TARP_LOCAL
     char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
     tpMat3 transform;
 
-    //rendering specific data/caches
+    /* rendering specific data/caches */
     _tpVec2Array geometryCache;
     _tpGLTextureVertexArray textureGeometryCache;
     _tpBoolArray jointCache;
@@ -934,8 +963,7 @@ typedef struct TARP_LOCAL
     _tpGLRect boundsCache;
     _tpGLRect strokeBoundsCache;
 
-    //holds the properties that the stroke geometry
-    //was generated with.
+    /* holds the properties that the stroke geometry was generated with */
     _tpGLStrokeData lastStroke;
 
     _tpGLGradientCacheData fillGradientData;
@@ -1037,11 +1065,11 @@ struct TARP_LOCAL _tpGLContext
     tpBool bTransformProjDirty;
     tpStyle clippingStyle;
 
-    //used to temporarily store vertex/stroke data (think double buffering)
+    /* used to temporarily store vertex/stroke data (think double buffering) */
     _tpVec2Array tmpVertices;
     _tpBoolArray tmpJoints;
 
-    //same helper for texture vertices
+    /* same helper for texture vertices */
     _tpGLTextureVertexArray tmpTexVertices;
 
     _tpColorStopArray tmpColorStops;
@@ -1049,8 +1077,6 @@ struct TARP_LOCAL _tpGLContext
     _tpGLStateBackup stateBackup;
     char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
 };
-
-typedef struct _tpGLContext _tpGLContext;
 
 typedef struct TARP_LOCAL
 {
@@ -1068,19 +1094,20 @@ TARP_LOCAL void _tpGLGradientCacheDataInit(_tpGLGradientCacheData * _gd, _tpGLRe
 
 TARP_LOCAL tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint * _outHandle, _ErrorMessage * _outError)
 {
-    GLenum glHandle = glCreateShader(_shaderType);
-    GLint len = strlen(_shaderCode);
+    GLenum glHandle;
+    GLint state, len, infologLength;
+
+    glHandle = glCreateShader(_shaderType);
+    len = strlen(_shaderCode);
     _TARP_ASSERT_NO_GL_ERROR(glShaderSource(glHandle, 1, &_shaderCode, &len));
     _TARP_ASSERT_NO_GL_ERROR(glCompileShader(glHandle));
 
-    //check if the shader compiled
-    GLint state;
+    /* check if the shader compiled */
     _TARP_ASSERT_NO_GL_ERROR(glGetShaderiv(glHandle, GL_COMPILE_STATUS, &state));
     if (state == GL_FALSE)
     {
         if (_outError)
         {
-            GLint infologLength;
             _TARP_ASSERT_NO_GL_ERROR(glGetShaderiv(glHandle, GL_INFO_LOG_LENGTH, &infologLength));
             infologLength = TARP_MIN(TARP_GL_ERROR_MESSAGE_SIZE, infologLength);
             _TARP_ASSERT_NO_GL_ERROR(glGetShaderInfoLog(glHandle, infologLength, &infologLength, _outError->message));
@@ -1099,26 +1126,20 @@ TARP_LOCAL tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, G
 
 TARP_LOCAL tpBool _createProgram(const char * _vertexShader, const char * _fragmentShader, int _bTexProgram, GLuint * _outHandle, _ErrorMessage * _outError)
 {
-    GLuint vertexShader, fragmentShader;
-    tpBool err = _compileShader(_vertexShader, GL_VERTEX_SHADER, &vertexShader, _outError);
+    GLuint vertexShader, fragmentShader, program;
+    GLint state, infologLength;
+    tpBool err;
+
+    err = _compileShader(_vertexShader, GL_VERTEX_SHADER, &vertexShader, _outError);
     if (!err)
     {
         err = _compileShader(_fragmentShader, GL_FRAGMENT_SHADER, &fragmentShader, _outError);
     }
     if (err) return err;
 
-    GLuint program = glCreateProgram();
+    program = glCreateProgram();
     _TARP_ASSERT_NO_GL_ERROR(glAttachShader(program, vertexShader));
     _TARP_ASSERT_NO_GL_ERROR(glAttachShader(program, fragmentShader));
-
-    //bind the attribute locations from the layout
-    /*const BufferLayout::BufferElementArray & elements = _settings.vertexLayout.elements();
-    auto sit = elements.begin();
-
-    for (; sit != elements.end(); ++sit)
-    {
-        _TARP_ASSERT_NO_GL_ERROR(glBindAttribLocation(program, (*sit).m_location, (*sit).m_name.cString()));
-    }*/
 
     _TARP_ASSERT_NO_GL_ERROR(glBindAttribLocation(program, 0, "vertex"));
     if (_bTexProgram)
@@ -1126,15 +1147,13 @@ TARP_LOCAL tpBool _createProgram(const char * _vertexShader, const char * _fragm
 
     _TARP_ASSERT_NO_GL_ERROR(glLinkProgram(program));
 
-    //check if we had success
-    GLint state;
+    /* check if we had success */
     _TARP_ASSERT_NO_GL_ERROR(glGetProgramiv(program, GL_LINK_STATUS, &state));
 
     if (state == GL_FALSE)
     {
         if (_outError)
         {
-            GLint infologLength;
             _TARP_ASSERT_NO_GL_ERROR(glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infologLength));
             infologLength = TARP_MIN(TARP_GL_ERROR_MESSAGE_SIZE, infologLength);
             _TARP_ASSERT_NO_GL_ERROR(glGetProgramInfoLog(program, infologLength, &infologLength, _outError->message));
@@ -1163,7 +1182,9 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
 {
     _ErrorMessage msg;
     _tpGLContext * ctx;
-    tpBool ret = tpFalse;
+    tpBool ret;
+
+    ret = tpFalse;
 
     ctx = (_tpGLContext *)malloc(sizeof(_tpGLContext));
     assert(ctx);
@@ -1224,13 +1245,18 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
     return ret;
 }
 
+TARP_API const char * tpImplementation()
+{
+    return "OpenGL";
+}
+
 TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
 {
     int i;
 
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
 
-    //free all opengl resources
+    /* free all opengl resources */
     glDeleteProgram(ctx->program);
     glDeleteBuffers(1, &ctx->vao.vbo);
     glDeleteVertexArrays(1, &ctx->vao.vao);
@@ -1248,6 +1274,8 @@ TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
 
 TARP_API tpPath tpPathCreate()
 {
+    tpPath ret;
+
     _tpGLPath * path = malloc(sizeof(_tpGLPath));
     _tpGLContourArrayInit(&path->contours, 4);
     path->currentContourIndex = -1;
@@ -1275,18 +1303,20 @@ TARP_API tpPath tpPathCreate()
     path->bFillPaintTransformDirty = tpFalse;
     path->bStrokePaintTransformDirty = tpFalse;
 
-    return (tpPath) {path};
+    ret.pointer = path;
+    return ret;
 }
 
 TARP_API void tpPathDestroy(tpPath _path)
 {
+    int i;
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
     if (p)
     {
         _tpVec2ArrayDeallocate(&p->geometryCache);
         _tpGLTextureVertexArrayDeallocate(&p->textureGeometryCache);
         _tpBoolArrayDeallocate(&p->jointCache);
-        for (int i = 0; i < p->contours.count; ++i)
+        for (i = 0; i < p->contours.count; ++i)
         {
             _tpSegmentArrayDeallocate(&_tpGLContourArrayAtPtr(&p->contours, i)->segments);
         }
@@ -1351,7 +1381,7 @@ TARP_LOCAL tpBool _tpGLContourAddSegment(
     tpFloat _px, tpFloat _py,
     tpFloat _h1x, tpFloat _h1y)
 {
-    tpSegment seg = (tpSegment) { {_h0x, _h0y}, {_px, _py}, {_h1x, _h1y}};
+    tpSegment seg = tpSegmentMake(_h0x, _h0y, _px, _py, _h1x, _h1y);
     return _tpGLContourAddSegments(_p, _c, &seg, 1);
 }
 
@@ -1394,9 +1424,10 @@ TARP_API tpBool tpPathMoveTo(tpPath _path, tpFloat _x, tpFloat _y)
 
 TARP_API tpBool tpPathClear(tpPath _path)
 {
+    int i;
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
     p->currentContourIndex = -1;
-    for (int i = 0; i < p->contours.count; ++i)
+    for (i = 0; i < p->contours.count; ++i)
     {
         _tpSegmentArrayDeallocate(&_tpGLContourArrayAtPtr(&p->contours, i)->segments);
     }
@@ -1416,7 +1447,7 @@ TARP_API tpBool tpPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpF
         return tpTrue;
     }
 
-    _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->handleOut = (tpVec2) {_h0x, _h0y};
+    _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->handleOut = tpVec2Make(_h0x, _h0y);
     return _tpGLContourAddSegment(p, c, _h1x, _h1y, _px, _py, _px, _py);
 }
 
@@ -1430,7 +1461,7 @@ TARP_API tpBool tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, t
         return tpTrue;
     }
 
-    _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->handleOut = (tpVec2) {_hx, _hy};
+    _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->handleOut = tpVec2Make(_hx, _hy);
     return _tpGLContourAddSegment(p, c, _hx, _hy, _px, _py, _px, _py);
 }
 
@@ -1509,11 +1540,12 @@ TARP_API tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _coun
 
 TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed)
 {
+    tpBool ret;
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
     _tpGLContour * c = _tpGLPathCreateNextContour(p);
     assert(c);
 
-    tpBool ret = _tpGLPathAddSegmentsToCurrentContour(p, c, _segments, _count);
+    ret = _tpGLPathAddSegmentsToCurrentContour(p, c, _segments, _count);
     if (ret) return ret;
 
     if (_bClosed)
@@ -1537,15 +1569,17 @@ TARP_API tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _
         {0, -1}, { -TARP_KAPPA, 0}, {TARP_KAPPA, 0}
     };
 
+    int i;
     tpFloat rw, rh, px, py;
     tpSegment segs[4];
+    tpBool err;
 
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
     _tpGLContour * c = _tpGLPathNextEmptyContour(p);
 
     rw = _width * 0.5;
     rh = _height * 0.5;
-    for (int i = 0; i < 4; ++i)
+    for (i = 0; i < 4; ++i)
     {
         int kappaIdx = i * 3;
 
@@ -1556,7 +1590,7 @@ TARP_API tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _
                                 s_unitSegments[kappaIdx + 2].x * rw + px, s_unitSegments[kappaIdx + 2].y * rh + py);
     }
 
-    tpBool err = _tpGLContourAddSegments(p, c, segs, 4);
+    err = _tpGLContourAddSegments(p, c, segs, 4);
     if (err) return err;
 
     tpPathClose(_path);
@@ -1568,6 +1602,7 @@ TARP_API tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _wid
 {
     tpSegment segs[4];
     tpFloat tmpa, tmpb;
+    tpBool err;
 
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
 
@@ -1580,7 +1615,7 @@ TARP_API tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _wid
     segs[2] = tpSegmentMake(tmpa, tmpb, tmpa, tmpb, tmpa, tmpb);
     segs[3] = tpSegmentMake(_x, tmpb, _x, tmpb, _x, tmpb);
 
-    tpBool err = _tpGLContourAddSegments(p, c, segs, 4);
+    err = _tpGLContourAddSegments(p, c, segs, 4);
     if (err) return err;
 
     tpPathClose(_path);
@@ -1590,9 +1625,10 @@ TARP_API tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _wid
 
 TARP_LOCAL void _tpGLMarkPathGeometryDirty(_tpGLPath * _p)
 {
+    int i;
     _tpGLContour * c;
     _p->bPathGeometryDirty = tpTrue;
-    for (int i = 0; i < _p->contours.count; ++i)
+    for (i = 0; i < _p->contours.count; ++i)
     {
         c = _tpGLContourArrayAtPtr(&_p->contours, i);
         c->bDirty = tpTrue;
@@ -1618,6 +1654,7 @@ TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _tran
 
 TARP_API tpStyle tpStyleCreate()
 {
+    tpStyle ret;
     _tpGLStyle * style = malloc(sizeof(_tpGLStyle));
 
     style->fill.data.color = tpColorMake(1, 1, 1, 1);
@@ -1633,7 +1670,8 @@ TARP_API tpStyle tpStyleCreate()
     style->miterLimit = 4;
     style->bScaleStroke = tpTrue;
 
-    return (tpStyle) {style};
+    ret.pointer = style;
+    return ret;
 }
 
 TARP_API void tpStyleDestroy(tpStyle _style)
@@ -1644,11 +1682,12 @@ TARP_API void tpStyleDestroy(tpStyle _style)
 
 TARP_API void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count)
 {
+    int i;
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
 
     assert(_count < TARP_MAX_DASH_ARRAY_SIZE);
 
-    for (int i = 0; i < _count; ++i)
+    for (i = 0; i < _count; ++i)
     {
         s->dashArray[i] = _dashArray[i];
     }
@@ -1797,15 +1836,17 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
 {
     static int s_id = 0;
 
+    tpGradient rh;
     _tpGLGradient * ret = malloc(sizeof(_tpGLGradient));
     ret->type = kTpGradientTypeLinear;
     ret->origin = tpVec2Make(_x0, _y0);
     ret->destination = tpVec2Make(_x1, _y1);
     _tpColorStopArrayInit(&ret->stops, 8);
-    // ret->context = ctx;
     ret->bDirty = tpTrue;
-    //the static id and incrementing is not multi threadding friendly...no care for now
-    //thread local storage will most likely be the nicest way to make this thread safe
+    /*
+    the static id and incrementing is not multi threadding friendly...no care for now
+    thread local storage will most likely be the nicest way to make this thread safe
+    */
     ret->gradientID = s_id++;
 
     _TARP_ASSERT_NO_GL_ERROR(glGenTextures(1, &ret->rampTexture));
@@ -1817,13 +1858,16 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
     _TARP_ASSERT_NO_GL_ERROR(glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
     _TARP_ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, 0));
 
-    return (tpGradient) {ret};
+    rh.pointer = ret;
+    return rh;
 }
 
 TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset)
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
-    tpColorStop stop = {tpColorMake(_r, _g, _b, _a), _offset};
+    tpColorStop stop;
+    stop.color = tpColorMake(_r, _g, _b, _a);
+    stop.offset = _offset;
     _tpColorStopArrayAppendPtr(&g->stops, &stop);
 }
 
@@ -1852,16 +1896,19 @@ TARP_LOCAL int _tpGLIsCurveLinear(const _tpGLCurve * _curve)
 
 TARP_LOCAL int _tpGLIsCurveFlatEnough(const _tpGLCurve * _curve, tpFloat _tolerance)
 {
+    tpFloat ux, uy, vx, vy;
     if (_tpGLIsCurveLinear(_curve))
         return 1;
 
-    // Comment from paper.js source in Curve.js:
-    // Thanks to Kaspar Fischer and Roger Willcocks for the following:
-    // http://hcklbrrfnn.files.wordpress.com/2012/08/bez.pdf
-    tpFloat ux = _curve->h0.x * 3.0 - _curve->p0.x * 2.0 - _curve->p1.x;
-    tpFloat uy = _curve->h0.y * 3.0 - _curve->p0.y * 2.0 - _curve->p1.y;
-    tpFloat vx = _curve->h1.x * 3.0 - _curve->p1.x * 2.0 - _curve->p0.x;
-    tpFloat vy = _curve->h1.y * 3.0 - _curve->p1.y * 2.0 - _curve->p0.y;
+    /*
+    Comment from paper.js source in Curve.js:
+    Thanks to Kaspar Fischer and Roger Willcocks for the following:
+    http://hcklbrrfnn.files.wordpress.com/2012/08/bez.pdf
+    */
+    ux = _curve->h0.x * 3.0 - _curve->p0.x * 2.0 - _curve->p1.x;
+    uy = _curve->h0.y * 3.0 - _curve->p0.y * 2.0 - _curve->p1.y;
+    vx = _curve->h1.x * 3.0 - _curve->p1.x * 2.0 - _curve->p0.x;
+    vy = _curve->h1.y * 3.0 - _curve->p1.y * 2.0 - _curve->p0.y;
 
     return TARP_MAX(ux * ux, vx * vx) + TARP_MAX(uy * uy, vy * vy) < 10 * _tolerance * _tolerance;
 }
@@ -1886,11 +1933,15 @@ TARP_LOCAL void _tpGLSubdivideCurve(const _tpGLCurve * _curve,
     v6x = v4x * u + v5x * _t;
     v6y = v4y * u + v5y * _t;
 
-    *_result = (_tpGLCurvePair)
-    {
-        {_curve->p0, {v1x, v1y}, {v4x, v4y}, {v6x, v6y}},
-        {{v6x, v6y}, {v5x, v5y}, {v3x, v3y}, _curve->p1}
-    };
+    _result->first.p0 = _curve->p0;
+    _result->first.h0 = tpVec2Make(v1x, v1y);
+    _result->first.h1 = tpVec2Make(v4x, v4y);
+    _result->first.p1 = tpVec2Make(v6x, v6y);
+
+    _result->second.p0 = tpVec2Make(v6x, v6y);
+    _result->second.h0 = tpVec2Make(v5x, v5y);
+    _result->second.h1 = tpVec2Make(v3x, v3y);
+    _result->second.p1 = _curve->p1;
 }
 
 TARP_LOCAL void _tpGLEvaluatePointForBounds(tpVec2 _vec, _tpGLRect * _bounds)
@@ -1905,7 +1956,7 @@ tpFloat _tpGLShortestAngle(tpVec2 _d0, tpVec2 _d1)
 {
     tpFloat theta = acos(_d0.x * _d1.x + _d0.y * _d1.y);
 
-    //make sure we have the shortest angle
+    /* make sure we have the shortest angle */
     if (theta > TARP_HALF_PI)
         theta = TARP_PI - theta;
 
@@ -1933,7 +1984,7 @@ TARP_LOCAL void _tpGLMakeCapOrJoinRound2(tpVec2 _p, tpVec2 _d, tpFloat _theta, t
     perp.x = -dir.y;
     perp.y = dir.x;
 
-    //@TODO: Make this based on the stroke width and theta?
+    /* @TODO: Make this based on the stroke width and theta? */
     circleSubdivisionCount = 12;
     currentAngle = 0;
     radStep = _theta / (tpFloat)(circleSubdivisionCount);
@@ -1967,16 +2018,20 @@ TARP_LOCAL void _tpGLMakeJoinRound(tpVec2 _p,
     tpVec2 nperp0, nperp1, last, current;
     tpFloat angle, theta, stepSize, cosa, sina;
 
-    //@TODO: We could avoid these normalize/sqrt calls by either passing in
-    //the directions (that are normalized) and getting the normalized
-    //perp from there
+    /*
+    @TODO: We could avoid these normalize/sqrt calls by either passing in
+    the directions (that are normalized) and getting the normalized
+    perp from there
+    */
     nperp0 = tpVec2Normalize(_perp0);
     nperp1 = tpVec2Normalize(_perp1);
 
     theta = acos(tpVec2Dot(nperp0, nperp1));
 
-    //@TODO: The stepsize should most likely take the stroke width in user space into account
-    //(i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
+    /*
+    @TODO: The stepsize should most likely take the stroke width in user space into account
+    (i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
+    */
     stepSize = TARP_PI / 16;
 
     last = _e0;
@@ -2029,7 +2084,7 @@ TARP_LOCAL tpBool _tpGLIntersectLines(tpVec2 _p0, tpVec2 _d0,
     delta = tpVec2Sub(_p0, _p1);
     cross = tpVec2Cross(_d0, _d1);
 
-    //lines are parallel
+    /* lines are parallel */
     if (cross == 0.0)
         return tpFalse;
 
@@ -2076,7 +2131,7 @@ TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
             }
             else
             {
-                //negate the perpendicular vectors and reorder function arguments
+                /* negate the perpendicular vectors and reorder function arguments */
                 tpVec2 flippedPerp0, flippedPerp1;
                 flippedPerp0 = tpVec2Make(-_perp0.x, -_perp0.y);
                 flippedPerp1 = tpVec2Make(-_perp1.x, -_perp1.y);
@@ -2100,7 +2155,7 @@ TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
                 }
                 break;
             }
-        //fall back to bevel
+        /* fall back to bevel */
         case kTpStrokeJoinBevel:
         default:
             _tpGLMakeJoinBevel(_lePrev, _rePrev, _le, _re, _cross, _outVertices);
@@ -2128,8 +2183,10 @@ TARP_LOCAL void _tpGLMakeCapRound(tpVec2 _p,
     tpFloat angle, stepSize, sina, cosa;
     tpVec2 last, current;
 
-    //@TODO: The stepsize should most likely take the stroke width in user space into account
-    //(i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
+    /*
+    @TODO: The stepsize should most likely take the stroke width in user space into account
+    (i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
+    */
     stepSize = TARP_PI / 16;
 
     last = _e0;
@@ -2169,7 +2226,6 @@ TARP_LOCAL void _tpGLMakeCap(tpStrokeCap _type,
         case kTpStrokeCapSquare:
             _tpGLMakeCapSquare(_p, _dir, _le, _re, _outVertices);
             break;
-        //do nothing
         case kTpStrokeCapButt:
         default:
             break;
@@ -2189,7 +2245,7 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
 
     halfSw = _style->strokeWidth * 0.5;
 
-    //generate the stroke geometry for each contour
+    /* generate the stroke geometry for each contour */
     for (i = 0; i < _path->contours.count; ++i)
     {
         voff = _vertices->count;
@@ -2216,12 +2272,12 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
             le1 = tpVec2Add(p1, perp);
             re1 = tpVec2Sub(p1, perp);
 
-            //check if this is the first segment / dash start
+            /* check if this is the first segment / dash start */
             if (j == c->fillVertexOffset)
             {
                 if (!c->bIsClosed)
                 {
-                    //start cap?
+                    /* start cap? */
                     firstDir = tpVec2MultScalar(dir, -1 * halfSw);
                     firstPerp.x = firstDir.y;
                     firstPerp.y = -firstDir.x;
@@ -2229,8 +2285,10 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
                 }
                 else if (j == c->fillVertexOffset)
                 {
-                    //if the contour is closed, we cache the directions and edges
-                    //to be used for the last segments stroke calculations
+                    /*
+                    if the contour is closed, we cache the directions and edges
+                    to be used for the last segments stroke calculations
+                    */
                     firstDir = dir;
                     firstPerp = perp;
                     firstLe = le0;
@@ -2239,7 +2297,7 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
             }
             else
             {
-                //check if this is a joint
+                /* check if this is a joint */
                 if (_tpBoolArrayAt(_joints, j))
                 {
                     _tpGLMakeJoin(_style->strokeJoin, p0,
@@ -2250,21 +2308,21 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
                 }
                 else
                 {
-                    //by default we join consecutive segment quads with a bevel
+                    /* by default we join consecutive segment quads with a bevel */
                     _tpGLMakeJoinBevel(lePrev, rePrev, le0, re0, cross, _vertices);
                 }
             }
 
-            //add the quad for the current segment
+            /* add the quad for the current segment */
             _tpGLPushQuad(_vertices, le1, le0, re0, re1);
 
-            //check if we need to do the end cap / join
+            /* check if we need to do the end cap / join */
             if (j == c->fillVertexOffset + c->fillVertexCount - 2 ||
                     c->fillVertexCount == 2)
             {
                 if (_tpBoolArrayAt(_joints, j + 1) && c->bIsClosed)
                 {
-                    //last join
+                    /* last join */
                     cross = tpVec2Cross(firstPerp, perp);
                     _tpGLMakeJoin(_style->strokeJoin, p1, dir, firstDir,
                                   perp, firstPerp,
@@ -2273,7 +2331,7 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
                 }
                 else
                 {
-                    //end cap
+                    /* end cap */
                     firstDir = tpVec2MultScalar(dir, halfSw);
                     _tpGLMakeCap(_style->strokeCap, p1, firstDir, perp, le1, re1, tpFalse, _vertices);
                 }
@@ -2307,7 +2365,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
 
     halfSw = _style->strokeWidth * 0.5;
 
-    //no dash offset
+    /* no dash offset */
     if (_style->dashOffset == 0)
     {
         startDashIndex = 0;
@@ -2316,7 +2374,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
     }
     else
     {
-        //compute offset into dash pattern
+        /* compute offset into dash pattern */
         patternLen = 0;
         for (i = 0; i < _style->dashCount; ++i)
         {
@@ -2355,7 +2413,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
         }
     }
 
-    //generate the stroke geometry for each contour
+    /* generate the stroke geometry for each contour */
     for (i = 0; i < _path->contours.count; ++i)
     {
         voff = _vertices->count;
@@ -2386,7 +2444,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
             perp.y = -dir.x * halfSw;
             cross = tpVec2Cross(perp, perpPrev);
 
-            //check if this is a joint
+            /* check if this is a joint */
             if (bOnDash && _tpBoolArrayAt(_joints, j))
             {
                 le0 = tpVec2Add(p0, perp);
@@ -2413,8 +2471,10 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
                 {
                     bDashStart = tpFalse;
 
-                    //if the current contour is not closed, or we are not at the beginning
-                    //of the first segment of the contour, add a starting cap to the dash...
+                    /*
+                    if the current contour is not closed, or we are not at the beginning
+                    of the first segment of the contour, add a starting cap to the dash...
+                    */
                     if (!c->bIsClosed || j != c->fillVertexOffset || segmentOff > 0)
                     {
                         tpVec2 tmpDir, tmpPerp;
@@ -2423,8 +2483,10 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
                         tmpPerp.y = -tmpDir.x;
                         _tpGLMakeCap(_style->strokeCap, p0, tmpDir, tmpPerp, le0, re0, tpTrue, _vertices);
                     }
-                    //...otherwise cache the initial values for the cap computation and mark that the contour
-                    //might need a closing join in case the first and last dash of the contour touch.
+                    /*
+                    ...otherwise cache the initial values for the cap computation and mark that the contour
+                    might need a closing join in case the first and last dash of the contour touch.
+                    */
                     else if (j == c->fillVertexOffset)
                     {
                         bFirstDashMightNeedJoin = tpTrue;
@@ -2441,7 +2503,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
 
                 if (bOnDash)
                 {
-                    //add the quad for the current dash on the current segment
+                    /* add the quad for the current dash on the current segment */
                     _tpGLPushQuad(_vertices, le1, le0, re0, re1);
                 }
 
@@ -2453,7 +2515,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
                 {
                     if (bOnDash)
                     {
-                        //dont make cap if the first and last dash of the contour touch and the last dash is not finished.
+                        /* dont make cap if the first and last dash of the contour touch and the last dash is not finished. */
                         if (!bFirstDashMightNeedJoin || !bLastSegment || segmentLen - segmentOff > 0)
                         {
                             _tpGLMakeCap(_style->strokeCap, p1, dir, perp, le1, re1, tpFalse, _vertices);
@@ -2475,7 +2537,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
 
             if (bLastSegment)
             {
-                //if the first and last dash of the contour touch, we connect them with a join
+                /* if the first and last dash of the contour touch, we connect them with a join */
                 if (bFirstDashMightNeedJoin)
                 {
                     if ((bBarelyJoined || (dashOffset > 0 && bOnDash)))
@@ -2488,7 +2550,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
                     }
                     else
                     {
-                        //otherwise we simply add a starting cap to the first dash of the contour...
+                        /* otherwise we simply add a starting cap to the first dash of the contour... */
                         tpVec2 tmpDir, tmpPerp;
                         tmpDir = tpVec2MultScalar(firstDir, -1 * halfSw);
                         tmpPerp.x = tmpDir.y;
@@ -2530,10 +2592,9 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec
         _tpGLContinousStrokeGeometry(_path, _style, _vertices, _joints);
     }
 
-    //
     _path->strokeVertexOffset = _tpGLContourArrayAtPtr(&_path->contours, 0)->strokeVertexOffset;
 
-    // cache with what settings the stroke geometry was generated
+    /* cache with what settings the stroke geometry was generated */
     _path->lastStroke.strokeType = _style->stroke.type;
     _path->lastStroke.strokeWidth = _style->strokeWidth;
     _path->lastStroke.dashOffset = _style->dashOffset;
@@ -2567,15 +2628,17 @@ TARP_LOCAL void _tpGLFlattenCurve(_tpGLPath * _path,
 
         if (stackIndex < TARP_MAX_CURVE_SUBDIVISIONS - 1 && !_tpGLIsCurveFlatEnough(current, _angleTolerance))
         {
-            //subdivide curve and add continue with the left of the two curves by putting it on top
-            //of the stack.
+            /*
+            subdivide curve and add continue with the left of the two curves by putting it on top
+            of the stack.
+            */
             _tpGLSubdivideCurve(current, 0.5, &cp);
             *current = cp.second;
             stack[++stackIndex] = cp.first;
         }
         else
         {
-            //for the first curve we also add its first segment
+            /* for the first curve we also add its first segment */
             if (_bFirstCurve)
             {
                 _tpVec2ArrayAppendPtr(_outVertices, &current->p0);
@@ -2587,7 +2650,7 @@ TARP_LOCAL void _tpGLFlattenCurve(_tpGLPath * _path,
                 _tpGLEvaluatePointForBounds(current->p1, _bounds);
                 *_vertexCount += 2;
 
-                //we don't want to do this for the following subdivisions
+                /* we don't want to do this for the following subdivisions */
                 _bFirstCurve = 0;
             }
             else
@@ -2625,16 +2688,19 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
                                 _tpBoolArray * _outJoints,
                                 _tpGLRect * _outBounds)
 {
+    /* @TODO: clean up dis mess */
     _tpGLRect contourBounds;
     int i = 0;
     int j = 0;
+    int vcount;
+    int off = 0;
     _tpGLContour * c = NULL;
     tpSegment * last = NULL, *current = NULL;
     int recursionDepth = 0;
+    _tpGLCurve curve;
 
     _tpGLInitBounds(_outBounds);
 
-    int off = 0;
     for (i = 0; i < _path->contours.count; ++i)
     {
         c = _tpGLContourArrayAtPtr(&_path->contours, i);
@@ -2642,22 +2708,21 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
 
         if (c->bDirty)
         {
-            //if the contour is dirty, flatten it
+            /* if the contour is dirty, flatten it */
             c->bDirty = tpFalse;
             last = _tpSegmentArrayAtPtr(&c->segments, 0);
 
-            int vcount = 0;
+            vcount = 0;
             for (j = 1; j < c->segments.count; ++j)
             {
                 current = _tpSegmentArrayAtPtr(&c->segments, j);
 
-                _tpGLCurve curve = {last->position.x, last->position.y,
-                                    last->handleOut.x, last->handleOut.y,
-                                    current->handleIn.x, current->handleIn.y,
-                                    current->position.x, current->position.y
-                                   };
+                curve.p0 = tpVec2Make(last->position.x, last->position.y);
+                curve.h0 = tpVec2Make(last->handleOut.x, last->handleOut.y);
+                curve.h1 = tpVec2Make(current->handleIn.x, current->handleIn.y);
+                curve.p1 = tpVec2Make(current->position.x, current->position.y);
 
-                //@TODO cache the transformed values of last segment to cut number of matrix multiplications in half
+                /* @TODO cache the transformed values of last segment to cut number of matrix multiplications in half */
                 if (_transform)
                 {
                     curve.p0 = tpMat3MultVec2(_transform, curve.p0);
@@ -2679,19 +2744,19 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
                 last = current;
             }
 
-            // if the contour is closed, flatten the last closing curve
+            /* if the contour is closed, flatten the last closing curve */
             if (c->bIsClosed && c->segments.count &&
                     tpVec2Distance(_tpSegmentArrayAtPtr(&c->segments, 0)->position,
                                    _tpSegmentArrayAtPtr(&c->segments, c->segments.count - 1)->position) > FLT_EPSILON)
             {
                 tpSegment * fs = _tpSegmentArrayAtPtr(&c->segments, 0);
-                _tpGLCurve curve = {last->position.x, last->position.y,
-                                    last->handleOut.x, last->handleOut.y,
-                                    fs->handleIn.x, fs->handleIn.y,
-                                    fs->position.x, fs->position.y
-                                   };
 
-                //@TODO cache the transformed values of last segment to cut number of matrix multiplications in half
+                curve.p0 = tpVec2Make(last->position.x, last->position.y);
+                curve.h0 = tpVec2Make(last->handleOut.x, last->handleOut.y);
+                curve.h1 = tpVec2Make(fs->handleIn.x, fs->handleIn.y);
+                curve.p1 = tpVec2Make(fs->position.x, fs->position.y);
+
+                /* @TODO cache the transformed values of last segment to cut number of matrix multiplications in half */
                 if (_transform)
                 {
                     curve.p0 = tpMat3MultVec2(_transform, curve.p0);
@@ -2721,11 +2786,11 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
         else
         {
             c->fillVertexOffset = off;
-            //otherwise we just copy the contour to the tmpbuffer...
+            /* otherwise we just copy the contour to the tmpbuffer... */
             _tpVec2ArrayAppendArray(_outVertices, _tpVec2ArrayAtPtr(&_path->geometryCache, c->fillVertexOffset), c->fillVertexCount);
             _tpBoolArrayAppendArray(_outJoints, _tpBoolArrayAtPtr(&_path->jointCache, c->fillVertexOffset), c->fillVertexCount);
 
-            //...and merge the cached contour bounds with the path bounds
+            /* ...and merge the cached contour bounds with the path bounds */
             _tpGLMergeBounds(_outBounds, &c->bounds);
             off += c->fillVertexCount;
         }
@@ -2751,7 +2816,7 @@ TARP_LOCAL void _tpGLFinalizeColorStops(_tpGLContext * _ctx, _tpGLGradient * _gr
     bHasStartStop = tpFalse;
     bHasEndStop = tpFalse;
 
-    //remove duplicates
+    /* remove duplicates */
     for (i = 0; i < _grad->stops.count; ++i)
     {
         bAdd = tpTrue;
@@ -2774,10 +2839,10 @@ TARP_LOCAL void _tpGLFinalizeColorStops(_tpGLContext * _ctx, _tpGLGradient * _gr
             _tpColorStopArrayAppendPtr(&_ctx->tmpColorStops, current);
     }
 
-    // sort from 0 - 1 by offset
+    /* sort from 0 - 1 by offset */
     qsort(_ctx->tmpColorStops.array, _ctx->tmpColorStops.count, sizeof(tpColorStop), _tpGLColorStopComp);
 
-    // make sure there is a stop at 0 and 1 offset
+    /* make sure there is a stop at 0 and 1 offset */
     if (!bHasStartStop || !bHasEndStop)
     {
         tpColorStop tmp;
@@ -2801,12 +2866,12 @@ TARP_LOCAL void _tpGLFinalizeColorStops(_tpGLContext * _ctx, _tpGLGradient * _gr
     }
     else
     {
-        //if they are already there, we can simply swap
+        /* if they are already there, we can simply swap */
         _tpColorStopArraySwap(&_grad->stops, &_ctx->tmpColorStops);
     }
 }
 
-//this function assumes that the gradients ramp texture is bound
+/* this function assumes that the gradients ramp texture is bound */
 TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 {
     tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = {1.0};
@@ -2815,7 +2880,7 @@ TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
     tpColor mixColor;
     tpColorStop * stop1, * stop2;
 
-    //generate the ramp texture
+    /* generate the ramp texture */
     xStart = 0;
     xEnd = 0;
 
@@ -2858,7 +2923,7 @@ TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 
 TARP_LOCAL void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
 {
-    //not sure if this buffer orphaning style data upload makes a difference these days anymore. (TEST??)
+    /* not sure if this buffer orphaning style data upload makes a difference these days anymore. (TEST??) */
     if (_byteCount > _vao->vboSize)
     {
         _TARP_ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _byteCount, _data, GL_DYNAMIC_DRAW));
@@ -2876,7 +2941,7 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
 {
     if (_paint->type == kTpPaintTypeColor)
     {
-        //@TODO: Cache the uniform loc
+        /* @TODO: Cache the uniform loc */
         _TARP_ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->program, "meshColor"), 1, &_paint->data.color.r));
         _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _path->boundsVertexOffset, 4));
     }
@@ -2884,30 +2949,23 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
     {
         _tpGLGradient * grad = (_tpGLGradient *)_paint->data.gradient.pointer;
 
-        //bind the gradients texture
+        /* bind the gradients texture */
         _TARP_ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
         _TARP_ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, grad->rampTexture));
 
         if (grad->type == kTpGradientTypeLinear)
         {
             _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
-            //@TODO: Cache uniform loc
+            /* @TODO: Cache uniform loc */
             _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "transformProjection"), 1, GL_FALSE, &_ctx->transformProjection.v[0]));
-            // _TARP_ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->textureProgram, "meshColor"), 1, &_paint->data.color.r));
             _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
-            // _TARP_ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
-
-            // _tpGLUpdateVAO(&_ctx->textureVao, _path->textureGeometryCache.array, sizeof(_tpGLTextureVertex) * _path->textureGeometryCache.count);
-
             _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _gradCache->vertexOffset, _gradCache->vertexCount));
-
             _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
             _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
-            // _TARP_ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
         }
         else
         {
-
+            /* @TODO: BIG FAT */
         }
     }
 }
@@ -2916,11 +2974,14 @@ TARP_LOCAL void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _
 {
     _tpGLRect bounds;
     _tpGLRect * bptr;
+    tpVec2 boundsData[4];
 
     _path->boundsVertexOffset = _path->geometryCache.count;
 
-    //add the bounds geometry to the end of the geometry cache.
-    //If there is a stroke, upload the stroke bounds instead
+    /*
+    add the bounds geometry to the end of the geometry cache.
+    If there is a stroke, upload the stroke bounds instead
+    */
     if (_style->stroke.type != kTpPaintTypeNone)
     {
         tpFloat adder;
@@ -2938,11 +2999,12 @@ TARP_LOCAL void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _
     {
         bptr = &_path->boundsCache;
     }
-    tpVec2 boundsData[] = {bptr->min,
-        {bptr->min.x, bptr->max.y},
-        {bptr->max.x, bptr->min.y},
-        bptr->max
-    };
+    
+    boundsData[0] = bptr->min;
+    boundsData[1] = tpVec2Make(bptr->min.x, bptr->max.y);
+    boundsData[2] = tpVec2Make(bptr->max.x, bptr->min.y);
+    boundsData[3] = bptr->max;
+
     _tpVec2ArrayAppendArray(&_path->geometryCache, boundsData, 4);
 }
 
@@ -2961,7 +3023,7 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
     int * _outVertexOffset,
     int * _outVertexCount)
 {
-    // regenerate the geometry for this path/gradient combo
+    /* regenerate the geometry for this path/gradient combo */
     _tpGLTextureVertex vertices[8];
     tpVec2 dir, ndir, perp, nperp, center, dest, origin;
     tpVec2 corners[4];
@@ -3025,20 +3087,20 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * 
 {
     _tpGLGradient * grad = _grad;
 
-    // check if we need to update the gradient texture
+    /* check if we need to update the gradient texture */
     if (grad->bDirty)
     {
         grad->bDirty = tpFalse;
-        // ensure that the color stops are valid/complete
+        /* ensure that the color stops are valid/complete */
         _tpGLFinalizeColorStops(_ctx, grad);
-        // update the ramp texture
+        /* update the ramp texture */
         _tpGLUpdateRampTexture(grad);
         _gradCache->lastGradientID = -1;
     }
 
     if (_gradCache->lastGradientID != grad->gradientID || _bPaintTransformDirty)
     {
-        //rebuild the gradient
+        /* rebuild the gradient */
         if (grad->type == kTpGradientTypeLinear)
         {
             _tpGLGradientLinearGeometry(_ctx, grad, _paintTransform,
@@ -3048,13 +3110,13 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * 
         }
         else if (grad->type == kTpGradientTypeRadial)
         {
-            //TODO :/
+            /* @TODO: BIG FAT */
         }
         _gradCache->lastGradientID = grad->gradientID;
     }
     else
     {
-        //copy cached gradient data
+        /* copy cached gradient data */
         _tpGLTextureVertexArrayAppendArray(_vertices,
                                            _tpGLTextureVertexArrayAtPtr(&_path->textureGeometryCache, _gradCache->vertexOffset),
                                            _gradCache->vertexCount);
@@ -3065,7 +3127,7 @@ TARP_API tpBool tpPrepareDrawing(tpContext * _ctx)
 {
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
 
-    //cache previous render state so we can reset it in tpFinishDrawing
+    /* cache previous render state so we can reset it in tpFinishDrawing */
     glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint *)&ctx->stateBackup.activeTexture);
     ctx->stateBackup.depthTest = glIsEnabled(GL_DEPTH_TEST);
     glGetIntegerv(GL_DEPTH_WRITEMASK, &ctx->stateBackup.depthMask);
@@ -3095,11 +3157,11 @@ TARP_API tpBool tpPrepareDrawing(tpContext * _ctx)
     _TARP_ASSERT_NO_GL_ERROR(glDisable(GL_DEPTH_TEST));
     _TARP_ASSERT_NO_GL_ERROR(glDepthMask(GL_FALSE));
     _TARP_ASSERT_NO_GL_ERROR(glEnable(GL_MULTISAMPLE));
-    // _TARP_ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
-    // _TARP_ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
-    //TODO: find a way to clear all stencil planes to the same value so we can only clear once?
-    //DONE????!!?!
+    /* @TODO: Support different ways of blending?? */
+    _TARP_ASSERT_NO_GL_ERROR(glEnable(GL_BLEND));
+    _TARP_ASSERT_NO_GL_ERROR(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+
     _TARP_ASSERT_NO_GL_ERROR(glEnable(GL_STENCIL_TEST));
     _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLFillRasterStencilPlane | _kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo | _kTpGLStrokeRasterStencilPlane));
     _TARP_ASSERT_NO_GL_ERROR(glClearStencil(255));
@@ -3110,17 +3172,17 @@ TARP_API tpBool tpPrepareDrawing(tpContext * _ctx)
 
     _TARP_ASSERT_NO_GL_ERROR(glUseProgram(ctx->program));
 
-    ctx->clippingStackDepth = 0; //reset clipping
+    ctx->clippingStackDepth = 0; /* reset clipping */
 
     return tpFalse;
 }
 
 TARP_API tpBool tpFinishDrawing(tpContext * _ctx)
 {
-    //reset gl state to what it was before we began drawing
+    /* reset gl state to what it was before we began drawing */
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
 
-    //we dont assert gl errors here for now...should we?
+    /* we dont assert gl errors here for now...should we? */
     glActiveTexture(ctx->stateBackup.activeTexture);
     ctx->stateBackup.depthTest ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
     glDepthMask(ctx->stateBackup.depthMask);
@@ -3158,19 +3220,18 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     GLint i;
     GLuint stencilPlaneToWriteTo, stencilPlaneToTestAgainst;
     _tpGLContour * c;
-
-    assert(_ctx);
+    _tpGLRect bounds;
     _tpGLPath * p = _path;
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    assert(p && s);
-    // assert(_tpGLIsValidPath(p));
-    // assert(_tpGLIsValidStyle(s));
 
-    //check if the transform projection is dirty
+    assert(_ctx);
+    assert(p && s);
+
+    /* check if the transform projection is dirty */
     if (p->lastDrawContext != _ctx ||
             p->lastTransformID != _ctx->transformID)
     {
-        //@TODO: we should also take skew into account here, not only scale
+        /* @TODO: we should also take skew into account here, not only scale */
         if (_ctx->transformScale > p->lastTransformScale || !s->bScaleStroke)
         {
             _tpGLMarkPathGeometryDirty(p);
@@ -3180,10 +3241,12 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         p->lastTransformScale = _ctx->transformScale;
     }
 
-    //if this style has a stroke and its scale stroke property is different from the last style,
-    //we force a full reflattening of all path contours.
-    //we also do this if the style has non scaling stroke and the transform changed since we
-    //last drew the path.
+    /*
+    if this style has a stroke and its scale stroke property is different from the last style,
+    we force a full reflattening of all path contours.
+    we also do this if the style has non scaling stroke and the transform changed since we
+    last drew the path.
+    */
     if (!p->bPathGeometryDirty && s->stroke.type != kTpPaintTypeNone && p->lastStroke.bScaleStroke != s->bScaleStroke)
     {
         _tpGLMarkPathGeometryDirty(p);
@@ -3196,40 +3259,41 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _ctx->transformProjection = tpMat4Mult(&_ctx->projection, &_ctx->renderTransform);
     }
 
-    // check if the path geometry is dirty.
-    // if so, rebuild everything!
+    /*
+    check if the path geometry is dirty.
+    if so, rebuild everything!
+    */
     if (p->bPathGeometryDirty)
     {
         p->bPathGeometryDirty = tpFalse;
 
-        //flatten the path into tmp buffers
-        _tpGLRect bounds;
+        /* flatten the path into tmp buffers */
         if (s->bScaleStroke)
             _tpGLFlattenPath(p, 0.15 / _ctx->transformScale, NULL, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
         else
             _tpGLFlattenPath(p, 0.15, &_ctx->transform, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
 
-        //generate and add the stroke geometry to the tmp buffers
+        /* generate and add the stroke geometry to the tmp buffers */
         if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0)
             _tpGLStroke(p, s, &_ctx->tmpVertices, &_ctx->tmpJoints);
 
-        //swap the tmp buffers with the path caches
+        /* swap the tmp buffers with the path caches */
         _tpVec2ArrayClear(&p->geometryCache);
         _tpBoolArrayClear(&p->jointCache);
         _tpVec2ArraySwap(&p->geometryCache, &_ctx->tmpVertices);
         _tpBoolArraySwap(&p->jointCache, &_ctx->tmpJoints);
 
-        //save the path bounds
+        /* save the path bounds */
         p->boundsCache = bounds;
 
-        //add the bounds geometry to the geom cache (and potentially cache stroke bounds)
+        /* add the bounds geometry to the geom cache (and potentially cache stroke bounds) */
         _tpGLCacheBoundsGeometry(p, s);
 
-        //force recalculation of gradient related geometries
+        /* force recalculation of gradient related geometries */
         p->fillGradientData.lastGradientID = -1;
         p->strokeGradientData.lastGradientID = -1;
     }
-    //check if the stroke should be removed
+    /* check if the stroke should be removed */
     else if (((s->stroke.type == kTpPaintTypeNone &&
                p->lastStroke.strokeType != kTpPaintTypeNone) ||
               (s->strokeWidth == 0 && p->lastStroke.strokeWidth > 0)))
@@ -3239,7 +3303,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         p->strokeVertexOffset = 0;
         p->strokeVertexCount = 0;
     }
-    //check if the stroke needs to be regenerated (due to a change in stroke width or dash related settings)
+    /* check if the stroke needs to be regenerated (due to a change in stroke width or dash related settings) */
     else if (!_bIsClipPath && ((s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0 &&
                                 (p->lastStroke.strokeWidth != s->strokeWidth ||
                                  p->lastStroke.cap != s->strokeCap ||
@@ -3248,22 +3312,24 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
                                  p->lastStroke.dashOffset != s->dashOffset ||
                                  memcmp(p->lastStroke.dashArray, s->dashArray, sizeof(tpFloat) * s->dashCount) != 0))))
     {
-        //remove all the old stoke vertices from the cache
+        /* remove all the old stoke vertices from the cache */
         _tpVec2ArrayRemoveRange(&p->geometryCache, p->strokeVertexOffset, p->geometryCache.count);
 
-        //generate and add the stroke geometry to the cache.
+        /* generate and add the stroke geometry to the cache. */
         _tpGLStroke(p, s, &p->geometryCache, &p->jointCache);
 
-        //add the bounds geometry to the geom cache.
+        /* add the bounds geometry to the geom cache. */
         _tpGLCacheBoundsGeometry(p, s);
 
-        //force rebuilding of the stroke gradient geometry
+        /* force rebuilding of the stroke gradient geometry */
         p->strokeGradientData.lastGradientID = -1;
     }
 
-    // check if there are any gradients to be cached.
-    // @TODO: This if statement could really need a cleaner rework. Basically what we are doing here is
-    // checking if any property changed that triggers that the gradient geometry needs to be recached.
+    /*
+    check if there are any gradients to be cached.
+    @TODO: This if statement could really need a cleaner rework. Basically what we are doing here is
+    checking if any property changed that triggers the gradient geometry to be recached.
+    */
     if (!_bIsClipPath && ((s->fill.type == kTpPaintTypeGradient &&
                            (p->fillGradientData.lastGradientID != ((_tpGLGradient *)s->fill.data.gradient.pointer)->gradientID ||
                             p->bFillPaintTransformDirty)) ||
@@ -3296,10 +3362,10 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _TARP_ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->vao.vbo));
     }
 
-    //upload the paths geometry cache to the gpu
+    /* upload the paths geometry cache to the gpu */
     _tpGLUpdateVAO(&_ctx->vao, p->geometryCache.array, sizeof(tpVec2) * p->geometryCache.count);
 
-    //@TODO: Cache Uniforms loc
+    /* @TODO: Cache Uniforms loc */
     if (s->bScaleStroke)
         _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &_ctx->transformProjection.v[0]));
     else
@@ -3307,7 +3373,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &_ctx->projection.v[0]));
     }
 
-    //draw the fill
+    /* draw the fill */
     stencilPlaneToWriteTo = _bIsClipPath ? _ctx->currentClipStencilPlane : _kTpGLFillRasterStencilPlane;
     stencilPlaneToTestAgainst = _ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne ? _kTpGLClippingStencilPlaneTwo : _kTpGLClippingStencilPlaneOne;
 
@@ -3333,9 +3399,11 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         }
         else if (s->fillRule == kTpFillRuleNonZero)
         {
-            //NonZero winding rule needs to use Increment and Decrement stencil operations.
-            //we therefore render to the rasterize mask, even if this is a clipping mask, and transfer
-            //the results to the clipping mask stencil plane afterwards
+            /*
+            NonZero winding rule needs to use Increment and Decrement stencil operations.
+            we therefore render to the rasterize mask, even if this is a clipping mask, and transfer
+            the results to the clipping mask stencil plane afterwards
+            */
             _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLFillRasterStencilPlane));
             _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INCR_WRAP));
             _TARP_ASSERT_NO_GL_ERROR(glEnable(GL_CULL_FACE));
@@ -3368,7 +3436,9 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
 
                 _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, p->boundsVertexOffset, 4));
 
-                //draw the bounds one last time to zero out the tmp data created in the _kTpGLFillRasterStencilPlane
+                /*
+                draw the bounds one last time to zero out the tmp data created in the _kTpGLFillRasterStencilPlane
+                */
                 _TARP_ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
                 _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO));
                 _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, p->boundsVertexOffset, 4));
@@ -3387,10 +3457,10 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _tpGLDrawPaint(_ctx, p, &s->fill, &p->fillGradientData);
     }
 
-    // we don't care for stroke if this is a clipping path
+    /* we don't care for stroke if this is a clipping path */
     if (_bIsClipPath) return tpFalse;
 
-    //draw the stroke
+    /* draw the stroke */
     if (p->strokeVertexCount)
     {
         _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLStrokeRasterStencilPlane));
@@ -3398,7 +3468,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
         _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 
-        //Draw all stroke triangles of all contours at once
+        /* Draw all stroke triangles of all contours at once */
         _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, p->strokeVertexOffset, p->strokeVertexCount));
 
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
@@ -3408,6 +3478,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _tpGLDrawPaint(_ctx, p, &s->stroke, &p->strokeGradientData);
     }
 
+    /* WE DONE BABY */
     return tpFalse;
 }
 
@@ -3424,13 +3495,15 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx, _tpGLPath * _pa
     if (!_bIsRebuilding)
         _ctx->clippingStack[_ctx->clippingStackDepth++] = _path;
 
-    //@TODO: Instead of clearing maybe just clear it in endClipping by
-    //drawing the bounds of the last clip path?
+    /*
+    @TODO: Instead of clearing maybe just clear it in endClipping by
+    drawing the bounds of the last clip path? could be a potential speed up
+    */
     _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_ctx->currentClipStencilPlane));
     _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));
     _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
-    //draw path
+    /* draw path */
     drawResult = _tpGLDrawPathImpl(_ctx, _path, _ctx->clippingStyle, tpTrue);
     if (drawResult) return tpTrue;
 
@@ -3447,6 +3520,7 @@ TARP_API tpBool tpBeginClipping(tpContext * _ctx, tpPath _path)
 
 TARP_API tpBool tpEndClipping(tpContext * _ctx)
 {
+    int i;
     _tpGLPath * p;
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
     assert(ctx->clippingStackDepth);
@@ -3454,7 +3528,7 @@ TARP_API tpBool tpEndClipping(tpContext * _ctx)
 
     if (ctx->clippingStackDepth)
     {
-        //check if the last clip mask is still in one of the clipping planes...
+        /* check if the last clip mask is still in one of the clipping planes... */
         if (ctx->bCanSwapStencilPlanes)
         {
             ctx->currentClipStencilPlane = ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne ?
@@ -3463,14 +3537,14 @@ TARP_API tpBool tpEndClipping(tpContext * _ctx)
         }
         else
         {
-            //...otherwise rebuild it
+            /* ...otherwise rebuild it */
             _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
             _TARP_ASSERT_NO_GL_ERROR(glClearStencil(255));
             _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
-            for (int i = 0; i < ctx->clippingStackDepth; ++i)
+            for (i = 0; i < ctx->clippingStackDepth; ++i)
             {
-                //draw clip path
+                /* draw clip path */
                 _tpGLGenerateClippingMask(ctx, ctx->clippingStack[i], tpTrue);
             }
 
@@ -3479,8 +3553,10 @@ TARP_API tpBool tpEndClipping(tpContext * _ctx)
     }
     else
     {
-        //@TODO: Instead of clearing maybe just redrawing the clipping path bounds to
-        //reset the stencil? Might scale better for a lot of paths :)
+        /*
+        @TODO: Instead of clearing maybe just redrawing the clipping path bounds to
+        reset the stencil? Might scale better for a lot of paths :)
+        */
         _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
         _TARP_ASSERT_NO_GL_ERROR(glClearStencil(255));
         _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
@@ -3533,11 +3609,11 @@ TARP_API tpBool tpResetTransform(tpContext * _ctx)
     return tpFalse;
 }
 
-#endif //TARP_IMPLEMENTATION_OPENGL
-#endif //TARP_IMPLEMENTATION
+#endif /* TARP_IMPLEMENTATION_OPENGL */
+#endif /* TARP_IMPLEMENTATION */
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif //TARP_TARP_H
+#endif /* TARP_TARP_H */

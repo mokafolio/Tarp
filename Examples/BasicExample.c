@@ -441,7 +441,7 @@ int main(int argc, char * argv[])
         }
 
         NSVGimage * image;
-        image = nsvgParseFromFile("../../Examples/23.svg", "px", 4096);
+        image = nsvgParseFromFile("../../Examples/Tiger.svg", "px", 4096);
         printf("size: %f x %f\n", image->width, image->height);
 
         TigerDrawing tigerDrawing = {0};

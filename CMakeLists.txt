@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8.11)
 
-#set(CMAKE_C_FLAGS "-std=c89") 
+set(CMAKE_C_FLAGS "-std=c89 -pedantic-errors") 
 
 project (Tarp C)
 
@@ -10,6 +10,7 @@ include_directories (${CMAKE_CURRENT_SOURCE_DIR} /usr/local/include)
 
 SET(TARPINC
 Tarp/Tarp.h
+Tarp/TarpArray.h
 )
 
 SET(TARPDEPS
