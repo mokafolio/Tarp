@@ -3207,6 +3207,8 @@ TARP_API tpBool tpFinishDrawing(tpContext * _ctx)
     glBindVertexArray(ctx->stateBackup.vao);
     glBindBuffer(GL_ARRAY_BUFFER, ctx->stateBackup.vbo);
     glUseProgram(ctx->stateBackup.program);
+
+    return tpFalse;
 }
 
 TARP_LOCAL void _tpGLPrepareStencilPlanes(_tpGLContext * _ctx, tpBool _bIsClippingPath, int * _outTargetStencilPlane, int * _outTestStencilPlane)
@@ -3561,6 +3563,8 @@ TARP_API tpBool tpEndClipping(tpContext * _ctx)
         _TARP_ASSERT_NO_GL_ERROR(glClearStencil(255));
         _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
     }
+
+    return tpFalse;
 }
 
 TARP_API tpBool tpResetClipping(tpContext * _ctx)
@@ -3572,6 +3576,8 @@ TARP_API tpBool tpResetClipping(tpContext * _ctx)
 
     ctx->currentClipStencilPlane = _kTpGLClippingStencilPlaneOne;
     ctx->clippingStackDepth = 0;
+
+    return tpFalse;
 }
 
 TARP_API tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
