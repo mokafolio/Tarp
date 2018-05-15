@@ -362,7 +362,7 @@ TARP_API tpStyle tpStyleCreate();
 
 TARP_API void tpStyleDestroy(tpStyle _style);
 
-TARP_API void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count);
+TARP_API void tpStyleSetDashArray(tpStyle _style, const tpFloat * _dashArray, int _count);
 
 TARP_API void tpStyleSetDashOffset(tpStyle _style, tpFloat _offset);
 
@@ -1666,7 +1666,7 @@ TARP_API void tpStyleDestroy(tpStyle _style)
     TARP_FREE(s);
 }
 
-TARP_API void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count)
+TARP_API void tpStyleSetDashArray(tpStyle _style, const tpFloat * _dashArray, int _count)
 {
     int i;
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
