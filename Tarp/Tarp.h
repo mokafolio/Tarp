@@ -20,6 +20,16 @@
 #define TARP_API  __attribute__ ((visibility("default")))
 #define TARP_LOCAL __attribute__ ((visibility("hidden")))
 
+/* 
+memory allocation, you can define you own before including tarp for custom
+memory allocation!
+*/
+#ifndef TARP_MALLOC
+#define TARP_MALLOC(_bc) malloc(_bc);
+#define TARP_REALLOC(_ptr, _bc) realloc(_ptr, _bc);
+#define TARP_FREE(_ptr) free(_ptr);
+#endif
+
 /* some settings */
 #define TARP_MAX_COLOR_STOPS 128
 #define TARP_MAX_DASH_ARRAY_SIZE 64
@@ -29,8 +39,8 @@
 #define TARP_KAPPA 0.55228474983
 
 #ifdef TARP_DEBUG
-#define _TARP_ASSERT_NO_GL_ERROR(_func) do { _func; \
-GLenum err = glGetError(); \
+#define _TARP_ASSERT_NO_GL_ERROR(_func) do { GLenum err; _func; \
+err = glGetError(); \
 if(err != GL_NO_ERROR) \
 { \
 switch(err) \
@@ -81,20 +91,8 @@ exit(EXIT_FAILURE); \
 #endif /* TARP_IMPLEMENTATION_OPENGL */
 
 /*
-helper to generate a handle class.
-the internal emtpy flag struct is a hacky
-way of making it typesafe.
+helper to generate a typesafe handle class.
 */
-/*#define TARP_HANDLE(_t) \
-typedef struct TARP_API \
-{ \
-    void * pointer; \
-    struct _t ## Flag \
-    { \
-        int __nada[]; \
-    } __flag; \
-} _t*/
-
 #define TARP_HANDLE(_t) \
 typedef struct TARP_API \
 { \
@@ -707,28 +705,21 @@ TARP_API tpMat4 tpMat4Mult(const tpMat4 * _a, const tpMat4 * _b)
 {
     tpMat4 ret;
 
-    /* column one */
     ret.v[0] = _b->v[0] * _a->v[0] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[8]  + _b->v[3] * _a->v[12];
-    ret.v[4] = _b->v[0] * _a->v[1] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[9]  + _b->v[3] * _a->v[13];
-    ret.v[8] = _b->v[0] * _a->v[2] + _b->v[1] * _a->v[6] + _b->v[2] * _a->v[10] + _b->v[3] * _a->v[14];
-    ret.v[12] = _b->v[0] * _a->v[3] + _b->v[1] * _a->v[7] + _b->v[2] * _a->v[11] + _b->v[3] * _a->v[15];
-
-    /* column two */
-    ret.v[1] = _b->v[4] * _a->v[0] + _b->v[5] * _a->v[4] + _b->v[6] * _a->v[8]  + _b->v[7] * _a->v[12];
+    ret.v[1] = _b->v[0] * _a->v[1] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[9]  + _b->v[3] * _a->v[13];
+    ret.v[2] = _b->v[0] * _a->v[2] + _b->v[1] * _a->v[6] + _b->v[2] * _a->v[10] + _b->v[3] * _a->v[14];
+    ret.v[3] = _b->v[0] * _a->v[3] + _b->v[1] * _a->v[7] + _b->v[2] * _a->v[11] + _b->v[3] * _a->v[15];
+    ret.v[4] = _b->v[4] * _a->v[0] + _b->v[5] * _a->v[4] + _b->v[6] * _a->v[8]  + _b->v[7] * _a->v[12];
     ret.v[5] = _b->v[4] * _a->v[1] + _b->v[5] * _a->v[5] + _b->v[6] * _a->v[9]  + _b->v[7] * _a->v[13];
-    ret.v[9] = _b->v[4] * _a->v[2] + _b->v[5] * _a->v[6] + _b->v[6] * _a->v[10] + _b->v[7] * _a->v[14];
-    ret.v[13] = _b->v[4] * _a->v[3] + _b->v[5] * _a->v[7] + _b->v[6] * _a->v[11] + _b->v[7] * _a->v[15];
-
-    /* column three */
-    ret.v[2] = _b->v[8] * _a->v[0] + _b->v[9] * _a->v[4] + _b->v[10] * _a->v[8]  + _b->v[11] * _a->v[12];
-    ret.v[6] = _b->v[8] * _a->v[1] + _b->v[9] * _a->v[5] + _b->v[10] * _a->v[9]  + _b->v[11] * _a->v[13];
+    ret.v[6] = _b->v[4] * _a->v[2] + _b->v[5] * _a->v[6] + _b->v[6] * _a->v[10] + _b->v[7] * _a->v[14];
+    ret.v[7] = _b->v[4] * _a->v[3] + _b->v[5] * _a->v[7] + _b->v[6] * _a->v[11] + _b->v[7] * _a->v[15];
+    ret.v[8] = _b->v[8] * _a->v[0] + _b->v[9] * _a->v[4] + _b->v[10] * _a->v[8]  + _b->v[11] * _a->v[12];
+    ret.v[9] = _b->v[8] * _a->v[1] + _b->v[9] * _a->v[5] + _b->v[10] * _a->v[9]  + _b->v[11] * _a->v[13];
     ret.v[10] = _b->v[8] * _a->v[2] + _b->v[9] * _a->v[6] + _b->v[10] * _a->v[10] + _b->v[11] * _a->v[14];
-    ret.v[14] = _b->v[8] * _a->v[3] + _b->v[9] * _a->v[7] + _b->v[10] * _a->v[11] + _b->v[11] * _a->v[15];
-
-    /* column four */
-    ret.v[3] = _b->v[12] * _a->v[0] + _b->v[13] * _a->v[4] + _b->v[14] * _a->v[8]  + _b->v[15] * _a->v[12];
-    ret.v[7] = _b->v[12] * _a->v[1] + _b->v[13] * _a->v[5] + _b->v[14] * _a->v[9]  + _b->v[15] * _a->v[13];
-    ret.v[11] = _b->v[12] * _a->v[2] + _b->v[13] * _a->v[6] + _b->v[14] * _a->v[10] + _b->v[15] * _a->v[14];
+    ret.v[11] = _b->v[8] * _a->v[3] + _b->v[9] * _a->v[7] + _b->v[10] * _a->v[11] + _b->v[11] * _a->v[15];
+    ret.v[12] = _b->v[12] * _a->v[0] + _b->v[13] * _a->v[4] + _b->v[14] * _a->v[8]  + _b->v[15] * _a->v[12];
+    ret.v[13] = _b->v[12] * _a->v[1] + _b->v[13] * _a->v[5] + _b->v[14] * _a->v[9]  + _b->v[15] * _a->v[13];
+    ret.v[14] = _b->v[12] * _a->v[2] + _b->v[13] * _a->v[6] + _b->v[14] * _a->v[10] + _b->v[15] * _a->v[14];
     ret.v[15] = _b->v[12] * _a->v[3] + _b->v[13] * _a->v[7] + _b->v[14] * _a->v[11] + _b->v[15] * _a->v[15];
 
     return ret;
@@ -746,19 +737,14 @@ TARP_API tpMat3 tpMat3Mult(const tpMat3 * _a, const tpMat3 * _b)
 {
     tpMat3 ret;
 
-    /* column one */
     ret.v[0] = _b->v[0] * _a->v[0] + _b->v[1] * _a->v[3] + _b->v[2] * _a->v[6];
-    ret.v[3] = _b->v[0] * _a->v[1] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[7];
-    ret.v[6] = _b->v[0] * _a->v[2] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[8];
-
-    /* column two */
-    ret.v[1] = _b->v[3] * _a->v[0] + _b->v[4] * _a->v[3] + _b->v[5] * _a->v[6];
+    ret.v[1] = _b->v[0] * _a->v[1] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[7];
+    ret.v[2] = _b->v[0] * _a->v[2] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[8];
+    ret.v[3] = _b->v[3] * _a->v[0] + _b->v[4] * _a->v[3] + _b->v[5] * _a->v[6];
     ret.v[4] = _b->v[3] * _a->v[1] + _b->v[4] * _a->v[4] + _b->v[5] * _a->v[7];
-    ret.v[7] = _b->v[3] * _a->v[2] + _b->v[4] * _a->v[5] + _b->v[5] * _a->v[8];
-
-    /* column three */
-    ret.v[2] = _b->v[6] * _a->v[0] + _b->v[7] * _a->v[3] + _b->v[8] * _a->v[6];
-    ret.v[5] = _b->v[6] * _a->v[1] + _b->v[7] * _a->v[4] + _b->v[8] * _a->v[7];
+    ret.v[5] = _b->v[3] * _a->v[2] + _b->v[4] * _a->v[5] + _b->v[5] * _a->v[8];
+    ret.v[6] = _b->v[6] * _a->v[0] + _b->v[7] * _a->v[3] + _b->v[8] * _a->v[6];
+    ret.v[7] = _b->v[6] * _a->v[1] + _b->v[7] * _a->v[4] + _b->v[8] * _a->v[7];
     ret.v[8] = _b->v[6] * _a->v[2] + _b->v[7] * _a->v[5] + _b->v[8] * _a->v[8];
 
     return ret;
@@ -1186,7 +1172,7 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
 
     ret = tpFalse;
 
-    ctx = (_tpGLContext *)malloc(sizeof(_tpGLContext));
+    ctx = TARP_MALLOC(sizeof(_tpGLContext));
     assert(ctx);
 
     ret = _createProgram(_vertexShaderCode, _fragmentShaderCode, 0, &ctx->program, &msg);
@@ -1276,7 +1262,7 @@ TARP_API tpPath tpPathCreate()
 {
     tpPath ret;
 
-    _tpGLPath * path = malloc(sizeof(_tpGLPath));
+    _tpGLPath * path = TARP_MALLOC(sizeof(_tpGLPath));
     _tpGLContourArrayInit(&path->contours, 4);
     path->currentContourIndex = -1;
     memset(path->errorMessage, 0, sizeof(path->errorMessage));
@@ -1321,7 +1307,7 @@ TARP_API void tpPathDestroy(tpPath _path)
             _tpSegmentArrayDeallocate(&_tpGLContourArrayAtPtr(&p->contours, i)->segments);
         }
         _tpGLContourArrayDeallocate(&p->contours);
-        free(p);
+        TARP_FREE(p);
     }
 }
 
@@ -1655,7 +1641,7 @@ TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _tran
 TARP_API tpStyle tpStyleCreate()
 {
     tpStyle ret;
-    _tpGLStyle * style = malloc(sizeof(_tpGLStyle));
+    _tpGLStyle * style = TARP_MALLOC(sizeof(_tpGLStyle));
 
     style->fill.data.color = tpColorMake(1, 1, 1, 1);
     style->fill.type = kTpPaintTypeColor;
@@ -1677,7 +1663,7 @@ TARP_API tpStyle tpStyleCreate()
 TARP_API void tpStyleDestroy(tpStyle _style)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    free(s);
+    TARP_FREE(s);
 }
 
 TARP_API void tpStyleSetDashArray(tpStyle _style, tpFloat * _dashArray, int _count)
@@ -1837,7 +1823,7 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
     static int s_id = 0;
 
     tpGradient rh;
-    _tpGLGradient * ret = malloc(sizeof(_tpGLGradient));
+    _tpGLGradient * ret = TARP_MALLOC(sizeof(_tpGLGradient));
     ret->type = kTpGradientTypeLinear;
     ret->origin = tpVec2Make(_x0, _y0);
     ret->destination = tpVec2Make(_x1, _y1);
@@ -1878,7 +1864,7 @@ TARP_API void tpGradientDestroy(tpGradient _gradient)
     {
         _TARP_ASSERT_NO_GL_ERROR(glDeleteTextures(1, &g->rampTexture));
         _tpColorStopArrayDeallocate(&g->stops);
-        free(g);
+        TARP_FREE(g);
     }
 }
 
@@ -3492,7 +3478,7 @@ TARP_API tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
 TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx, _tpGLPath * _path, tpBool _bIsRebuilding)
 {
     tpBool drawResult;
-    assert(ctx);
+    assert(_ctx);
 
     if (!_bIsRebuilding)
         _ctx->clippingStack[_ctx->clippingStackDepth++] = _path;

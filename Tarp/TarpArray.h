@@ -19,11 +19,11 @@ TARP_API int _TARP_FN(_TARP_ARRAY_T, Reserve)(_TARP_ARRAY_T * _array, int _capac
     assert(_capacity > 0);
     if (_array->capacity == 0)
     {
-        mem = malloc(sizeof(_TARP_ITEM_T) * _capacity);
+        mem = TARP_MALLOC(sizeof(_TARP_ITEM_T) * _capacity);
     }
     else
     {
-        mem = realloc(_array->array, sizeof(_TARP_ITEM_T) * _capacity);
+        mem = TARP_REALLOC(_array->array, sizeof(_TARP_ITEM_T) * _capacity);
     }
     if (mem)
     {
@@ -47,7 +47,7 @@ TARP_API void _TARP_FN(_TARP_ARRAY_T, Deallocate)(_TARP_ARRAY_T * _array)
     assert(_array);
     if (_array->array)
     {
-        free(_array->array);
+        TARP_FREE(_array->array);
         _array->count = 0;
         _array->capacity = 0;
     }
