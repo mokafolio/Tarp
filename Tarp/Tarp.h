@@ -1172,7 +1172,7 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
 
     ret = tpFalse;
 
-    ctx = (_tpGLContext*)TARP_MALLOC(sizeof(_tpGLContext));
+    ctx = (_tpGLContext *)TARP_MALLOC(sizeof(_tpGLContext));
     assert(ctx);
 
     ret = _createProgram(_vertexShaderCode, _fragmentShaderCode, 0, &ctx->program, &msg);
@@ -1262,7 +1262,7 @@ TARP_API tpPath tpPathCreate()
 {
     tpPath ret;
 
-    _tpGLPath * path = (_tpGLPath*)TARP_MALLOC(sizeof(_tpGLPath));
+    _tpGLPath * path = (_tpGLPath *)TARP_MALLOC(sizeof(_tpGLPath));
     _tpGLContourArrayInit(&path->contours, 4);
     path->currentContourIndex = -1;
     memset(path->errorMessage, 0, sizeof(path->errorMessage));
@@ -1641,7 +1641,7 @@ TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _tran
 TARP_API tpStyle tpStyleCreate()
 {
     tpStyle ret;
-    _tpGLStyle * style = (_tpGLStyle*)TARP_MALLOC(sizeof(_tpGLStyle));
+    _tpGLStyle * style = (_tpGLStyle *)TARP_MALLOC(sizeof(_tpGLStyle));
 
     style->fill.data.color = tpColorMake(1, 1, 1, 1);
     style->fill.type = kTpPaintTypeColor;
@@ -2644,7 +2644,7 @@ TARP_LOCAL void _tpGLFlattenCurve(_tpGLPath * _path,
                 _tpVec2ArrayAppendPtr(_outVertices, &current->p1);
 
                 _tpBoolArrayAppend(_outJoints, (tpBool)(_bIsClosed ? tpVec2Equals(current->p1, _curve->p1) :
-                                   (tpVec2Equals(current->p1, _curve->p1) && !_bLastCurve)));
+                                                        (tpVec2Equals(current->p1, _curve->p1) && !_bLastCurve)));
                 _tpGLEvaluatePointForBounds(current->p1, _bounds);
                 (*_vertexCount)++;
             }
@@ -2857,7 +2857,6 @@ TARP_LOCAL void _tpGLFinalizeColorStops(_tpGLContext * _ctx, _tpGLGradient * _gr
     }
 }
 
-/* this function assumes that the gradients ramp texture is bound */
 TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 {
     tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = {1.0};
@@ -3080,6 +3079,7 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * 
         /* ensure that the color stops are valid/complete */
         _tpGLFinalizeColorStops(_ctx, grad);
         /* update the ramp texture */
+        /* TODO: update the ramp texture separately just before drawing to avoid multiple texture binds */
         _tpGLUpdateRampTexture(grad);
         _gradCache->lastGradientID = -1;
     }
@@ -3578,15 +3578,19 @@ TARP_API tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
 
 TARP_API tpBool tpSetTransform(tpContext * _ctx, const tpMat3 * _transform)
 {
-    tpVec2 scale, skew, translation;
     tpFloat rotation;
     _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
-    ctx->transform = *_transform;
-    ctx->transformID++;
-    ctx->bTransformProjDirty = tpTrue;
 
-    tpMat3Decompose(_transform, &translation, &scale, &skew, &rotation);
-    ctx->transformScale = TARP_MAX(scale.x, scale.y);
+    if (!tpMat3Equals(_transform, &ctx->transform))
+    {
+        tpVec2 scale, skew, translation;
+        ctx->transform = *_transform;
+        ctx->transformID++;
+        ctx->bTransformProjDirty = tpTrue;
+
+        tpMat3Decompose(_transform, &translation, &scale, &skew, &rotation);
+        ctx->transformScale = TARP_MAX(scale.x, scale.y);
+    }
 
     return tpFalse;
 }
