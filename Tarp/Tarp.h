@@ -25,9 +25,9 @@ memory allocation, you can define you own before including tarp for custom
 memory allocation!
 */
 #ifndef TARP_MALLOC
-#define TARP_MALLOC(_bc) malloc(_bc);
-#define TARP_REALLOC(_ptr, _bc) realloc(_ptr, _bc);
-#define TARP_FREE(_ptr) free(_ptr);
+#define TARP_MALLOC(_bc) malloc(_bc)
+#define TARP_REALLOC(_ptr, _bc) realloc(_ptr, _bc)
+#define TARP_FREE(_ptr) free(_ptr)
 #endif
 
 /* some settings */
