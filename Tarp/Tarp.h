@@ -20,7 +20,7 @@
 #define TARP_API  __attribute__ ((visibility("default")))
 #define TARP_LOCAL __attribute__ ((visibility("hidden")))
 
-/* 
+/*
 memory allocation, you can define you own before including tarp for custom
 memory allocation!
 */
@@ -505,7 +505,7 @@ TARP_API tpVec2 tpVec2Div(tpVec2 _a, tpVec2 _b)
 
 TARP_API tpBool tpVec2Equals(tpVec2 _a, tpVec2 _b)
 {
-    return _a.x == _b.x && _a.y == _b.y;
+    return (tpBool)(_a.x == _b.x && _a.y == _b.y);
 }
 
 TARP_API tpFloat tpVec2Length(tpVec2 _vec)
@@ -652,9 +652,9 @@ TARP_API int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVe
 
 TARP_API tpBool tpMat3Equals(const tpMat3 * _a, const tpMat3 * _b)
 {
-    return (_a->v[0] == _b->v[0] && _a->v[1] == _b->v[1] && _a->v[2] == _b->v[2] &&
-            _a->v[3] == _b->v[3] && _a->v[4] == _b->v[4] && _a->v[5] == _b->v[5] &&
-            _a->v[6] == _b->v[6] && _a->v[7] == _b->v[7] && _a->v[8] == _b->v[8]);
+    return (tpBool)(_a->v[0] == _b->v[0] && _a->v[1] == _b->v[1] && _a->v[2] == _b->v[2] &&
+                    _a->v[3] == _b->v[3] && _a->v[4] == _b->v[4] && _a->v[5] == _b->v[5] &&
+                    _a->v[6] == _b->v[6] && _a->v[7] == _b->v[7] && _a->v[8] == _b->v[8]);
 }
 
 TARP_API tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3,
@@ -2985,7 +2985,7 @@ TARP_LOCAL void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _
     {
         bptr = &_path->boundsCache;
     }
-    
+
     boundsData[0] = bptr->min;
     boundsData[1] = tpVec2Make(bptr->min.x, bptr->max.y);
     boundsData[2] = tpVec2Make(bptr->max.x, bptr->min.y);
