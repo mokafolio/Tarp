@@ -2643,8 +2643,8 @@ TARP_LOCAL void _tpGLFlattenCurve(_tpGLPath * _path,
             {
                 _tpVec2ArrayAppendPtr(_outVertices, &current->p1);
 
-                _tpBoolArrayAppend(_outJoints, _bIsClosed ? tpVec2Equals(current->p1, _curve->p1) :
-                                   (tpVec2Equals(current->p1, _curve->p1) && !_bLastCurve));
+                _tpBoolArrayAppend(_outJoints, (tpBool)(_bIsClosed ? tpVec2Equals(current->p1, _curve->p1) :
+                                   (tpVec2Equals(current->p1, _curve->p1) && !_bLastCurve)));
                 _tpGLEvaluatePointForBounds(current->p1, _bounds);
                 (*_vertexCount)++;
             }
