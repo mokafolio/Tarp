@@ -2383,7 +2383,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
                 startDashIndex++;
             }
             startDashIndex = TARP_MAX(0, startDashIndex - 1);
-            bStartDashOn = !(startDashIndex % 2);
+            bStartDashOn = (tpBool)!(startDashIndex % 2);
         }
         else
         {
@@ -2394,7 +2394,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
                 startDashLen -= _style->dashArray[startDashIndex];
             }
             startDashIndex = TARP_MAX(0, startDashIndex);
-            bStartDashOn = !(startDashIndex % 2);
+            bStartDashOn = (tpBool)!(startDashIndex % 2);
             startDashLen = _style->dashArray[startDashIndex] + startDashLen;
         }
     }
@@ -2516,7 +2516,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
                     dashIndex = (dashIndex + 1) % _style->dashCount;
                     dashLen = _style->dashArray[dashIndex];
                     bDashStart = tpTrue;
-                    bOnDash = !bOnDash;
+                    bOnDash = (tpBool)!bOnDash;
                 }
             }
             while ((segmentLen - segmentOff) > 0);
@@ -2631,7 +2631,7 @@ TARP_LOCAL void _tpGLFlattenCurve(_tpGLPath * _path,
                 _tpVec2ArrayAppendPtr(_outVertices, &current->p1);
 
                 _tpBoolArrayAppend(_outJoints, tpFalse);
-                _tpBoolArrayAppend(_outJoints, tpVec2Equals(current->p1, _curve->p1) && !_bLastCurve);
+                _tpBoolArrayAppend(_outJoints, (tpBool)(tpVec2Equals(current->p1, _curve->p1) && !_bLastCurve));
                 _tpGLEvaluatePointForBounds(current->p0, _bounds);
                 _tpGLEvaluatePointForBounds(current->p1, _bounds);
                 *_vertexCount += 2;
