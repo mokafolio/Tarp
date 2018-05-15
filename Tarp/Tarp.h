@@ -100,7 +100,6 @@ typedef struct TARP_API \
 } _t
 
 #ifdef __cplusplus
-#error "FUCK"
 extern "C" {
 #endif
 

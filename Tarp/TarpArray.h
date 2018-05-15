@@ -6,6 +6,10 @@
 
 #endif /* TARP_TARPARRAY_H */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct TARP_API
 {
     _TARP_ITEM_T * array;
@@ -212,6 +216,10 @@ TARP_API void _TARP_FN(_TARP_ARRAY_T, Swap)(_TARP_ARRAY_T * _a, _TARP_ARRAY_T * 
     _b->capacity = ccc;
     _b->count = cc;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #undef _TARP_ARRAY_T
 #undef _TARP_ITEM_T
