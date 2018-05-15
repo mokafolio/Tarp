@@ -1172,7 +1172,7 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
 
     ret = tpFalse;
 
-    ctx = TARP_MALLOC(sizeof(_tpGLContext));
+    ctx = (_tpGLContext*)TARP_MALLOC(sizeof(_tpGLContext));
     assert(ctx);
 
     ret = _createProgram(_vertexShaderCode, _fragmentShaderCode, 0, &ctx->program, &msg);
@@ -1262,7 +1262,7 @@ TARP_API tpPath tpPathCreate()
 {
     tpPath ret;
 
-    _tpGLPath * path = TARP_MALLOC(sizeof(_tpGLPath));
+    _tpGLPath * path = (_tpGLPath*)TARP_MALLOC(sizeof(_tpGLPath));
     _tpGLContourArrayInit(&path->contours, 4);
     path->currentContourIndex = -1;
     memset(path->errorMessage, 0, sizeof(path->errorMessage));
@@ -1641,7 +1641,7 @@ TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _tran
 TARP_API tpStyle tpStyleCreate()
 {
     tpStyle ret;
-    _tpGLStyle * style = TARP_MALLOC(sizeof(_tpGLStyle));
+    _tpGLStyle * style = (_tpGLStyle*)TARP_MALLOC(sizeof(_tpGLStyle));
 
     style->fill.data.color = tpColorMake(1, 1, 1, 1);
     style->fill.type = kTpPaintTypeColor;
@@ -1823,7 +1823,7 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
     static int s_id = 0;
 
     tpGradient rh;
-    _tpGLGradient * ret = TARP_MALLOC(sizeof(_tpGLGradient));
+    _tpGLGradient * ret = (_tpGLGradient *)TARP_MALLOC(sizeof(_tpGLGradient));
     ret->type = kTpGradientTypeLinear;
     ret->origin = tpVec2Make(_x0, _y0);
     ret->destination = tpVec2Make(_x1, _y1);

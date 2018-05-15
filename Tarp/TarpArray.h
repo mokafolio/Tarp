@@ -6,10 +6,6 @@
 
 #endif /* TARP_TARPARRAY_H */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct TARP_API
 {
     _TARP_ITEM_T * array;
@@ -23,11 +19,14 @@ TARP_API int _TARP_FN(_TARP_ARRAY_T, Reserve)(_TARP_ARRAY_T * _array, int _capac
     assert(_capacity > 0);
     if (_array->capacity == 0)
     {
-        mem = TARP_MALLOC(sizeof(_TARP_ITEM_T) * _capacity);
+        /* While explicit casts with malloc are frowned upon in C, we do it so we can
+        seamlessly compile with c++, otherwise it defeats the purpose of an easy to use
+        header only library */
+        mem = (_TARP_ITEM_T*)TARP_MALLOC(sizeof(_TARP_ITEM_T) * _capacity);
     }
     else
     {
-        mem = TARP_REALLOC(_array->array, sizeof(_TARP_ITEM_T) * _capacity);
+        mem = (_TARP_ITEM_T*)TARP_REALLOC(_array->array, sizeof(_TARP_ITEM_T) * _capacity);
     }
     if (mem)
     {
@@ -216,10 +215,6 @@ TARP_API void _TARP_FN(_TARP_ARRAY_T, Swap)(_TARP_ARRAY_T * _a, _TARP_ARRAY_T * 
     _b->capacity = ccc;
     _b->count = cc;
 }
-
-#ifdef __cplusplus
-}
-#endif
 
 #undef _TARP_ARRAY_T
 #undef _TARP_ITEM_T
