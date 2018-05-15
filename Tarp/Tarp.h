@@ -2417,7 +2417,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
 
         for (j = c->fillVertexOffset; j < c->fillVertexOffset + c->fillVertexCount - 1; ++j)
         {
-            bLastSegment = j == c->fillVertexOffset + c->fillVertexCount - 2;
+            bLastSegment = (tpBool)(j == c->fillVertexOffset + c->fillVertexCount - 2);
 
             p0 = _tpVec2ArrayAt(_vertices, j);
             p1 = _tpVec2ArrayAt(_vertices, j + 1);
