@@ -4,7 +4,7 @@ pkg_search_module(GLFW REQUIRED glfw3)
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(HelloWorld HelloWorld.c GL/gl3w.c)
-set_target_properties(HelloWorld PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic")
+set_target_properties(HelloWorld PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic-errors")
 target_link_libraries(HelloWorld ${TARPDEPS} ${GLFW_STATIC_LIBRARIES})
 
 add_executable(BasicExample BasicExample.c GL/gl3w.c)
