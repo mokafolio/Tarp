@@ -343,7 +343,9 @@ TARP_API tpBool tpPathClose(tpPath _path);
 
 TARP_API tpBool tpPathClear(tpPath _path);
 
-TARP_API tpBool tpPathRemoveContour(tpPath _path, int _index);
+TARP_API tpBool tpPathRemoveContour(tpPath _path, int _contourIndex);
+
+TARP_API int tpPathContourCount(tpPath _path);
 
 TARP_API tpBool tpPathRemoveSegment(tpPath _path, int _contourIndex, int _segmentIndex);
 
@@ -1422,6 +1424,11 @@ TARP_API tpBool tpPathClear(tpPath _path)
     p->bPathGeometryDirty = tpTrue;
 
     return tpFalse;
+}
+
+TARP_API int tpPathContourCount(tpPath _path)
+{
+    return ((_tpGLPath *)_path.pointer)->contours.count;
 }
 
 TARP_API tpBool tpPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _h1x, tpFloat _h1y, tpFloat _px, tpFloat _py)
