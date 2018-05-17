@@ -345,14 +345,15 @@ TARP_API tpBool tpPathClear(tpPath _path);
 
 TARP_API tpBool tpPathRemoveContour(tpPath _path, int _index);
 
-TARP_API tpBool tpPathRemoveSegment(tpPath _path, int _countourIndex, int _segmentIndex);
+TARP_API tpBool tpPathRemoveSegment(tpPath _path, int _contourIndex, int _segmentIndex);
 
-TARP_API tpBool tpPathRemoveSegments(tpPath _path, int _countourIndex, int _from, int _to);
+TARP_API tpBool tpPathRemoveSegments(tpPath _path, int _contourIndex, int _from, int _to);
 
 TARP_API tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _count);
 
 TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed);
 
+TARP_API tpBool tpPathSetContour(tpPath _path, int _contourIndex, tpSegment * _segments, int _count, tpBool _bClosed);
 
 /*
 Style Functions
@@ -1537,6 +1538,24 @@ TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count
     if (_bClosed)
         return tpPathClose(_path);
     return tpFalse;
+}
+
+TARP_API tpBool tpPathSetContour(tpPath _path, int _contourIndex, tpSegment * _segments, int _count, tpBool _bClosed)
+{
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    if (_contourIndex < p->contours.count)
+    {
+        _tpGLContour * c = _tpGLContourArrayAtPtr(&p->contours, _contourIndex);
+        _tpSegmentArrayClear(&c->segments);
+        _tpSegmentArrayAppendArray(&c->segments, _segments, _count);
+        c->lastSegmentIndex = c->segments.count - 1;
+        c->bIsClosed = tpTrue;
+        c->bDirty = tpTrue;
+        p->bPathGeometryDirty = tpTrue;
+        return tpFalse;
+    }
+    else
+        return tpPathAddContour(_path, _segments, _count, _bClosed);
 }
 
 TARP_API tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r)
