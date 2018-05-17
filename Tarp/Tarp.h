@@ -426,6 +426,8 @@ TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat 
 
 TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset);
 
+TARP_API void tpGradientClearColorStops(tpGradient _gradient);
+
 TARP_API void tpGradientDestroy(tpGradient _gradient);
 
 
@@ -1891,6 +1893,12 @@ TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _
     stop.color = tpColorMake(_r, _g, _b, _a);
     stop.offset = _offset;
     _tpColorStopArrayAppendPtr(&g->stops, &stop);
+}
+
+TARP_API void tpGradientClearColorStops(tpGradient _gradient)
+{
+    _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
+    _tpColorStopArrayClear(&g->stops);
 }
 
 TARP_API void tpGradientDestroy(tpGradient _gradient)
