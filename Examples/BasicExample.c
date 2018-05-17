@@ -8,6 +8,12 @@
 #define TARP_IMPLEMENTATION_OPENGL
 #include <Tarp/Tarp.h>
 
+#ifdef TARP_DEBUG
+//to check for memory leaks
+#define STB_LEAKCHECK_IMPLEMENTATION
+#include "stb_leakcheck.h"
+#endif
+
 // for timing
 #include <sys/time.h>
 
@@ -532,7 +538,7 @@ int main(int argc, char * argv[])
         tpPathAddCircle(tigerDrawing.clipPath, 175, 625, 125);
         nsvgDelete(image);
 
-        printf("TIGER PATH COUNT %i\n", tigerDrawing.pathCount);
+        // printf("TIGER PATH COUNT %i\n", tigerDrawing.pathCount);
 
         PathWithStyle gradientDrawing = {0};
         {
@@ -595,6 +601,7 @@ int main(int argc, char * argv[])
                 {
                     destroyPathWithStyle(&td->paths[i]);
                 }
+                tpPathDestroy(td->clipPath);
             }
             else
             {
@@ -615,6 +622,10 @@ int main(int argc, char * argv[])
     // clean up glfw
     glfwDestroyWindow(window);
     glfwTerminate();
+
+#ifdef TARP_DEBUG
+    stb_leakcheck_dumpmem();
+#endif
 
     return EXIT_SUCCESS;
 }
