@@ -99,6 +99,17 @@ typedef struct TARP_API \
     void * pointer; \
 } _t
 
+#define TARP_HANDLE_FUNCTIONS(_t) \
+tpBool _t##IsValidHandle(_t _val) \
+{ \
+    return (tpBool)_val.pointer; \
+} \
+_t _t##InvalidHandle() \
+{\
+    _t ret = {NULL}; \
+    return ret; \
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -357,6 +368,8 @@ TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count
 
 TARP_API tpBool tpPathSetContour(tpPath _path, int _contourIndex, tpSegment * _segments, int _count, tpBool _bClosed);
 
+TARP_HANDLE_FUNCTIONS(tpPath)
+
 /*
 Style Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -415,6 +428,8 @@ TARP_API tpStrokeCap tpStyleStrokeCap(tpStyle _style);
 
 TARP_API tpFillRule tpStyleFillRule(tpStyle _style);
 
+TARP_HANDLE_FUNCTIONS(tpStyle)
+
 
 /*
 Gradient Functions
@@ -429,6 +444,8 @@ TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _
 TARP_API void tpGradientClearColorStops(tpGradient _gradient);
 
 TARP_API void tpGradientDestroy(tpGradient _gradient);
+
+TARP_HANDLE_FUNCTIONS(tpGradient)
 
 
 /*
