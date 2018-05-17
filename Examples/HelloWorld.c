@@ -4,6 +4,9 @@
 /* we use GLFW to open a simple window */
 #include <GLFW/glfw3.h>
 
+#define STB_LEAKCHECK_IMPLEMENTATION
+#include "stb_leakcheck.h"
+
 /* tell Tarp to compile the opengl implementations */
 #define TARP_IMPLEMENTATION_OPENGL
 #include <Tarp/Tarp.h>
@@ -100,6 +103,8 @@ int main(int argc, char * argv[])
         }
 
         /* clean up tarp */
+        tpStyleDestroy(style);
+        tpPathDestroy(path);
         tpContextDeallocate(&ctx);
     }
     else
@@ -112,6 +117,8 @@ int main(int argc, char * argv[])
     /* clean up glfw */
     glfwDestroyWindow(window);
     glfwTerminate();
+
+    stb_leakcheck_dumpmem();
 
     return EXIT_SUCCESS;
 }

@@ -221,6 +221,33 @@ static void updateTigerDrawing(tpContext * _context, void * _userData, tpBool _b
     s += 0.005;
 }
 
+static void updateGradientDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+{
+    PathWithStyle * drawing = (PathWithStyle *) _userData;
+
+    if(_bTimeElapsed)
+    {   
+        tpFloat off, ang;
+        tpVec2 a, b, center, dir;
+
+        tpGradientClearColorStops(drawing->grad);
+        off = 0.0f;
+        while(off < 1.0)
+        {
+            tpGradientAddColorStop(drawing->grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, off);
+            off += randomFloat(0.05, 0.5);
+        }
+        center = tpVec2Make(475, 475);
+        ang = randomFloat(-M_PI, M_PI);
+        dir = tpVec2MultScalar(tpVec2Make(cos(ang), sin(ang)), randomFloat(100, 150));
+        a = tpVec2Add(center, dir);
+        b = tpVec2Sub(center, dir);
+        tpGradientSetPositions(drawing->grad, a.x, a.y, b.x, b.y);
+    }
+
+    tpDrawPath(_context, drawing->path, drawing->style);
+}
+
 int main(int argc, char * argv[])
 {
     //randomize the random seed
@@ -355,6 +382,8 @@ int main(int argc, char * argv[])
             tpStyleSetFillColor(style, 1.0, 0.7, 0.1, 1.0);
             tpStyleSetStrokeColor(style, 0.1, 0.7, 1.0, 1.0);
             tpStyleSetStrokeWidth(style, 5.0);
+            tpFloat dashes[] = {20.0, 2.0};
+            tpStyleSetDashArray(style, dashes, 2);
             tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
 
             rotatingDrawing.path = path;
@@ -396,6 +425,7 @@ int main(int argc, char * argv[])
 
             wormDrawing.path = path;
             wormDrawing.style = style;
+            wormDrawing.grad = grad;
             drawCallbacks[callbackCount++] = makeDrawCallback(updateWormDrawing, 0.0, &ctx, &wormDrawing);
         }
 
@@ -503,7 +533,25 @@ int main(int argc, char * argv[])
         nsvgDelete(image);
 
         printf("TIGER PATH COUNT %i\n", tigerDrawing.pathCount);
-        // return EXIT_SUCCESS;
+
+        PathWithStyle gradientDrawing = {0};
+        {
+            tpPath path = tpPathCreate();
+            tpPathAddCircle(path, 475, 475, 125);
+
+            tpGradient grad = tpGradientCreateLinear(300, 500, 500, 600);
+            tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 0.0);
+            tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 1.0);
+
+            tpStyle style = tpStyleCreate();
+            tpStyleRemoveStroke(style);
+            tpStyleSetFillGradient(style, grad);
+
+            gradientDrawing.path = path;
+            gradientDrawing.style = style;
+            gradientDrawing.grad = grad;
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateGradientDrawing, 1.0, &ctx, &gradientDrawing);
+        }
 
         // the main loop
         while (!glfwWindowShouldClose(window))

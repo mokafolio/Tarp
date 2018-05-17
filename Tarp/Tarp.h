@@ -1262,6 +1262,9 @@ TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
     _tpGLTextureVertexArrayDeallocate(&ctx->tmpTexVertices);
     _tpColorStopArrayDeallocate(&ctx->tmpColorStops);
 
+    tpStyleDestroy(ctx->clippingStyle);
+    TARP_FREE(ctx);
+
     return tpFalse;
 }
 
@@ -1893,12 +1896,14 @@ TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _
     stop.color = tpColorMake(_r, _g, _b, _a);
     stop.offset = _offset;
     _tpColorStopArrayAppendPtr(&g->stops, &stop);
+    g->bDirty = tpTrue;
 }
 
 TARP_API void tpGradientClearColorStops(tpGradient _gradient)
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
     _tpColorStopArrayClear(&g->stops);
+    g->bDirty = tpTrue;
 }
 
 TARP_API void tpGradientDestroy(tpGradient _gradient)
@@ -3364,10 +3369,10 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     */
     if (!_bIsClipPath && ((s->fill.type == kTpPaintTypeGradient &&
                            (p->fillGradientData.lastGradientID != ((_tpGLGradient *)s->fill.data.gradient.pointer)->gradientID ||
-                            p->bFillPaintTransformDirty)) ||
+                            p->bFillPaintTransformDirty || ((_tpGLGradient *)s->fill.data.gradient.pointer)->bDirty)) ||
                           (s->stroke.type == kTpPaintTypeGradient &&
                            (p->strokeGradientData.lastGradientID != ((_tpGLGradient *)s->stroke.data.gradient.pointer)->gradientID ||
-                            p->bStrokePaintTransformDirty))))
+                            p->bStrokePaintTransformDirty || ((_tpGLGradient *)s->stroke.data.gradient.pointer)->bDirty))))
     {
         _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
         if (s->fill.type == kTpPaintTypeGradient)
