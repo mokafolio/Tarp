@@ -102,7 +102,7 @@ typedef struct TARP_API \
 #define TARP_HANDLE_FUNCTIONS(_t) \
 tpBool _t##IsValidHandle(_t _val) \
 { \
-    return (tpBool)_val.pointer; \
+    return (tpBool)(_val.pointer != NULL); \
 } \
 _t _t##InvalidHandle() \
 {\
