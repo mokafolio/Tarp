@@ -1057,6 +1057,9 @@ struct TARP_LOCAL _tpGLContext
 {
     GLuint program;
     GLuint textureProgram;
+    GLuint tpLoc;
+    GLuint tpTextureLoc;
+    GLuint meshColorLoc;
 
     _tpGLVAO vao;
     _tpGLVAO textureVao;
@@ -1211,6 +1214,10 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
         strcpy(_ctx->errorMessage, msg.message);
         return ret;
     }
+
+    ctx->tpLoc = glGetUniformLocation(ctx->program, "transformProjection");
+    ctx->meshColorLoc = glGetUniformLocation(ctx->program, "meshColor");
+    ctx->tpTextureLoc = glGetUniformLocation(ctx->textureProgram, "transformProjection");
 
     _TARP_ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &ctx->vao.vao));
     _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(ctx->vao.vao));
@@ -2993,7 +3000,7 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
     if (_paint->type == kTpPaintTypeColor)
     {
         /* @TODO: Cache the uniform loc */
-        _TARP_ASSERT_NO_GL_ERROR(glUniform4fv(glGetUniformLocation(_ctx->program, "meshColor"), 1, &_paint->data.color.r));
+        _TARP_ASSERT_NO_GL_ERROR(glUniform4fv(_ctx->meshColorLoc, 1, &_paint->data.color.r));
         _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _path->boundsVertexOffset, 4));
     }
     else if (_paint->type == kTpPaintTypeGradient)
@@ -3007,8 +3014,7 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
         if (grad->type == kTpGradientTypeLinear)
         {
             _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
-            /* @TODO: Cache uniform loc */
-            _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->textureProgram, "transformProjection"), 1, GL_FALSE, &_ctx->transformProjection.v[0]));
+            _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpTextureLoc, 1, GL_FALSE, &_ctx->transformProjection.v[0]));
             _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
             _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _gradCache->vertexOffset, _gradCache->vertexCount));
             _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
@@ -3419,12 +3425,11 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     /* upload the paths geometry cache to the gpu */
     _tpGLUpdateVAO(&_ctx->vao, p->geometryCache.array, sizeof(tpVec2) * p->geometryCache.count);
 
-    /* @TODO: Cache Uniforms loc */
     if (s->bScaleStroke)
-        _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &_ctx->transformProjection.v[0]));
+        _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpLoc, 1, GL_FALSE, &_ctx->transformProjection.v[0]));
     else
     {
-        _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(glGetUniformLocation(_ctx->program, "transformProjection"), 1, GL_FALSE, &_ctx->projection.v[0]));
+        _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpLoc, 1, GL_FALSE, &_ctx->projection.v[0]));
     }
 
     /* draw the fill */
