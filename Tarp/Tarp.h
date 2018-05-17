@@ -422,6 +422,8 @@ Gradient Functions
 */
 TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
+TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
+
 TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset);
 
 TARP_API void tpGradientDestroy(tpGradient _gradient);
@@ -1872,6 +1874,14 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
 
     rh.pointer = ret;
     return rh;
+}
+
+TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
+{
+    _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
+    g->origin = tpVec2Make(_x0, _y0);
+    g->destination = tpVec2Make(_x1, _y1);
+    g->bDirty = tpTrue;
 }
 
 TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset)
