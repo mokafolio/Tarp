@@ -250,8 +250,8 @@ typedef struct TARP_API
 } tpContext;*/
 TARP_HANDLE(tpContext);
 
-/* 
-NOTE: All the color, matrix and vector functions are mainly for internal use 
+/*
+NOTE: All the color, matrix and vector functions are mainly for internal use
 The rotation/scale/projection functionality are mainly provided to be used in the examples.
 */
 
@@ -453,8 +453,8 @@ TARP_API void tpStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth);
 /* Set the join of the stroke */
 TARP_API void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join);
 
-/* 
-Set if strokes scale with the path. If false, the stroke will ignore the 
+/*
+Set if strokes scale with the path. If false, the stroke will ignore the
 path transform and maintain its thickness.
  */
 TARP_API void tpStyleSetScaleStroke(tpStyle _style, tpBool _b);
@@ -522,7 +522,7 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
 /* Sets the origin to x0, y0 and the destination at x1, y1 */
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
-/* 
+/*
 Adds a color stop to the gradient. Offset is in the range 0-1 where 0 positions the color stop at the
 origin of the gradient and 1.0 at the destination.
 */
@@ -570,7 +570,7 @@ TARP_API tpBool tpResetTransform(tpContext _ctx);
 /* Draw a path with the provided style */
 TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle _style);
 
-/* 
+/*
 Define a clipping path. You can nest these calls. All following draw
 calls will be clippied by the provided path.
 */
@@ -2863,6 +2863,7 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
     tpSegment * last = NULL, *current = NULL;
     int recursionDepth = 0;
     _tpGLCurve curve;
+    tpVec2 lastTransformedPos;
 
     _tpGLInitBounds(_outBounds);
 
@@ -2887,13 +2888,13 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
                 curve.h1 = tpVec2Make(current->handleIn.x, current->handleIn.y);
                 curve.p1 = tpVec2Make(current->position.x, current->position.y);
 
-                /* @TODO cache the transformed values of last segment to cut number of matrix multiplications in half */
                 if (_transform)
                 {
-                    curve.p0 = tpMat3MultVec2(_transform, curve.p0);
+                    curve.p0 = j > 1 ? lastTransformedPos : tpMat3MultVec2(_transform, curve.p0);
                     curve.h0 = tpMat3MultVec2(_transform, curve.h0);
                     curve.h1 = tpMat3MultVec2(_transform, curve.h1);
                     curve.p1 = tpMat3MultVec2(_transform, curve.p1);
+                    lastTransformedPos = curve.p1;
                 }
 
                 _tpGLFlattenCurve(_path,
@@ -2921,10 +2922,10 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
                 curve.h1 = tpVec2Make(fs->handleIn.x, fs->handleIn.y);
                 curve.p1 = tpVec2Make(fs->position.x, fs->position.y);
 
-                /* @TODO cache the transformed values of last segment to cut number of matrix multiplications in half */
                 if (_transform)
                 {
-                    curve.p0 = tpMat3MultVec2(_transform, curve.p0);
+                    /* @TODO: are there cases were lastTransformedPos can still be uninitialized?!?! */
+                    curve.p0 = lastTransformedPos;
                     curve.h0 = tpMat3MultVec2(_transform, curve.h0);
                     curve.h1 = tpMat3MultVec2(_transform, curve.h1);
                     curve.p1 = tpMat3MultVec2(_transform, curve.p1);
@@ -2976,6 +2977,9 @@ TARP_LOCAL void _tpGLFinalizeColorStops(_tpGLContext * _ctx, _tpGLGradient * _gr
     int i, j;
     tpColorStop * current;
     tpBool bAdd, bHasStartStop, bHasEndStop;
+
+    if (!_grad->stops.count) return;
+
     _tpColorStopArrayClear(&_ctx->tmpColorStops);
 
     bHasStartStop = tpFalse;
@@ -3038,7 +3042,7 @@ TARP_LOCAL void _tpGLFinalizeColorStops(_tpGLContext * _ctx, _tpGLGradient * _gr
 
 TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 {
-    tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = {1.0};
+    tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = {0};
     int xStart, xEnd, diff, i, j;
     tpFloat mixFact;
     tpColor mixColor;
@@ -3048,34 +3052,37 @@ TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
     xStart = 0;
     xEnd = 0;
 
-    stop1 = _tpColorStopArrayAtPtr(&_grad->stops, 0);
-    pixels[0] = stop1->color;
-
-    for (i = 1; i < _grad->stops.count; ++i)
+    if (_grad->stops.count)
     {
-        stop2 = _tpColorStopArrayAtPtr(&_grad->stops, i);
-        xEnd = (int)(stop2->offset * (TARP_GL_RAMP_TEXTURE_SIZE - 1));
+        stop1 = _tpColorStopArrayAtPtr(&_grad->stops, 0);
+        pixels[0] = stop1->color;
 
-        assert(xStart >= 0 && xStart < TARP_GL_RAMP_TEXTURE_SIZE &&
-               xEnd >= 0 && xEnd < TARP_GL_RAMP_TEXTURE_SIZE &&
-               xStart <= xEnd);
-
-        diff = xEnd - xStart;
-        mixColor.r = stop2->color.r - stop1->color.r;
-        mixColor.g = stop2->color.g - stop1->color.g;
-        mixColor.b = stop2->color.b - stop1->color.b;
-        mixColor.a = stop2->color.a - stop1->color.a;
-
-        for (j = xStart + 1; j <= xEnd; ++j)
+        for (i = 1; i < _grad->stops.count; ++i)
         {
-            mixFact = (tpFloat)(j - xStart) / (tpFloat)(diff);
-            pixels[j].r = stop1->color.r + mixColor.r * mixFact;
-            pixels[j].g = stop1->color.g + mixColor.g * mixFact;
-            pixels[j].b = stop1->color.b + mixColor.b * mixFact;
-            pixels[j].a = stop1->color.a + mixColor.a * mixFact;
+            stop2 = _tpColorStopArrayAtPtr(&_grad->stops, i);
+            xEnd = (int)(stop2->offset * (TARP_GL_RAMP_TEXTURE_SIZE - 1));
+
+            assert(xStart >= 0 && xStart < TARP_GL_RAMP_TEXTURE_SIZE &&
+                   xEnd >= 0 && xEnd < TARP_GL_RAMP_TEXTURE_SIZE &&
+                   xStart <= xEnd);
+
+            diff = xEnd - xStart;
+            mixColor.r = stop2->color.r - stop1->color.r;
+            mixColor.g = stop2->color.g - stop1->color.g;
+            mixColor.b = stop2->color.b - stop1->color.b;
+            mixColor.a = stop2->color.a - stop1->color.a;
+
+            for (j = xStart + 1; j <= xEnd; ++j)
+            {
+                mixFact = (tpFloat)(j - xStart) / (tpFloat)(diff);
+                pixels[j].r = stop1->color.r + mixColor.r * mixFact;
+                pixels[j].g = stop1->color.g + mixColor.g * mixFact;
+                pixels[j].b = stop1->color.b + mixColor.b * mixFact;
+                pixels[j].a = stop1->color.a + mixColor.a * mixFact;
+            }
+            stop1 = stop2;
+            xStart = xEnd;
         }
-        stop1 = stop2;
-        xStart = xEnd;
     }
 
     _TARP_ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
