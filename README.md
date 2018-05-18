@@ -12,8 +12,7 @@ What can tarp do?
 - Stroke joins and caps.
 - Dashed strokes
 - Gradients as fill and strokes (Note: only linear at the moment)
-- Transformations
-
+- Transformations for path, fills and strokes
 
 What does it not want to provide?
 --------
@@ -24,11 +23,9 @@ What does it not want to provide?
 - Raster image rendering
 - Text rendering. (Dealing with fonts is a huge task by itself, you can easily build a font rasterizer on top of Tarp using 'stb_truetype' or 'freeimage', though)
 
-
 How does Tarp rasterize
 --------
 The only available backend right now is a custom OpenGL based one that uses the stencil and cover method to render paths.
-
 
 Supported Platforms
 -------------
