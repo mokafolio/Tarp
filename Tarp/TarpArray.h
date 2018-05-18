@@ -1,3 +1,6 @@
+/* See Tarp.h for info */
+/* this is a helper header to generate typesafe arrays */
+
 #ifndef TARP_TARPARRAY_H
 #define TARP_TARPARRAY_H
 

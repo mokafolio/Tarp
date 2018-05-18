@@ -1,6 +1,27 @@
+/* 
+Tarp - v0.1.1
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Tarp is an almost single header C library to raster vector graphics. 
+It provides a lightweight and portable API purely focussed on decently 
+fast rendering without any gimmicks.
+
+How to use
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Install Tarp or add the Tarp folder to your source directory. Include it into your project with #include <Tarp/Tarp.h>. 
+Specify the implementation you want to compile in one c/c++ file to create the implementation, i.e.:
+
+#define TARP_IMPLEMENTATION_OPENGL
+#include <Tarp/Tarp.h>
+
+LICENSE
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+See end of file.
+*/
+
 #ifndef TARP_TARP_H
 #define TARP_TARP_H
 
+/* @TODO: Double check if we actually need all these */
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -16,9 +37,14 @@
 #endif
 
 /* visibility */
-/* @TODO: Allow to overwrite these */
+/* 
+You can overwrite these (i.e. if your comiler does not support them or you want different visibility),
+by simply defining them before including tarp.
+*/
+#ifndef TARP_API
 #define TARP_API  __attribute__ ((visibility("default")))
 #define TARP_LOCAL __attribute__ ((visibility("hidden")))
+#endif
 
 /*
 memory allocation, you can define you own before including tarp for custom
@@ -30,14 +56,7 @@ memory allocation!
 #define TARP_FREE(_ptr) free(_ptr)
 #endif
 
-/* some settings */
-#define TARP_MAX_COLOR_STOPS 128
-#define TARP_MAX_DASH_ARRAY_SIZE 64
-#define TARP_MAX_ERROR_MESSAGE 256
-
-/* some constants */
-#define TARP_KAPPA 0.55228474983
-
+#ifdef TARP_IMPLEMENTATION_OPENGL
 #ifdef TARP_DEBUG
 #define _TARP_ASSERT_NO_GL_ERROR(_func) do { GLenum err; _func; \
 err = glGetError(); \
@@ -46,22 +65,22 @@ if(err != GL_NO_ERROR) \
 switch(err) \
 { \
 case GL_NO_ERROR: \
-printf("%s line %i GL_NO_ERROR: No error has been recorded.\n", __FILE__, __LINE__);\
+fprintf(stderr, "%s line %i GL_NO_ERROR: No error has been recorded.\n", __FILE__, __LINE__);\
 break; \
 case GL_INVALID_ENUM: \
-printf("%s line %i GL_INVALID_ENUM: An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag.\n", __FILE__, __LINE__);\
+fprintf(stderr, "%s line %i GL_INVALID_ENUM: An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag.\n", __FILE__, __LINE__);\
 break; \
 case GL_INVALID_VALUE: \
-printf("%s line %i GL_INVALID_VALUE: A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag.\n", __FILE__, __LINE__);\
+fprintf(stderr, "%s line %i GL_INVALID_VALUE: A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag.\n", __FILE__, __LINE__);\
 break; \
 case GL_INVALID_OPERATION: \
-printf("%s line %i GL_INVALID_OPERATION: The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag.\n", __FILE__, __LINE__);\
+fprintf(stderr, "%s line %i GL_INVALID_OPERATION: The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag.\n", __FILE__, __LINE__);\
 break; \
 case GL_INVALID_FRAMEBUFFER_OPERATION: \
-printf("%s line %i GL_INVALID_FRAMEBUFFER_OPERATION: The framebuffer object is not complete. The offending command is ignored and has no other side effect than to set the error flag.\n", __FILE__, __LINE__);\
+fprintf(stderr, "%s line %i GL_INVALID_FRAMEBUFFER_OPERATION: The framebuffer object is not complete. The offending command is ignored and has no other side effect than to set the error flag.\n", __FILE__, __LINE__);\
 break; \
 case GL_OUT_OF_MEMORY: \
-printf("%s line %i GL_OUT_OF_MEMORY: There is not enough memory left to executeLua the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded.\n", __FILE__, __LINE__);\
+fprintf(stderr, "%s line %i GL_OUT_OF_MEMORY: There is not enough memory left to executeLua the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded.\n", __FILE__, __LINE__);\
 break; \
 } \
 exit(EXIT_FAILURE); \
@@ -69,23 +88,32 @@ exit(EXIT_FAILURE); \
 } while(0)
 #else
 #define _TARP_ASSERT_NO_GL_ERROR(_func) _func
-#endif
-
-/* some helper macros */
-#define TARP_MIN(a,b) (((a)<(b))?(a):(b))
-#define TARP_MAX(a,b) (((a)>(b))?(a):(b))
-#define TARP_CLAMP(a,l,h) TARP_MAX(TARP_MIN(a, h),l)
+#endif /* TARP_DEBUG */
 
 /* some tarp related opengl related settings */
 #define TARP_GL_RAMP_TEXTURE_SIZE 1024
 #define TARP_GL_MAX_CLIPPING_STACK_DEPTH 64
 #define TARP_GL_ERROR_MESSAGE_SIZE 512
 
+#endif /* TARP_IMPLEMENTATION_OPENGL */
+
+/* some settings that you most likely won't have to touch*/
+#define TARP_MAX_COLOR_STOPS 128
+#define TARP_MAX_DASH_ARRAY_SIZE 64
+#define TARP_MAX_ERROR_MESSAGE 256
+#define TARP_MAX_CURVE_SUBDIVISIONS 16
+
+/* some helper macros */
+#define TARP_MIN(a,b) (((a)<(b))?(a):(b))
+#define TARP_MAX(a,b) (((a)>(b))?(a):(b))
+#define TARP_CLAMP(a,l,h) TARP_MAX(TARP_MIN(a, h),l)
+
+/* some constants */
+#define TARP_KAPPA 0.55228474983
 #define TARP_PI 3.14159265358979323846
 #define TARP_HALF_PI TARP_PI * 0.5
 
-#define TARP_MAX_CURVE_SUBDIVISIONS 16
-
+/* define TARP_IMPLEMENTATION if any implementation is defined */
 #ifdef TARP_IMPLEMENTATION_OPENGL
 #define TARP_IMPLEMENTATION
 #endif /* TARP_IMPLEMENTATION_OPENGL */
@@ -3708,3 +3736,25 @@ TARP_API tpBool tpResetTransform(tpContext * _ctx)
 #endif
 
 #endif /* TARP_TARP_H */
+
+/*
+MIT License:
+------------------------------------------------------------------------------
+Copyright (c) 2018 Matthias Dörfelt
+Permission is hereby granted, free of charge, to any person obtaining a copy of 
+this software and associated documentation files (the "Software"), to deal in 
+the Software without restriction, including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+of the Software, and to permit persons to whom the Software is furnished to do 
+so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all 
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+SOFTWARE.
+------------------------------------------------------------------------------
+*/

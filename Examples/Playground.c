@@ -316,7 +316,7 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // create the window
-    GLFWwindow * window = glfwCreateWindow(650, 800, "Basic Tarp Example", NULL, NULL);
+    GLFWwindow * window = glfwCreateWindow(650, 800, "Tarp Playground", NULL, NULL);
     if (window)
     {
         glfwMakeContextCurrent(window);
@@ -520,6 +520,7 @@ int main(int argc, char * argv[])
             drawCallbacks[callbackCount++] = makeDrawCallback(updateNoneScalingStrokeDrawing, 0.0, &ctx, &noneScalingStrokeDrawing);
         }
 
+        /* we use nano svg to create a drawing from an SVG in a quick n dirty way...not general purpose at all! */
         NSVGimage * image;
         image = nsvgParseFromFile("../../Examples/Tiger.svg", "px", 4096);
         printf("size: %f x %f\n", image->width, image->height);
@@ -530,8 +531,6 @@ int main(int argc, char * argv[])
         {
             tpPath tpp = tpPathCreate();
             tpStyle ds = tpStyleCreate();
-            // tpMat3 sm = tpMat3MakeScale(2, 2);
-            // tpPathSetTransform(tpp, &sm);
 
             if (shape->fill.type == NSVG_PAINT_COLOR)
             {
@@ -581,8 +580,7 @@ int main(int argc, char * argv[])
         tigerDrawing.clipPath = tpPathCreate();
         tpPathAddCircle(tigerDrawing.clipPath, 0, 0, 125);
         nsvgDelete(image);
-
-        // printf("TIGER PATH COUNT %i\n", tigerDrawing.pathCount);
+        /* done with tiger/nano svg */
 
         PathWithStyle gradientDrawing = {0};
         {
