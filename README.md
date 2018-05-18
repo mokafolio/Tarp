@@ -127,6 +127,14 @@ Supported Platforms
 
 Any platform that supports OpenGL 3.0+. Tested on *OSX* and *Linux* so far.
 
+
+Credits & Inspiration
+-------------
+- [ShivaVG](https://github.com/ileben/ShivaVG) for some implementation ideas/specifics.
+- [PaperJS](https://github.com/paperjs) as a lot of the tarp code is pulled out of my [C++ port](https://github.com/mokafolio/Paper) of it.
+- [STB](https://github.com/nothings/stb) for the single header library style.
+
+
 License
 -------------
 
