@@ -8,15 +8,17 @@ Overview
 
 ![tarp demo](https://user-images.githubusercontent.com/10217168/40217212-6e979956-5a20-11e8-9012-0c30483df8a7.gif)
 
-What can tarp do?
+What can Tarp do?
 --------
-- Rasterize fills and strokees.
+- Rasterize fills and strokes.
 - Stroke joins and caps.
 - Dashed strokes
 - Gradients as fill and strokes (Note: only linear at the moment)
-- Transformations for path, fills and strokes
+- Transformations for path, fills and strokes.
+- EvenOdd and NonZero fill rules.
+- Nested path clipping.
 
-What does it not want to provide?
+What does Tarp not want to provide?
 --------
 - A matrix stack.
 - Any form of document representation.
@@ -27,14 +29,13 @@ What does it not want to provide?
 
 How does Tarp rasterize
 --------
-The only available backend right now is a written in *OpenGL*. It is based on the *stencil and cover method*.
+The only available backend right now is a written in *OpenGL*. It is based on the *stencil and cover* method.
 
 
 Supported Platforms
 -------------
 
 Any platform that supports OpenGL 3.0+. Tested on *OSX* and *Linux* so far.
-
 
 License
 -------------
