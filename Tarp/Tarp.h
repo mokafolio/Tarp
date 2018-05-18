@@ -896,6 +896,8 @@ TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloa
 
 #ifdef TARP_IMPLEMENTATION_OPENGL
 
+/* @TODO: Clean up the layout of all the structs */
+
 /* The shader programs used by the renderer */
 static const char * _vertexShaderCode =
     "#version 150 \n"
