@@ -229,21 +229,22 @@ static void updateTigerDrawing(tpContext * _context, void * _userData, tpBool _b
 
 static void updateGradientDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
 {
+    static tpFloat s = 0;
     PathWithStyle * drawing = (PathWithStyle *) _userData;
 
-    if(_bTimeElapsed)
-    {   
+    if (_bTimeElapsed)
+    {
         tpFloat off, ang;
         tpVec2 a, b, center, dir;
 
         tpGradientClearColorStops(drawing->grad);
         off = 0.0f;
-        while(off < 1.0)
+        while (off < 1.0)
         {
-            tpGradientAddColorStop(drawing->grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, off);
+            tpGradientAddColorStop(drawing->grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), off);
             off += randomFloat(0.05, 0.5);
         }
-        center = tpVec2Make(475, 475);
+        center = tpVec2Make(0, 0);
         ang = randomFloat(-M_PI, M_PI);
         dir = tpVec2MultScalar(tpVec2Make(cos(ang), sin(ang)), randomFloat(100, 150));
         a = tpVec2Add(center, dir);
@@ -251,7 +252,42 @@ static void updateGradientDrawing(tpContext * _context, void * _userData, tpBool
         tpGradientSetPositions(drawing->grad, a.x, a.y, b.x, b.y);
     }
 
+    tpMat3 skew = tpMat3MakeSkew(sin(s) * 0.25, cos(s * 0.125) * 0.5);
+    tpMat3 trans = tpMat3MakeTranslation(475, 475);
+    trans = tpMat3Mult(&trans, &skew);
+    tpSetTransform(_context, &trans);
     tpDrawPath(_context, drawing->path, drawing->style);
+    tpResetTransform(_context);
+    s += 0.25;
+}
+
+static void updateZigZagLineDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+{
+    static tpFloat s = 0;
+
+    PathWithStyle * drawing = (PathWithStyle *) _userData;
+
+    if (_bTimeElapsed)
+    {
+        tpGradientClearColorStops(drawing->grad);
+        tpFloat off = 0.0f;
+        while (off < 1.0)
+        {
+            tpGradientAddColorStop(drawing->grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), off);
+            off += randomFloat(0.05, 0.5);
+        }
+    }
+
+    for (int i = 0; i < 15; ++i)
+    {
+        tpMat3 trans = tpMat3MakeTranslation(475 + i * 20.0 + cos(s + i * 0.5) * 50.0, 475 + sin(s + i * 0.25) * 100.0);
+        tpMat3 skew = tpMat3MakeSkew(sin(s + i * 0.1) * 0.4, cos(s * 0.25 + i * 0.3) * 0.6);
+        trans = tpMat3Mult(&trans, &skew);
+        tpSetTransform(_context, &trans);
+        tpDrawPath(_context, drawing->path, drawing->style);
+    }
+    tpResetTransform(_context);
+    s += 0.05;
 }
 
 int main(int argc, char * argv[])
@@ -543,9 +579,9 @@ int main(int argc, char * argv[])
         PathWithStyle gradientDrawing = {0};
         {
             tpPath path = tpPathCreate();
-            tpPathAddCircle(path, 475, 475, 125);
+            tpPathAddCircle(path, 0, 0, 125);
 
-            tpGradient grad = tpGradientCreateLinear(300, 500, 500, 600);
+            tpGradient grad = tpGradientCreateLinear(-100, -100, 100, 100);
             tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 0.0);
             tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 1.0);
 
@@ -557,6 +593,36 @@ int main(int argc, char * argv[])
             gradientDrawing.style = style;
             gradientDrawing.grad = grad;
             drawCallbacks[callbackCount++] = makeDrawCallback(updateGradientDrawing, 1.0, &ctx, &gradientDrawing);
+        }
+
+        PathWithStyle zigZagDrawing = {0};
+        {
+            int count = randomFloat(3, 6);
+            tpFloat step = 100.0f / count;
+            tpFloat y = -50.0f + step;
+            tpPath path = tpPathCreate();
+            tpPathMoveTo(path, 10, -50);
+            for (int i = 0; i < count; ++i)
+            {
+                tpPathLineTo(path, i % 2 == 0 ? -10 : 10, y);
+                y += step;
+            }
+
+            tpGradient grad = tpGradientCreateLinear(0, -50, 0, 50);
+            tpGradientAddColorStop(grad, 1, 0.0, 1, 1.0, 0.0);
+            tpGradientAddColorStop(grad, 1, 1, 0.0, 0.0, 1.0);
+
+            tpStyle style = tpStyleCreate();
+            tpStyleRemoveFill(style);
+            tpStyleSetStrokeWidth(style, 10.0);
+            tpStyleSetStrokeCap(style, kTpStrokeCapRound);
+            tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
+            tpStyleSetStrokeGradient(style, grad);
+
+            zigZagDrawing.path = path;
+            zigZagDrawing.style = style;
+            zigZagDrawing.grad = grad;
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateZigZagLineDrawing, 0.3, &ctx, &zigZagDrawing);
         }
 
         // the main loop
@@ -580,7 +646,7 @@ int main(int argc, char * argv[])
 
             for (int i = 0; i < callbackCount; ++i)
             {
-                //update all the individual drawings
+                //update and draw all the individual drawings
                 updateDrawCallback(&drawCallbacks[i]);
             }
 
