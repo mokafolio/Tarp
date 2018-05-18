@@ -6,7 +6,7 @@ Overview
 
 *Tarp* is an *almost* single header C library to raster vector graphics. It provides a lightweight and portable API purely focussed on decently fast rendering without any gimmicks.
 
-<div style="text-align:center"><img src="https://user-images.githubusercontent.com/10217168/40217212-6e979956-5a20-11e8-9012-0c30483df8a7.gif" alt="tarp demo" width="322px"/></div>
+<img align="center" src="https://user-images.githubusercontent.com/10217168/40217212-6e979956-5a20-11e8-9012-0c30483df8a7.gif" alt="tarp demo" width="322px"/>
 
 What can Tarp do?
 --------
