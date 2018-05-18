@@ -319,6 +319,7 @@ TARP_API tpMat4 tpMat4Mult(const tpMat4 * _a, const tpMat4 * _b);
 Segment Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+/* creates a segment, you rarely need to call this directly */
 TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y);
 
 
@@ -330,42 +331,65 @@ TARP_API tpPath tpPathCreate();
 
 TARP_API void tpPathDestroy(tpPath _path);
 
+/* Set the fill transformation */
 TARP_API tpBool tpPathSetFillPaintTransform(tpPath, const tpMat3 * _transform);
 
+/* Set the stroke transformation */
 TARP_API tpBool tpPathSetStrokePaintTransform(tpPath, const tpMat3 * _transform);
 
+/* Adds a circle contour to the provided path */
 TARP_API tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r);
 
+/* Adds an ellipse contour to the provided path */
 TARP_API tpBool tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height);
 
+/* Adds a rectangle contour to the provided path */
 TARP_API tpBool tpPathAddRect(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height);
 
+/* Adds a segment to the current path contour */
 TARP_API tpBool tpPathAddSegment(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloat _py, tpFloat _h1x, tpFloat _h1y);
 
+/* Starts a new contour at x, y */
 TARP_API tpBool tpPathMoveTo(tpPath _path, tpFloat _x, tpFloat _y);
 
+/* Connects the last segment of the current contour with x, y in a straight line */
 TARP_API tpBool tpPathLineTo(tpPath _path, tpFloat _x, tpFloat _y);
 
+/* Connects the last segment of the current contour with a cubic bezier curve to x, y */
 TARP_API tpBool tpPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpFloat _h1x, tpFloat _h1y, tpFloat _px, tpFloat _py);
 
+/* Connects the last segment of the current contour with a quadratic bezier curve to x, y */
 TARP_API tpBool tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, tpFloat _px, tpFloat _py);
 
+/* Closes the current contour */
 TARP_API tpBool tpPathClose(tpPath _path);
 
+/* Removes all contours from the path */
 TARP_API tpBool tpPathClear(tpPath _path);
 
+/* Removes a contour by index */
 TARP_API tpBool tpPathRemoveContour(tpPath _path, int _contourIndex);
 
+/* Returns the number of contours */
 TARP_API int tpPathContourCount(tpPath _path);
 
+/* Removes one segment from a contour */
 TARP_API tpBool tpPathRemoveSegment(tpPath _path, int _contourIndex, int _segmentIndex);
 
+/* Removes a range of segments from a contour */
 TARP_API tpBool tpPathRemoveSegments(tpPath _path, int _contourIndex, int _from, int _to);
 
+/* Adds segments to the current contour */
 TARP_API tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _count);
 
+/* Adds a new contour to the path from the provided segments */
 TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed);
 
+/* 
+Replaces a contour in the path with the provided segments. 
+If contourIndex is > than the number of existing number of contours,
+a new contour will be added to the path.
+ */
 TARP_API tpBool tpPathSetContour(tpPath _path, int _contourIndex, tpSegment * _segments, int _count, tpBool _bClosed);
 
 TARP_HANDLE_FUNCTIONS(tpPath)

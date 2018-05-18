@@ -216,6 +216,10 @@ static void updateTigerDrawing(tpContext * _context, void * _userData, tpBool _b
     trans = tpMat3MakeTranslation(180, 600);
     rot = tpMat3Mult(&trans, &rot);
 
+    tpMat3 clipTrans = tpMat3MakeTranslation(175, 625);
+    tpMat3 skew = tpMat3MakeSkew(sin(s * 10) * 0.25, cos(s * 20) * 0.5);
+    clipTrans = tpMat3Mult(&clipTrans, &skew);
+    tpSetTransform(_context, &clipTrans);
     tpBeginClipping(_context, td->clipPath);
     tpSetTransform(_context, &rot);
     for (int i = 0; i < td->pathCount; ++i)
@@ -273,17 +277,21 @@ static void updateZigZagLineDrawing(tpContext * _context, void * _userData, tpBo
         tpFloat off = 0.0f;
         while (off < 1.0)
         {
-            tpGradientAddColorStop(drawing->grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), off);
+            tpGradientAddColorStop(drawing->grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), off > 0 ? randomFloat(0, 1) : 1.0, off);
             off += randomFloat(0.05, 0.5);
         }
     }
 
     for (int i = 0; i < 15; ++i)
     {
-        tpMat3 trans = tpMat3MakeTranslation(475 + i * 20.0 + cos(s + i * 0.5) * 50.0, 475 + sin(s + i * 0.25) * 100.0);
-        tpMat3 skew = tpMat3MakeSkew(sin(s + i * 0.1) * 0.4, cos(s * 0.25 + i * 0.3) * 0.6);
+        tpMat3 trans = tpMat3MakeTranslation(250 + i * 20.0 + cos(s + i * 0.5) * 100.0, 600 + sin(s + i * 0.25) * 100.0);
+        tpMat3 skew = tpMat3MakeSkew(sin(s + i * 0.1) * 0.4, cos(s * 2.0 + i * 0.3) * 0.8);
         trans = tpMat3Mult(&trans, &skew);
         tpSetTransform(_context, &trans);
+
+        tpMat3 rot = tpMat3MakeRotation(s * 3.0 + i * 0.5);
+        tpPathSetStrokePaintTransform(drawing->path, &rot);
+
         tpDrawPath(_context, drawing->path, drawing->style);
     }
     tpResetTransform(_context);
@@ -308,7 +316,7 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // create the window
-    GLFWwindow * window = glfwCreateWindow(1280, 800, "Basic Tarp Example", NULL, NULL);
+    GLFWwindow * window = glfwCreateWindow(650, 800, "Basic Tarp Example", NULL, NULL);
     if (window)
     {
         glfwMakeContextCurrent(window);
@@ -571,7 +579,7 @@ int main(int argc, char * argv[])
 
         drawCallbacks[callbackCount++] = makeDrawCallback(updateTigerDrawing, 0, &ctx, &tigerDrawing);
         tigerDrawing.clipPath = tpPathCreate();
-        tpPathAddCircle(tigerDrawing.clipPath, 175, 625, 125);
+        tpPathAddCircle(tigerDrawing.clipPath, 0, 0, 125);
         nsvgDelete(image);
 
         // printf("TIGER PATH COUNT %i\n", tigerDrawing.pathCount);
@@ -622,7 +630,7 @@ int main(int argc, char * argv[])
             zigZagDrawing.path = path;
             zigZagDrawing.style = style;
             zigZagDrawing.grad = grad;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateZigZagLineDrawing, 0.3, &ctx, &zigZagDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateZigZagLineDrawing, 1.0, &ctx, &zigZagDrawing);
         }
 
         // the main loop
