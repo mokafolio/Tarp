@@ -1,13 +1,13 @@
-/* 
+/*
 Tarp - v0.1.1
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-Tarp is an almost single header C library to raster vector graphics. 
-It provides a lightweight and portable API purely focussed on decently 
+Tarp is an almost single header C library to raster vector graphics.
+It provides a lightweight and portable API purely focussed on decently
 fast rendering without any gimmicks.
 
 How to use
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-Install Tarp or add the Tarp folder to your source directory. Include it into your project with #include <Tarp/Tarp.h>. 
+Install Tarp or add the Tarp folder to your source directory. Include it into your project with #include <Tarp/Tarp.h>.
 Specify the implementation you want to compile in one c/c++ file to create the implementation, i.e.:
 
 #define TARP_IMPLEMENTATION_OPENGL
@@ -37,7 +37,7 @@ See end of file.
 #endif
 
 /* visibility */
-/* 
+/*
 You can overwrite these (i.e. if your comiler does not support them or you want different visibility),
 by simply defining them before including tarp.
 */
@@ -244,20 +244,16 @@ typedef struct TARP_API
     tpPaintType type;
 } tpPaint;
 
-typedef struct TARP_API
-{
-    char message[TARP_MAX_ERROR_MESSAGE];
-} tpError;
-
-/*
-@TODO: I think we should just turn this into a handle
-like everything else.
-*/
-typedef struct TARP_API
+/*typedef struct TARP_API
 {
     void * _impl;
-    char errorMessage[TARP_MAX_ERROR_MESSAGE];
-} tpContext;
+} tpContext;*/
+TARP_HANDLE(tpContext);
+
+/* 
+NOTE: All the color, matrix and vector functions are mainly for internal use 
+The rotation/scale/projection functionality are mainly provided to be used in the examples.
+*/
 
 /*
 Color Functions
@@ -413,73 +409,106 @@ TARP_API tpBool tpPathAddSegments(tpPath _path, tpSegment * _segments, int _coun
 /* Adds a new contour to the path from the provided segments */
 TARP_API tpBool tpPathAddContour(tpPath _path, tpSegment * _segments, int _count, tpBool _bClosed);
 
-/* 
-Replaces a contour in the path with the provided segments. 
+/*
+Replaces a contour in the path with the provided segments.
 If contourIndex is > than the number of existing number of contours,
 a new contour will be added to the path.
  */
 TARP_API tpBool tpPathSetContour(tpPath _path, int _contourIndex, tpSegment * _segments, int _count, tpBool _bClosed);
 
+/* generates tpPathInvalidHandle() and tpPathIsValidHandle(tpPath) functions to generate
+an invalid handle and check a handle for validity. */
 TARP_HANDLE_FUNCTIONS(tpPath)
 
 /*
 Style Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+/* Creates a default initialized style */
 TARP_API tpStyle tpStyleCreate();
 
 TARP_API void tpStyleDestroy(tpStyle _style);
 
+/* Defines a dash pattern for the stroke */
 TARP_API void tpStyleSetDashArray(tpStyle _style, const tpFloat * _dashArray, int _count);
 
+/* Specifies an offset into the dash pattern */
 TARP_API void tpStyleSetDashOffset(tpStyle _style, tpFloat _offset);
 
+/* Set the fill to a color */
 TARP_API void tpStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
 
+/* Set the stroke to a color */
 TARP_API void tpStyleSetStrokeColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
 
+/* Set the fill to a gradient */
 TARP_API void tpStyleSetFillGradient(tpStyle _style, const tpGradient _gradient);
 
+/* Set the stroke to a gradient */
 TARP_API void tpStyleSetStrokeGradient(tpStyle _style, const tpGradient _gradient);
 
+/* Set the width of the stroke */
 TARP_API void tpStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth);
 
+/* Set the join of the stroke */
 TARP_API void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join);
 
+/* 
+Set if strokes scale with the path. If false, the stroke will ignore the 
+path transform and maintain its thickness.
+ */
 TARP_API void tpStyleSetScaleStroke(tpStyle _style, tpBool _b);
 
+/* Set the miter limit of the stroke. Only affects strokes that use kTpStrokeJoinMiter */
 TARP_API void tpStyleSetMiterLimit(tpStyle _style, tpFloat _limit);
 
+/* Set the stroke cap of the style */
 TARP_API void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap);
 
+/* Set the fill rule. This affects how overlapping contours and self intersecting paths generate holes */
 TARP_API void tpStyleSetFillRule(tpStyle _style, tpFillRule _fillType);
 
+/* Removes the fill from a style */
 TARP_API void tpStyleRemoveFill(tpStyle _style);
 
+/* Removes the stroke from a style */
 TARP_API void tpStyleRemoveStroke(tpStyle _style);
 
+/* Retrieves the current dash pattern */
 TARP_API tpFloat * tpStyleDashArrayPtr(tpStyle _style);
 
+/* Retrieves the number of dashes in the current dash pattern  */
 TARP_API int tpStyleDashCount(tpStyle _style);
 
+/* Retrieves the current dash offset into the dash pattern */
 TARP_API tpFloat tpStyleDashOffset(tpStyle _style);
 
+/* Retrieves the current fill */
 TARP_API tpPaint tpStyleFillPaint(tpStyle _style);
 
+/* Retrieves the current stroke */
 TARP_API tpPaint tpStyleStrokePaint(tpStyle _style);
 
+/* Retrieves the current stroke width */
 TARP_API tpFloat tpStyleStrokeWidth(tpStyle _style);
 
+/* Retrieves the current stroke join */
 TARP_API tpStrokeJoin tpStyleStrokeJoin(tpStyle _style);
 
+/* Retrieves if the stroke scales or not */
 TARP_API tpBool tpStyleScaleStroke(tpStyle _style);
 
+/* Retrieves the current miter limit */
 TARP_API tpFloat tpStyleMiterLimit(tpStyle _style);
 
+/* Retrieves the current stroke cap */
 TARP_API tpStrokeCap tpStyleStrokeCap(tpStyle _style);
 
+/* Retrieves the current fill rule */
 TARP_API tpFillRule tpStyleFillRule(tpStyle _style);
 
+/* generates tpStyleInvalidHandle() and tpStyleIsValidHandle(tpStyle) functions to generate
+an invalid handle and check a handle for validity. */
 TARP_HANDLE_FUNCTIONS(tpStyle)
 
 
@@ -487,16 +516,25 @@ TARP_HANDLE_FUNCTIONS(tpStyle)
 Gradient Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+/* Creates a linear gradient with the origin at x0, y0 and the destination at x1, y1 */
 TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
+/* Sets the origin to x0, y0 and the destination at x1, y1 */
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
+/* 
+Adds a color stop to the gradient. Offset is in the range 0-1 where 0 positions the color stop at the
+origin of the gradient and 1.0 at the destination.
+*/
 TARP_API void tpGradientAddColorStop(tpGradient _gradient, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a, tpFloat _offset);
 
+/* remove all color stops */
 TARP_API void tpGradientClearColorStops(tpGradient _gradient);
 
 TARP_API void tpGradientDestroy(tpGradient _gradient);
 
+/* generates tpGradientInvalidHandle() and tpGradientIsValidHandle(tpGradient) functions to generate
+an invalid handle and check a handle for validity. */
 TARP_HANDLE_FUNCTIONS(tpGradient)
 
 
@@ -504,31 +542,52 @@ TARP_HANDLE_FUNCTIONS(tpGradient)
 Context Related Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-TARP_API tpBool tpContextInit(tpContext * _ctx);
 
-TARP_API const char * tpContextErrorMessage(tpContext * _ctx);
+/* Call this to initialize a tarp context. */
+TARP_API tpContext tpContextCreate();
 
-TARP_API tpBool tpContextDeallocate(tpContext * _ctx);
+/* retrieves a context error message  */
+TARP_API const char * tpContextErrorMessage(tpContext _ctx);
 
-TARP_API tpBool tpPrepareDrawing(tpContext * _ctx);
+/* shut down a context */
+TARP_API void tpContextDestroy(tpContext _ctx);
 
-TARP_API tpBool tpFinishDrawing(tpContext * _ctx);
+/* Call this at the beginning of a "frame" before you call any draw functions */
+TARP_API tpBool tpPrepareDrawing(tpContext _ctx);
 
-TARP_API tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection);
+/* Call this at the end of a "frame" after you are done drawing */
+TARP_API tpBool tpFinishDrawing(tpContext _ctx);
 
-TARP_API tpBool tpSetTransform(tpContext * _ctx, const tpMat3 * _transform);
+/* Set the projection */
+TARP_API tpBool tpSetProjection(tpContext _ctx, const tpMat4 * _projection);
 
-TARP_API tpBool tpResetTransform(tpContext * _ctx);
+/* Set the path transformation. All following draw calls will be affected by it. */
+TARP_API tpBool tpSetTransform(tpContext _ctx, const tpMat3 * _transform);
 
-TARP_API tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style);
+/* Reset the transformation to the identity matrix */
+TARP_API tpBool tpResetTransform(tpContext _ctx);
 
-TARP_API tpBool tpBeginClipping(tpContext * _ctx, tpPath _path);
+/* Draw a path with the provided style */
+TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle _style);
 
-TARP_API tpBool tpEndClipping(tpContext * _ctx);
+/* 
+Define a clipping path. You can nest these calls. All following draw
+calls will be clippied by the provided path.
+*/
+TARP_API tpBool tpBeginClipping(tpContext _ctx, tpPath _path);
 
-TARP_API tpBool tpResetClipping(tpContext * _ctx);
+/* End the most recent clipping path */
+TARP_API tpBool tpEndClipping(tpContext _ctx);
 
-TARP_API const char * tpImplementation();
+/* End all clipping paths. This will remove all clipping. */
+TARP_API tpBool tpResetClipping(tpContext _ctx);
+
+/* Returns a string identifier of the current implementation */
+TARP_API const char * tpImplementationName();
+
+/* generates tpContextInvalidHandle() and tpContextIsValidHandle(tpContext) functions to generate
+an invalid handle and check a handle for validity. */
+TARP_HANDLE_FUNCTIONS(tpContext)
 
 
 #ifdef TARP_IMPLEMENTATION
@@ -835,11 +894,6 @@ TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloa
     return ret;
 }
 
-TARP_API const char * tpContextErrorMessage(tpContext * _ctx)
-{
-    return _ctx->errorMessage;
-}
-
 #ifdef TARP_IMPLEMENTATION_OPENGL
 
 /* The shader programs used by the renderer */
@@ -943,9 +997,8 @@ typedef struct TARP_LOCAL
 typedef struct TARP_LOCAL
 {
     _tpSegmentArray segments;
-    tpBool bDirty;
+    tpBool bDirty, bIsClosed, bLengthDirty;
     int lastSegmentIndex;
-    tpBool bIsClosed;
 
     /* some rendering specific data */
     int fillVertexOffset;
@@ -954,7 +1007,6 @@ typedef struct TARP_LOCAL
     int strokeVertexCount;
 
     _tpGLRect bounds;
-    tpBool bLengthDirty;
     tpFloat length;
 } _tpGLContour;
 
@@ -1243,27 +1295,26 @@ TARP_LOCAL tpBool _createProgram(const char * _vertexShader, const char * _fragm
     return tpFalse;
 }
 
-TARP_API tpBool tpContextInit(tpContext * _ctx)
+TARP_API tpContext tpContextCreate()
 {
     _ErrorMessage msg;
     _tpGLContext * ctx;
-    tpBool ret;
-
-    ret = tpFalse;
+    tpBool err;
+    tpContext ret = tpContextInvalidHandle();
 
     ctx = (_tpGLContext *)TARP_MALLOC(sizeof(_tpGLContext));
     assert(ctx);
 
-    ret = _createProgram(_vertexShaderCode, _fragmentShaderCode, 0, &ctx->program, &msg);
-    if (ret)
+    err = _createProgram(_vertexShaderCode, _fragmentShaderCode, 0, &ctx->program, &msg);
+    if (err)
     {
-        strcpy(_ctx->errorMessage, msg.message);
+        strcpy(ctx->errorMessage, msg.message);
         return ret;
     }
-    ret = _createProgram(_vertexShaderCodeTexture, _fragmentShaderCodeTexture, 1, &ctx->textureProgram, &msg);
-    if (ret)
+    err = _createProgram(_vertexShaderCodeTexture, _fragmentShaderCodeTexture, 1, &ctx->textureProgram, &msg);
+    if (err)
     {
-        strcpy(_ctx->errorMessage, msg.message);
+        strcpy(ctx->errorMessage, msg.message);
         return ret;
     }
 
@@ -1309,21 +1360,26 @@ TARP_API tpBool tpContextInit(tpContext * _ctx)
     ctx->clippingStyle = tpStyleCreate();
     tpStyleRemoveStroke(ctx->clippingStyle);
 
-    _ctx->_impl = ctx;
-
+    ret.pointer = ctx;
     return ret;
 }
 
-TARP_API const char * tpImplementation()
+TARP_API const char * tpContextErrorMessage(tpContext _ctx)
+{
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
+    return ctx->errorMessage;
+}
+
+TARP_API const char * tpImplementationName()
 {
     return "OpenGL";
 }
 
-TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
+TARP_API void tpContextDestroy(tpContext _ctx)
 {
     int i;
 
-    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
 
     /* free all opengl resources */
     glDeleteProgram(ctx->program);
@@ -1340,8 +1396,6 @@ TARP_API tpBool tpContextDeallocate(tpContext * _ctx)
 
     tpStyleDestroy(ctx->clippingStyle);
     TARP_FREE(ctx);
-
-    return tpFalse;
 }
 
 TARP_API tpPath tpPathCreate()
@@ -3233,9 +3287,9 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * 
     }
 }
 
-TARP_API tpBool tpPrepareDrawing(tpContext * _ctx)
+TARP_API tpBool tpPrepareDrawing(tpContext _ctx)
 {
-    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
 
     /* cache previous render state so we can reset it in tpFinishDrawing */
     glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint *)&ctx->stateBackup.activeTexture);
@@ -3287,10 +3341,10 @@ TARP_API tpBool tpPrepareDrawing(tpContext * _ctx)
     return tpFalse;
 }
 
-TARP_API tpBool tpFinishDrawing(tpContext * _ctx)
+TARP_API tpBool tpFinishDrawing(tpContext _ctx)
 {
     /* reset gl state to what it was before we began drawing */
-    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
 
     /* we dont assert gl errors here for now...should we? */
     glActiveTexture(ctx->stateBackup.activeTexture);
@@ -3593,9 +3647,9 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     return tpFalse;
 }
 
-TARP_API tpBool tpDrawPath(tpContext * _ctx, tpPath _path, const tpStyle _style)
+TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle _style)
 {
-    return _tpGLDrawPathImpl((_tpGLContext *)_ctx->_impl, (_tpGLPath *)_path.pointer, _style, tpFalse);
+    return _tpGLDrawPathImpl((_tpGLContext *)_ctx.pointer, (_tpGLPath *)_path.pointer, _style, tpFalse);
 }
 
 TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx, _tpGLPath * _path, tpBool _bIsRebuilding)
@@ -3624,16 +3678,16 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx, _tpGLPath * _pa
     return tpFalse;
 }
 
-TARP_API tpBool tpBeginClipping(tpContext * _ctx, tpPath _path)
+TARP_API tpBool tpBeginClipping(tpContext _ctx, tpPath _path)
 {
-    return _tpGLGenerateClippingMask((_tpGLContext *)_ctx->_impl, (_tpGLPath *)_path.pointer, tpFalse);
+    return _tpGLGenerateClippingMask((_tpGLContext *)_ctx.pointer, (_tpGLPath *)_path.pointer, tpFalse);
 }
 
-TARP_API tpBool tpEndClipping(tpContext * _ctx)
+TARP_API tpBool tpEndClipping(tpContext _ctx)
 {
     int i;
     _tpGLPath * p;
-    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
     assert(ctx->clippingStackDepth);
     p = ctx->clippingStack[--ctx->clippingStackDepth];
 
@@ -3676,9 +3730,9 @@ TARP_API tpBool tpEndClipping(tpContext * _ctx)
     return tpFalse;
 }
 
-TARP_API tpBool tpResetClipping(tpContext * _ctx)
+TARP_API tpBool tpResetClipping(tpContext _ctx)
 {
-    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
     _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
     _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));
     _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
@@ -3689,9 +3743,9 @@ TARP_API tpBool tpResetClipping(tpContext * _ctx)
     return tpFalse;
 }
 
-TARP_API tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
+TARP_API tpBool tpSetProjection(tpContext _ctx, const tpMat4 * _projection)
 {
-    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
     ctx->projection = *_projection;
     ctx->projectionID++;
     ctx->bTransformProjDirty = tpTrue;
@@ -3699,10 +3753,10 @@ TARP_API tpBool tpSetProjection(tpContext * _ctx, const tpMat4 * _projection)
     return tpFalse;
 }
 
-TARP_API tpBool tpSetTransform(tpContext * _ctx, const tpMat3 * _transform)
+TARP_API tpBool tpSetTransform(tpContext _ctx, const tpMat3 * _transform)
 {
     tpFloat rotation;
-    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
 
     if (!tpMat3Equals(_transform, &ctx->transform))
     {
@@ -3718,9 +3772,9 @@ TARP_API tpBool tpSetTransform(tpContext * _ctx, const tpMat3 * _transform)
     return tpFalse;
 }
 
-TARP_API tpBool tpResetTransform(tpContext * _ctx)
+TARP_API tpBool tpResetTransform(tpContext _ctx)
 {
-    _tpGLContext * ctx = (_tpGLContext *)_ctx->_impl;
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
     ctx->transform = tpMat3MakeIdentity();
     ctx->transformScale = 1.0;
     ctx->transformID++;
@@ -3741,20 +3795,20 @@ TARP_API tpBool tpResetTransform(tpContext * _ctx)
 MIT License:
 ------------------------------------------------------------------------------
 Copyright (c) 2018 Matthias Dörfelt
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-of the Software, and to permit persons to whom the Software is furnished to do 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
 so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ------------------------------------------------------------------------------
 */

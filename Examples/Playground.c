@@ -24,18 +24,18 @@
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg.h"
 
-typedef void(*DrawFn)(tpContext *, void *, tpBool);
+typedef void(*DrawFn)(tpContext, void *, tpBool);
 
 typedef struct
 {
     DrawFn callback;
     tpFloat interval;
     struct timeval lastCallbackTime;
-    tpContext * context;
+    tpContext context;
     void * userData;
 } DrawCallback;
 
-static DrawCallback makeDrawCallback(DrawFn _callback, tpFloat _interval, tpContext * _ctx, void * _userData)
+static DrawCallback makeDrawCallback(DrawFn _callback, tpFloat _interval, tpContext _ctx, void * _userData)
 {
     return (DrawCallback) {_callback, _interval, {}, _ctx, _userData};
 }
@@ -84,14 +84,14 @@ static float randomFloat(float _a, float _b)
     return _a + (_b - _a) * ret;
 }
 
-static void updateStrokeOffsetDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateStrokeOffsetDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     PathWithStyle * drawing = (PathWithStyle *) _userData;
     tpStyleSetDashOffset(drawing->style, tpStyleDashOffset(drawing->style) + 0.2);
     tpDrawPath(_context, drawing->path, drawing->style);
 }
 
-static void updateStarFillRuleDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateStarFillRuleDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     PathWithStyle * starDrawing = (PathWithStyle *) _userData;
     if (_bTimeElapsed)
@@ -102,7 +102,7 @@ static void updateStarFillRuleDrawing(tpContext * _context, void * _userData, tp
     tpDrawPath(_context, starDrawing->path, starDrawing->style);
 }
 
-static void updateRandomDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateRandomDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     PathWithStyle * drawing = (PathWithStyle *) _userData;
     if (_bTimeElapsed)
@@ -121,7 +121,7 @@ static void updateRandomDrawing(tpContext * _context, void * _userData, tpBool _
     tpDrawPath(_context, drawing->path, drawing->style);
 }
 
-static void updateConfettiDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateConfettiDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     PathWithStyle * drawing = (PathWithStyle *) _userData;
     if (_bTimeElapsed)
@@ -142,7 +142,7 @@ static void updateConfettiDrawing(tpContext * _context, void * _userData, tpBool
     tpResetTransform(_context);
 }
 
-static void updateRotatingDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateRotatingDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     static tpFloat rot = 0;
     static tpFloat rotTimer = 0;
@@ -158,7 +158,7 @@ static void updateRotatingDrawing(tpContext * _context, void * _userData, tpBool
     rot += (sin(rotTimer) + 1.0) * 0.5 * 0.05;
 }
 
-static void updateWormDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateWormDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     static tpFloat rot = 0;
     PathWithStyle * drawing = (PathWithStyle *) _userData;
@@ -173,7 +173,7 @@ static void updateWormDrawing(tpContext * _context, void * _userData, tpBool _bT
     rot += 0.1;
 }
 
-static void updateScalingStrokeDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateScalingStrokeDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     static tpFloat s = 0;
     PathWithStyle * drawing = (PathWithStyle *) _userData;
@@ -186,7 +186,7 @@ static void updateScalingStrokeDrawing(tpContext * _context, void * _userData, t
     s += 0.1;
 }
 
-static void updateNoneScalingStrokeDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateNoneScalingStrokeDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     static tpFloat s = 0;
     PathWithStyle * drawing = (PathWithStyle *) _userData;
@@ -200,7 +200,7 @@ static void updateNoneScalingStrokeDrawing(tpContext * _context, void * _userDat
     s += 0.05;
 }
 
-static void updateTigerDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateTigerDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     static tpFloat s = 0;
     TigerDrawing * td = (TigerDrawing *) _userData;
@@ -231,7 +231,7 @@ static void updateTigerDrawing(tpContext * _context, void * _userData, tpBool _b
     s += 0.005;
 }
 
-static void updateGradientDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateGradientDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     static tpFloat s = 0;
     PathWithStyle * drawing = (PathWithStyle *) _userData;
@@ -265,7 +265,7 @@ static void updateGradientDrawing(tpContext * _context, void * _userData, tpBool
     s += 0.25;
 }
 
-static void updateZigZagLineDrawing(tpContext * _context, void * _userData, tpBool _bTimeElapsed)
+static void updateZigZagLineDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     static tpFloat s = 0;
 
@@ -335,17 +335,16 @@ int main(int argc, char * argv[])
         int callbackCount = 0;
 
         //initialize the tarp context
-        tpContext ctx;
-        tpBool err = tpContextInit(&ctx);
-        if (err)
+        tpContext ctx = tpContextCreate();
+        if (!tpContextIsValidHandle(ctx))
         {
-            printf("Could not init Tarp context: %s\n", tpContextErrorMessage(&ctx));
+            printf("Could not init Tarp context: %s\n", tpContextErrorMessage(ctx));
             return EXIT_FAILURE;
         }
 
         //set an orthographic projection on the context based on the window size;
         tpMat4 proj = tpMat4MakeOrtho(0, wwidth, wheight, 0, -1, 1);
-        tpSetProjection(&ctx, &proj);
+        tpSetProjection(ctx, &proj);
 
         //create the dash offset drawing
         PathWithStyle dashOffsetDrawing = {0};
@@ -364,7 +363,7 @@ int main(int argc, char * argv[])
 
             dashOffsetDrawing.style = style;
             dashOffsetDrawing.path = path;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateStrokeOffsetDrawing, 0.0, &ctx, &dashOffsetDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateStrokeOffsetDrawing, 0.0, ctx, &dashOffsetDrawing);
         }
 
         //init the star drawing to show EvenOdd vs NonZero fill rule
@@ -387,7 +386,7 @@ int main(int argc, char * argv[])
 
             starDrawing.path = path;
             starDrawing.style = style;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateStarFillRuleDrawing, 1.0, &ctx, &starDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateStarFillRuleDrawing, 1.0, ctx, &starDrawing);
         }
 
         //path that randomly regenerates every half second
@@ -401,7 +400,7 @@ int main(int argc, char * argv[])
 
             randomDrawing.path = path;
             randomDrawing.style = style;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateRandomDrawing, 0.5, &ctx, &randomDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateRandomDrawing, 0.5, ctx, &randomDrawing);
         }
 
         PathWithStyle confettiDrawing = {0};
@@ -413,7 +412,7 @@ int main(int argc, char * argv[])
 
             confettiDrawing.path = path;
             confettiDrawing.style = style;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateConfettiDrawing, 0.25, &ctx, &confettiDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateConfettiDrawing, 0.25, ctx, &confettiDrawing);
 
             // tpMat3 trans = tpMat3MakeTranslation(550, 100);
             // tpPathSetTransform(path, &trans);
@@ -438,7 +437,7 @@ int main(int argc, char * argv[])
 
             rotatingDrawing.path = path;
             rotatingDrawing.style = style;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateRotatingDrawing, 0, &ctx, &rotatingDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateRotatingDrawing, 0, ctx, &rotatingDrawing);
         }
 
         PathWithStyle wormDrawing = {0};
@@ -476,7 +475,7 @@ int main(int argc, char * argv[])
             wormDrawing.path = path;
             wormDrawing.style = style;
             wormDrawing.grad = grad;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateWormDrawing, 0.0, &ctx, &wormDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateWormDrawing, 0.0, ctx, &wormDrawing);
         }
 
         PathWithStyle scalingStrokeDrawing = {0};
@@ -496,7 +495,7 @@ int main(int argc, char * argv[])
 
             scalingStrokeDrawing.path = path;
             scalingStrokeDrawing.style = style;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateScalingStrokeDrawing, 0.0, &ctx, &scalingStrokeDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateScalingStrokeDrawing, 0.0, ctx, &scalingStrokeDrawing);
         }
 
         PathWithStyle noneScalingStrokeDrawing = {0};
@@ -517,13 +516,12 @@ int main(int argc, char * argv[])
 
             noneScalingStrokeDrawing.path = path;
             noneScalingStrokeDrawing.style = style;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateNoneScalingStrokeDrawing, 0.0, &ctx, &noneScalingStrokeDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateNoneScalingStrokeDrawing, 0.0, ctx, &noneScalingStrokeDrawing);
         }
 
         /* we use nano svg to create a drawing from an SVG in a quick n dirty way...not general purpose at all! */
         NSVGimage * image;
         image = nsvgParseFromFile("../../Examples/Tiger.svg", "px", 4096);
-        printf("size: %f x %f\n", image->width, image->height);
 
         TigerDrawing tigerDrawing = {0};
         tigerDrawing.pathCount = 0;
@@ -576,7 +574,7 @@ int main(int argc, char * argv[])
             }
         }
 
-        drawCallbacks[callbackCount++] = makeDrawCallback(updateTigerDrawing, 0, &ctx, &tigerDrawing);
+        drawCallbacks[callbackCount++] = makeDrawCallback(updateTigerDrawing, 0, ctx, &tigerDrawing);
         tigerDrawing.clipPath = tpPathCreate();
         tpPathAddCircle(tigerDrawing.clipPath, 0, 0, 125);
         nsvgDelete(image);
@@ -598,7 +596,7 @@ int main(int argc, char * argv[])
             gradientDrawing.path = path;
             gradientDrawing.style = style;
             gradientDrawing.grad = grad;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateGradientDrawing, 1.0, &ctx, &gradientDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateGradientDrawing, 1.0, ctx, &gradientDrawing);
         }
 
         PathWithStyle zigZagDrawing = {0};
@@ -628,7 +626,7 @@ int main(int argc, char * argv[])
             zigZagDrawing.path = path;
             zigZagDrawing.style = style;
             zigZagDrawing.grad = grad;
-            drawCallbacks[callbackCount++] = makeDrawCallback(updateZigZagLineDrawing, 1.0, &ctx, &zigZagDrawing);
+            drawCallbacks[callbackCount++] = makeDrawCallback(updateZigZagLineDrawing, 1.0, ctx, &zigZagDrawing);
         }
 
         // the main loop
@@ -648,7 +646,7 @@ int main(int argc, char * argv[])
             glViewport(0, 0, width, height);
 
             //start drawing the current tarp frame
-            tpPrepareDrawing(&ctx);
+            tpPrepareDrawing(ctx);
 
             for (int i = 0; i < callbackCount; ++i)
             {
@@ -657,7 +655,7 @@ int main(int argc, char * argv[])
             }
 
             //end the current tarp frame
-            tpFinishDrawing(&ctx);
+            tpFinishDrawing(ctx);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -682,7 +680,7 @@ int main(int argc, char * argv[])
         }
 
 
-        tpContextDeallocate(&ctx);
+        tpContextDestroy(ctx);
     }
     else
     {

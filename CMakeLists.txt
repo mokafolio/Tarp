@@ -17,4 +17,9 @@ SET(TARPDEPS
 ${OPENGL_LIBRARIES}
 )
 
+foreach ( file ${TARPINC} )
+    get_filename_component( dir ${file} DIRECTORY )
+    install( FILES ${file} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/${dir} )
+endforeach()
+
 add_subdirectory (Examples)

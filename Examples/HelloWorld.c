@@ -13,7 +13,6 @@ int main(int argc, char * argv[])
 {
     /* this example is compile in pedantic c89, so we declare the variables up here */
     tpContext ctx;
-    tpBool err;
     GLFWwindow * window;
 
     /* initialize glfw */
@@ -28,7 +27,7 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     /* create the window */
-    window = glfwCreateWindow(800, 600, "Basic Tarp Example", NULL, NULL);
+    window = glfwCreateWindow(800, 600, "Hello Tarp", NULL, NULL);
     if (window)
     {
         tpPath path;
@@ -46,10 +45,10 @@ int main(int argc, char * argv[])
         }
 
         /* initialize the tarp context */
-        err = tpContextInit(&ctx);
-        if (err)
+        ctx = tpContextCreate();
+        if (!tpContextIsValidHandle(ctx))
         {
-            printf("Could not init Tarp context: %s\n", tpContextErrorMessage(&ctx));
+            printf("Could not init Tarp context: %s\n", tpContextErrorMessage(ctx));
             return EXIT_FAILURE;
         }
 
@@ -58,7 +57,7 @@ int main(int argc, char * argv[])
 
         /* set an orthographic projection based on the window size */
         proj = tpMat4MakeOrtho(0, wwidth, wheight, 0, -1, 1);
-        tpSetProjection(&ctx, &proj);
+        tpSetProjection(ctx, &proj);
 
         /* create a path and add one circle contour */
         path = tpPathCreate();
@@ -90,13 +89,13 @@ int main(int argc, char * argv[])
             glViewport(0, 0, width, height);
 
             /* call this at the beginning of your frame */
-            tpPrepareDrawing(&ctx);
+            tpPrepareDrawing(ctx);
 
             /* draw the path with our style */
-            tpDrawPath(&ctx, path, style);
+            tpDrawPath(ctx, path, style);
 
             /* call this when you are done with Tarp for the frame */
-            tpFinishDrawing(&ctx);
+            tpFinishDrawing(ctx);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -105,7 +104,7 @@ int main(int argc, char * argv[])
         /* clean up tarp */
         tpStyleDestroy(style);
         tpPathDestroy(path);
-        tpContextDeallocate(&ctx);
+        tpContextDestroy(ctx);
     }
     else
     {

@@ -44,13 +44,22 @@ Install *Tarp* or add the Tarp folder to your source directory. Include it into 
 Here is a basic *Tarp* example:
 
 ```
+tpContext ctx;
 tpPath path;
 tpStyle style;
 tpMat4 proj;
 
+/* initialize the tarp context */
+ctx = tpContextCreate();
+if (!tpContextIsValidHandle(ctx))
+{
+    printf("Could not init Tarp context: %s\n", tpContextErrorMessage(ctx));
+    return EXIT_FAILURE;
+}
+
 /* set an orthographic projection based on the window size */
 proj = tpMat4MakeOrtho(0, wwidth, wheight, 0, -1, 1);
-tpSetProjection(&ctx, &proj);
+tpSetProjection(ctx, &proj);
 
 /* create a path and add one circle contour */
 path = tpPathCreate();
@@ -72,22 +81,37 @@ tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
 /* ... */
 
 /* call this at the beginning of your frame */
-tpPrepareDrawing(&ctx);
+tpPrepareDrawing(ctx);
 
 /* draw the path with our style */
-tpDrawPath(&ctx, path, style);
+tpDrawPath(ctx, path, style);
 
 /* call this when you are done with Tarp for the frame */
-tpFinishDrawing(&ctx);
+tpFinishDrawing(ctx);
 
 /* ... */
 
 /* clean up tarp */
 tpStyleDestroy(style);
 tpPathDestroy(path);
-tpContextDeallocate(&ctx);
+tpContextDestroy(ctx);
 ```
 Checkout *HelloWorld.c* in the examples folder for the full source of this example using *OpenGL* and *GLFW*.
+
+Building the examples
+--------
+You need *CMake* to build the examples.
+```
+cd Tarp
+mkdir build
+cmake ..
+make
+```
+
+Installing Tarp
+--------
+If you use Tarp a lot and you'd prefer to have it installed, you can do so using `make install`. You'll need cmake to do so.
+
 
 How does Tarp rasterize
 --------
