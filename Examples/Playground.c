@@ -314,7 +314,8 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    
     // create the window
     GLFWwindow * window = glfwCreateWindow(650, 800, "Tarp Playground", NULL, NULL);
     if (window)
