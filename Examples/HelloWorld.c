@@ -8,13 +8,6 @@
 #define TARP_IMPLEMENTATION_OPENGL
 #include <Tarp/Tarp.h>
 
-void printMat(const tpMat3 * _mat)
-{
-    printf("MAT3(%f %f %f\n%f %f %f\n%f %f %f)\n",
-           _mat->v[0], _mat->v[3], _mat->v[6],
-           _mat->v[1], _mat->v[4], _mat->v[7],
-           _mat->v[2], _mat->v[5], _mat->v[8]);
-}
 
 int main(int argc, char * argv[])
 {
@@ -22,13 +15,6 @@ int main(int argc, char * argv[])
     tpContext ctx;
     tpBool err;
     GLFWwindow * window;
-    tpVec2 vec;
-
-    tpMat3 id = tpMat3MakeIdentity();
-    printMat(&id);
-
-    vec = tpMat3MultVec2(&id, tpVec2Make(100, 10));
-    printf("DA VEC %f %f\n", vec.x, vec.y);
 
     /* initialize glfw */
     if (!glfwInit())
@@ -69,14 +55,27 @@ int main(int argc, char * argv[])
 
         /* set an orthographic projection on the context based on the window size */
         glfwGetWindowSize(window, &wwidth, &wheight);
+
+        /* set an orthographic projection based on the window size */
         proj = tpMat4MakeOrtho(0, wwidth, wheight, 0, -1, 1);
         tpSetProjection(&ctx, &proj);
 
+        /* create a path and add one circle contour */
         path = tpPathCreate();
         tpPathAddCircle(path, 400, 300, 100);
 
+        /* add another custom contour to the path */
+        tpPathMoveTo(path, 400, 320);
+        tpPathLineTo(path, 420, 280);
+        tpPathQuadraticCurveTo(path, 400, 260, 380, 280);
+        tpPathClose(path); /* close the contour */
+
+        /* create a style that we can draw the path with */
         style = tpStyleCreate();
-        tpStyleSetFillColor(style, 1.0, 0.0, 0.0, 1.0);
+        tpStyleSetFillColor(style, 1.0, 1.0, 0.0, 1.0);
+        tpStyleSetStrokeColor(style, 1.0, 0.6, 0.1, 1.0);
+        tpStyleSetStrokeWidth(style, 10.0);
+        tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
 
         /* the main loop */
         while (!glfwWindowShouldClose(window))
@@ -86,13 +85,17 @@ int main(int argc, char * argv[])
             glClearColor(0.0, 0.0, 0.0, 1);
             glClear(GL_COLOR_BUFFER_BIT);
 
+            /* set the viewport based on the pixel dimensions of the window */
             glfwGetFramebufferSize(window, &width, &height);
             glViewport(0, 0, width, height);
 
+            /* call this at the beginning of your frame */
             tpPrepareDrawing(&ctx);
 
+            /* draw the path with our style */
             tpDrawPath(&ctx, path, style);
 
+            /* call this when you are done with Tarp for the frame */
             tpFinishDrawing(&ctx);
 
             glfwSwapBuffers(window);
