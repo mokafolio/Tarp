@@ -23,7 +23,7 @@ What does Tarp not want to provide?
 --------
 - A matrix stack.
 - Any form of document representation.
-- Any form of document loading.
+- Any form of document loading. (SVG etc.)
 - Bezier math that goes beyond rendering.
 - Raster image rendering
 - Text rendering. (Dealing with fonts is a huge task by itself, you can easily build a font rasterizer on top of Tarp using *stb_truetype* or *freeimage*, though)
@@ -112,11 +112,15 @@ Installing Tarp
 --------
 If you use Tarp a lot and you'd prefer to have it installed, you can do so using `make install`. You'll need cmake to do so.
 
+TODO
+--------
+- Radial Gradients
+- Possibly an OpenGL ES based backend?
+- Try out NV_path_rendering on linux as a backend?
 
 How does Tarp rasterize
 --------
 The only available backend right now is a written in *OpenGL*. It is based on the *stencil and cover* method.
-
 
 Supported Platforms
 -------------
