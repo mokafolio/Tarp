@@ -3196,7 +3196,7 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
     int * _outVertexCount)
 {
     /* regenerate the geometry for this path/gradient combo */
-    _tpGLTextureVertex vertices[8];
+    _tpGLTextureVertex vertices[4];
     tpVec2 dir, ndir, perp, nperp, center, dest, origin;
     tpVec2 corners[4];
     tpVec2 tmp, tmp2, tmp3;
