@@ -96,7 +96,7 @@ tpStyleDestroy(style);
 tpPathDestroy(path);
 tpContextDestroy(ctx);
 ```
-Checkout *HelloWorld.c* in the examples folder for the full source of this example using *OpenGL* and *GLFW*.
+Check out *HelloWorld.c* in the examples folder for the full source of this example using *OpenGL* and *GLFW*.
 
 Building the examples
 --------
@@ -120,7 +120,7 @@ TODO
 
 How does Tarp rasterize
 --------
-The only available backend right now is a written in *OpenGL*. It is based on the *stencil and cover* method.
+The only available backend right now is one written in *OpenGL*. It is based on the *stencil and cover* method.
 
 Supported Platforms
 -------------
