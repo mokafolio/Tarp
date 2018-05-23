@@ -3197,56 +3197,30 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
 {
     /* regenerate the geometry for this path/gradient combo */
     _tpGLTextureVertex vertices[4];
-    tpVec2 dir, ndir, perp, nperp, center, dest, origin;
-    tpVec2 corners[4];
-    tpVec2 tmp, tmp2, tmp3;
-    tpFloat len, o, s, left, right, minOffset, maxOffset;
+    tpVec2 dir, ndir, dest, origin;
+    tpVec2 tmp;
+    tpFloat len2;
     int i;
 
     origin = tpMat3MultVec2(_paintTransform, _grad->origin);
     dest = tpMat3MultVec2(_paintTransform, _grad->destination);
     dir = tpVec2Sub(dest, origin);
-    len = tpVec2Length(dir);
-    ndir.x = dir.x / len;
-    ndir.y = dir.y / len;
-    perp.x = -dir.y;
-    perp.y = dir.x;
-    nperp.x = -ndir.y;
-    nperp.y = ndir.x;
+    len2 = tpVec2LengthSquared(dir);
+    ndir = tpVec2MultScalar(dir, 1/len2);
 
-    center = origin;
-
-    corners[0] = tpVec2Sub(_bounds->min, center);
-    corners[1].x = _bounds->max.x - center.x;
-    corners[1].y = _bounds->min.y - center.y;
-    corners[2].x = _bounds->min.x - center.x;
-    corners[2].y = _bounds->max.y - center.y;
-    corners[3] = tpVec2Sub(_bounds->max, center);
+    vertices[0].vertex = _bounds->min;
+    vertices[1].vertex.x = _bounds->max.x;
+    vertices[1].vertex.y = _bounds->min.y;
+    vertices[2].vertex.x = _bounds->min.x;
+    vertices[2].vertex.y = _bounds->max.y;
+    vertices[3].vertex = _bounds->max;
 
     for (i = 0; i < 4; ++i)
     {
-        o = tpVec2Dot(corners[i], ndir) / len;
-        s = tpVec2Dot(corners[i], nperp);
-
-        if (o < minOffset || i == 0) minOffset = o;
-        if (o > maxOffset || i == 0) maxOffset = o;
-
-        if (i == 0 || s < left) left = s;
-        if (i == 0 || s > right) right = s;
+        tmp = tpVec2Sub(vertices[i].vertex, origin);
+        vertices[i].tc.x = tpVec2Dot(tmp, ndir);
+        vertices[i].tc.y = 0;
     }
-
-    tmp = tpVec2MultScalar(ndir, minOffset * len);
-    tmp2 = tpVec2Add(center, tpVec2MultScalar(nperp, left));
-    tmp3 = tpVec2Add(center, tpVec2MultScalar(nperp, right));
-    vertices[0].vertex = tpVec2Add(tmp2, tmp);
-    vertices[0].tc.x = minOffset;
-    vertices[1].vertex = tpVec2Add(tmp3, tmp);
-    vertices[1].tc.x = minOffset;
-    tmp = tpVec2MultScalar(ndir, maxOffset * len);
-    vertices[2].vertex = tpVec2Add(tmp2, tmp);
-    vertices[2].tc.x = maxOffset;
-    vertices[3].vertex = tpVec2Add(tmp3, tmp);
-    vertices[3].tc.x = maxOffset;
 
     *_outVertexOffset = _vertices->count;
     *_outVertexCount = 4;

@@ -34,6 +34,7 @@ int main(int argc, char * argv[])
         tpPath path;
         tpStyle style;
         tpMat4 proj;
+        tpGradient grad;
         int wwidth, wheight;
 
         glfwMakeContextCurrent(window);
@@ -64,6 +65,12 @@ int main(int argc, char * argv[])
         path = tpPathCreate();
         tpPathAddCircle(path, 400, 300, 100);
 
+        /* create a gradient */
+        grad = tpGradientCreateLinear(300, 200, 500, 400);
+        tpGradientAddColorStop(grad, 1.0, 1.0, 0.0, 1.0, 0.0);
+        tpGradientAddColorStop(grad, 1.0, 0.0, 1.0, 1.0, 0.75);
+        tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0);
+
         /* add another custom contour to the path */
         tpPathMoveTo(path, 400, 320);
         tpPathLineTo(path, 420, 280);
@@ -72,7 +79,7 @@ int main(int argc, char * argv[])
 
         /* create a style that we can draw the path with */
         style = tpStyleCreate();
-        tpStyleSetFillColor(style, 1.0, 1.0, 0.0, 1.0);
+        tpStyleSetFillGradient(style, grad);
         tpStyleSetStrokeColor(style, 1.0, 0.6, 0.1, 1.0);
         tpStyleSetStrokeWidth(style, 10.0);
         tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
@@ -104,6 +111,7 @@ int main(int argc, char * argv[])
 
         /* clean up tarp */
         tpStyleDestroy(style);
+        tpGradientDestroy(grad);
         tpPathDestroy(path);
         tpContextDestroy(ctx);
     }
