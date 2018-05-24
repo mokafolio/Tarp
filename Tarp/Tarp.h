@@ -102,6 +102,7 @@ exit(EXIT_FAILURE); \
 #define TARP_MAX_DASH_ARRAY_SIZE 64
 #define TARP_MAX_ERROR_MESSAGE 256
 #define TARP_MAX_CURVE_SUBDIVISIONS 16
+#define TARP_RADIAL_GRADIENT_SLICES 64
 
 /* some helper macros */
 #define TARP_MIN(a,b) (((a)<(b))?(a):(b))
@@ -111,7 +112,7 @@ exit(EXIT_FAILURE); \
 /* some constants */
 #define TARP_KAPPA 0.55228474983
 #define TARP_PI 3.14159265358979323846
-#define TARP_HALF_PI TARP_PI * 0.5
+#define TARP_HALF_PI (TARP_PI * 0.5)
 
 /* define TARP_IMPLEMENTATION if any implementation is defined */
 #ifdef TARP_IMPLEMENTATION_OPENGL
@@ -519,8 +520,20 @@ Gradient Functions
 /* Creates a linear gradient with the origin at x0, y0 and the destination at x1, y1 */
 TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
+/* Creates a radial gradient starting at fx, fy and running towards an ellipse with one semi-axis going from ox, oy, to x1, y1 and the other axis being scaled by the ratio */
+TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox, tpFloat _oy, tpFloat _dx, tpFloat _dy, tpFloat _ratio);
+
+/* Creates a symmetric radial gradient with radius r at x, y */
+TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFloat _r);
+
 /* Sets the origin to x0, y0 and the destination at x1, y1 */
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
+
+/* Sets the focal point of a radial gradient to a position relative to the gradient's origin */
+TARP_API void tpGradientSetFocalPointOffset(tpGradient _gradient, tpFloat _x, tpFloat _y);
+
+/* Sets the ratio between the minor and major axis of an elliptical radial gradient */
+TARP_API void tpGradientSetRatio(tpGradient _gradient, tpFloat _ratio);
 
 /*
 Adds a color stop to the gradient. Offset is in the range 0-1 where 0 positions the color stop at the
@@ -751,8 +764,8 @@ TARP_API int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVe
 
     a = _mat->v[0];
     b = _mat->v[3];
-    c = _mat->v[1];;
-    d = _mat->v[4];;
+    c = _mat->v[1];
+    d = _mat->v[4];
     det = a * d - b * c;
 
     if (a != 0 || b != 0)
@@ -1045,6 +1058,8 @@ typedef struct TARP_LOCAL
     int gradientID;
     tpVec2 origin;
     tpVec2 destination;
+    tpFloat ratio;
+    tpVec2 focal_point_offset;
     _tpColorStopArray stops;
     tpGradientType type;
 
@@ -1250,11 +1265,10 @@ TARP_LOCAL tpBool _createProgram(const char * _vertexShader, const char * _fragm
     tpBool err;
 
     err = _compileShader(_vertexShader, GL_VERTEX_SHADER, &vertexShader, _outError);
-    if (!err)
-    {
-        err = _compileShader(_fragmentShader, GL_FRAGMENT_SHADER, &fragmentShader, _outError);
-    }
-    if (err) return err;
+    if(err) return err;
+    
+    err = _compileShader(_fragmentShader, GL_FRAGMENT_SHADER, &fragmentShader, _outError);
+    if(err) return err;
 
     program = glCreateProgram();
     _TARP_ASSERT_NO_GL_ERROR(glAttachShader(program, vertexShader));
@@ -1983,15 +1997,10 @@ TARP_API tpFillRule tpStyleFillRule(tpStyle _style)
     return ((_tpGLStyle *)_style.pointer)->fillRule;
 }
 
-TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
-{
+TARP_LOCAL _tpGLGradient * tpGradientCreate(){
     static int s_id = 0;
 
-    tpGradient rh;
     _tpGLGradient * ret = (_tpGLGradient *)TARP_MALLOC(sizeof(_tpGLGradient));
-    ret->type = kTpGradientTypeLinear;
-    ret->origin = tpVec2Make(_x0, _y0);
-    ret->destination = tpVec2Make(_x1, _y1);
     _tpColorStopArrayInit(&ret->stops, 8);
     ret->bDirty = tpTrue;
     /*
@@ -2009,8 +2018,36 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
     _TARP_ASSERT_NO_GL_ERROR(glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
     _TARP_ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, 0));
 
+    return ret;
+}
+
+TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
+{
+    tpGradient rh;
+    _tpGLGradient * ret = tpGradientCreate();
+    ret->type = kTpGradientTypeLinear;
+    ret->origin = tpVec2Make(_x0, _y0);
+    ret->destination = tpVec2Make(_x1, _y1);
     rh.pointer = ret;
     return rh;
+}
+
+TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox, tpFloat _oy, tpFloat _dx, tpFloat _dy, tpFloat _ratio)
+{
+    tpGradient rh;
+    _tpGLGradient * ret = tpGradientCreate();
+    ret->type = kTpGradientTypeRadial;
+    ret->origin = tpVec2Make(_ox, _oy);
+    ret->destination = tpVec2Make(_dx, _dy);
+    ret->ratio = _ratio;
+    ret->focal_point_offset = tpVec2Make(_fx, _fy);
+    rh.pointer = ret;
+    return rh;
+}
+
+TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFloat _radius)
+{
+    return tpGradientCreateRadial(0, 0, _x, _y, _radius, 0, 1);
 }
 
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
@@ -2018,6 +2055,20 @@ TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat 
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
     g->origin = tpVec2Make(_x0, _y0);
     g->destination = tpVec2Make(_x1, _y1);
+    g->bDirty = tpTrue;
+}
+
+TARP_API void tpGradientSetFocalPointOffset(tpGradient _gradient, tpFloat _x, tpFloat _y)
+{
+    _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
+    g->focal_point_offset = tpVec2Make(_x, _y);
+    g->bDirty = tpTrue;
+}
+
+TARP_API void tpGradientSetRatio(tpGradient _gradient, tpFloat _ratio)
+{
+    _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
+    g->ratio = _ratio;
     g->bDirty = tpTrue;
 }
 
@@ -3122,23 +3173,16 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
     {
         _tpGLGradient * grad = (_tpGLGradient *)_paint->data.gradient.pointer;
 
-        /* bind the gradients texture */
+        /* bind the gradient's texture */
         _TARP_ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
         _TARP_ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, grad->rampTexture));
 
-        if (grad->type == kTpGradientTypeLinear)
-        {
-            _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
-            _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpTextureLoc, 1, GL_FALSE, &_ctx->transformProjection.v[0]));
-            _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
-            _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _gradCache->vertexOffset, _gradCache->vertexCount));
-            _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
-            _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
-        }
-        else
-        {
-            /* @TODO: BIG FAT */
-        }
+        _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
+        _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpTextureLoc, 1, GL_FALSE, &_ctx->transformProjection.v[0]));
+        _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
+        _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, _gradCache->vertexOffset, _gradCache->vertexCount));
+        _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
+        _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->vao.vao));
     }
 }
 
@@ -3207,13 +3251,11 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
     dir = tpVec2Sub(dest, origin);
     len2 = tpVec2LengthSquared(dir);
     ndir = tpVec2MultScalar(dir, 1/len2);
-
+    
     vertices[0].vertex = _bounds->min;
-    vertices[1].vertex.x = _bounds->max.x;
-    vertices[1].vertex.y = _bounds->min.y;
-    vertices[2].vertex.x = _bounds->min.x;
-    vertices[2].vertex.y = _bounds->max.y;
-    vertices[3].vertex = _bounds->max;
+    vertices[1].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
+    vertices[2].vertex = _bounds->max;
+    vertices[3].vertex = tpVec2Make(_bounds->min.x, _bounds->max.y);
 
     for (i = 0; i < 4; ++i)
     {
@@ -3225,6 +3267,156 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
     *_outVertexOffset = _vertices->count;
     *_outVertexCount = 4;
     _tpGLTextureVertexArrayAppendArray(_vertices, vertices, 4);
+}
+
+TARP_LOCAL void _tpGLGradientRadialGeometry(
+    _tpGLContext * _ctx,
+    _tpGLGradient * _grad,
+    const tpMat3 * _paintTransform,
+    const _tpGLRect * _bounds,
+    _tpGLTextureVertexArray * _vertices,
+    int * _outVertexOffset,
+    int * _outVertexCount)
+{   
+    /* regenerate the geometry for this path/gradient combo */
+    _tpGLTextureVertex vertices[TARP_RADIAL_GRADIENT_SLICES + 7];
+    int i, vertex_count;
+    tpFloat ratio, phi;
+    tpMat3 ellipse, inverse, rot;
+    tpVec2 origin, focal_point, dest, a, b;
+    tpVec2 tmp, tmp2;
+    tpFloat inv_det, r;
+    
+    tpVec2 f, p, p_f;
+    tpFloat f2, fp, p_f2, discriminant, divisor;
+    
+    ratio = fabs(_grad->ratio);
+    
+    /* apply _paintTransform */
+    origin = _grad->origin;
+    a = tpVec2Sub(_grad->destination, origin);
+    b.x = -a.y * ratio;
+    b.y =  a.x * ratio;
+    ellipse = tpMat3Make(a.x, b.x, origin.x,
+                         a.y, b.y, origin.y,
+                           0,   0,        1);
+    ellipse = tpMat3Mult(_paintTransform, &ellipse);
+    a = tpVec2Make(ellipse.v[0], ellipse.v[1]);
+    b = tpVec2Make(ellipse.v[3], ellipse.v[4]);
+    origin = tpVec2Make(ellipse.v[6], ellipse.v[7]);
+    
+    tmp = tpVec2Add(_grad->focal_point_offset, _grad->origin);
+    focal_point = tpMat3MultVec2(_paintTransform, tmp);
+    
+    /* handle some degenerate cases */
+    if(tpVec2LengthSquared(a) < 0.01 || tpVec2LengthSquared(b) < 0.01 || tpVec2Cross(a,b) < 0.01){
+        vertices[0].vertex = _bounds->min;
+        vertices[1].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
+        vertices[2].vertex = _bounds->max;
+        vertices[3].vertex = tpVec2Make(_bounds->min.x, _bounds->max.y);
+        vertices[0].tc = vertices[1].tc = vertices[2].tc = vertices[3].tc = tpVec2Make(1,0);
+        *_outVertexOffset = _vertices->count;
+        *_outVertexCount = 4;
+        _tpGLTextureVertexArrayAppendArray(_vertices, vertices, 4);
+        return;
+    }
+    
+    /* find a matrix, which converts the ellipse into a unit circle */
+    inv_det = 1 / (ellipse.v[0] * ellipse.v[4] - ellipse.v[1] * ellipse.v[3]);
+    inverse = tpMat3MakeIdentity();
+    inverse.v[0] =  ellipse.v[4] * inv_det;
+    inverse.v[1] = -ellipse.v[1] * inv_det;
+    inverse.v[3] = -ellipse.v[3] * inv_det;
+    inverse.v[4] =  ellipse.v[0] * inv_det;
+    inverse.v[6] = -(origin.x * inverse.v[0] + origin.y * inverse.v[3]);
+    inverse.v[7] = -(origin.x * inverse.v[1] + origin.y * inverse.v[4]);
+    
+    /* ensure that the focal point lies inside the ellipse */
+    tmp = tpMat3MultVec2(&inverse, focal_point);
+    r = tpVec2Length(tmp);
+    if(r > 0.999){
+        tmp2 = tpVec2MultScalar(tmp, 0.999/r);
+        focal_point = tpMat3MultVec2(&ellipse, tmp2);
+    }
+    
+    vertices[0].vertex = focal_point;
+    vertices[0].tc = tpVec2Make(0,0);
+    vertex_count = 1;
+    
+    phi = 2*TARP_PI / TARP_RADIAL_GRADIENT_SLICES;
+    rot = tpMat3MakeRotation(phi);
+    tmp = tpVec2Make(_bounds->max.x, _bounds->min.y);
+    tmp = tpMat3MultVec2(&inverse, tmp);
+    tmp = tpVec2Normalize(tmp);
+    
+    vertices[vertex_count].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
+    /* max x edge */
+    do{
+        ++vertex_count;
+        tmp = tpMat3MultVec2(&rot, tmp);
+        tmp2 = tpMat3MultVec2(&ellipse, tmp);
+        if(tmp2.x <= origin.x){ break; }
+        vertices[vertex_count].vertex = tpVec2Make(_bounds->max.x, origin.y + (tmp2.y - origin.y) * (_bounds->max.x - origin.x) / (tmp2.x - origin.x));
+    }while(vertices[vertex_count].vertex.y < _bounds->max.y);
+    vertices[vertex_count].vertex = _bounds->max;
+    /* max y edge */
+    do{
+        ++vertex_count;
+        tmp = tpMat3MultVec2(&rot, tmp);
+        tmp2 = tpMat3MultVec2(&ellipse, tmp);
+        if(tmp2.y <= origin.y){ break; }
+        vertices[vertex_count].vertex = tpVec2Make(origin.x + (tmp2.x - origin.x) * (_bounds->max.y - origin.y) / (tmp2.y - origin.y), _bounds->max.y);
+    }while(vertices[vertex_count].vertex.x > _bounds->min.x);
+    vertices[vertex_count].vertex = tpVec2Make(_bounds->min.x, _bounds->max.y);
+    /* min x edge */
+    do{
+        ++vertex_count;
+        tmp = tpMat3MultVec2(&rot, tmp);
+        tmp2 = tpMat3MultVec2(&ellipse, tmp);
+        if(tmp2.x >= origin.x){ break; }
+        vertices[vertex_count].vertex = tpVec2Make(_bounds->min.x, origin.y + (tmp2.y - origin.y) * (_bounds->min.x - origin.x) / (tmp2.x - origin.x));
+    }while(vertices[vertex_count].vertex.y > _bounds->min.y);
+    vertices[vertex_count].vertex = _bounds->min;
+    /* min y edge */
+    do{
+        ++vertex_count;
+        tmp = tpMat3MultVec2(&rot, tmp);
+        tmp2 = tpMat3MultVec2(&ellipse, tmp);
+        if(tmp2.y >= origin.y){ break; }
+        vertices[vertex_count].vertex = tpVec2Make(origin.x + (tmp2.x - origin.x) * (_bounds->min.y - origin.y) / (tmp2.y - origin.y), _bounds->min.y);
+    }while(vertices[vertex_count].vertex.x < _bounds->max.x);
+    vertices[vertex_count].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
+    ++vertex_count;
+
+    /* calculate the texture coordinates*/
+    /* if the focal_point_offset is 0, this becomes:
+    for (i = 1; i < vertex_count; ++i)
+    {
+        tmp = tpMat3MultVec2(&inverse, vertices[i].vertex);
+        vertices[i].tc.x = tpVec2Length(tmp);
+        vertices[i].tc.y = 0;
+    }
+    */
+    f = tpMat3MultVec2(&inverse, focal_point);
+    f2 = tpVec2LengthSquared(f);
+    for (i = 1; i < vertex_count; ++i)
+    {
+        vertices[i].tc.x = 0;
+        vertices[i].tc.y = 0;
+        /* line-circle-intersection */
+        p = tpMat3MultVec2(&inverse, vertices[i].vertex);
+        fp = tpVec2Dot(p, f);
+        p_f = tpVec2Sub(p, f);
+        p_f2 = tpVec2LengthSquared(p_f);
+        discriminant = (fp-f2)*(fp-f2) - p_f2*(f2-1);
+        if(discriminant < 0) { continue; }
+        divisor = sqrt(discriminant) - fp + f2;
+        vertices[i].tc.x = p_f2 / divisor;
+    }
+
+    *_outVertexOffset = _vertices->count;
+    *_outVertexCount = vertex_count;
+    _tpGLTextureVertexArrayAppendArray(_vertices, vertices, vertex_count);
 }
 
 TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * _grad,
@@ -3257,7 +3449,10 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * 
         }
         else if (grad->type == kTpGradientTypeRadial)
         {
-            /* @TODO: BIG FAT */
+            _tpGLGradientRadialGeometry(_ctx, grad, _paintTransform,
+                                        _gradCache->bounds, _vertices,
+                                        &_gradCache->vertexOffset, &_gradCache->vertexCount);
+
         }
         _gradCache->lastGradientID = grad->gradientID;
     }
