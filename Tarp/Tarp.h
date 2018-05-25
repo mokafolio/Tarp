@@ -218,7 +218,7 @@ typedef struct TARP_API
 typedef struct TARP_API
 {
     tpMat2 m;
-	tpVec2 t;
+    tpVec2 t;
 } tpTransform;
 
 typedef struct TARP_API
@@ -744,7 +744,7 @@ TARP_API tpMat2 tpMat2Make(tpFloat _a, tpFloat _b,
 {
     tpMat2 ret;
     ret.v[0] = _a; ret.v[2] = _b;
-	ret.v[1] = _c; ret.v[3] = _d;
+    ret.v[1] = _c; ret.v[3] = _d;
     return ret;
 }
 
@@ -817,7 +817,7 @@ TARP_API int tpMat2Decompose(const tpMat2 * _mat, tpVec2 * _outScale, tpVec2 * _
 TARP_API tpBool tpMat2Equals(const tpMat2 * _a, const tpMat2 * _b)
 {
     return (tpBool)(_a->v[0] == _b->v[0] && _a->v[1] == _b->v[1] &&
-	                _a->v[2] == _b->v[2] && _a->v[3] == _b->v[3]);
+                    _a->v[2] == _b->v[2] && _a->v[3] == _b->v[3]);
 }
 
 TARP_API tpVec2 tpMat2MultVec2(const tpMat2 * _mat, tpVec2 _vec)
@@ -842,95 +842,95 @@ TARP_API tpMat2 tpMat2Mult(const tpMat2 * _a, const tpMat2 * _b)
 
 TARP_API tpMat2 tpMat2Invert(const tpMat2 * _mat)
 {
-	tpMat2 ret;
+    tpMat2 ret;
     tpFloat inv_det = 1 / (_mat->v[0] * _mat->v[3] - _mat->v[1] * _mat->v[2]);
     ret.v[0] =  _mat->v[3] * inv_det;
     ret.v[1] = -_mat->v[1] * inv_det;
     ret.v[2] = -_mat->v[2] * inv_det;
     ret.v[3] =  _mat->v[0] * inv_det;
-	return ret;
+    return ret;
 }
 
 TARP_API tpTransform tpTransformInvert(const tpTransform * _trafo)
 {
-	tpTransform ret;
-	ret.m = tpMat2Invert(&_trafo->m);
-	ret.t = tpMat2MultVec2(&ret.m, tpVec2Make(-_trafo->t.x, -_trafo->t.y));
-	return ret;
+    tpTransform ret;
+    ret.m = tpMat2Invert(&_trafo->m);
+    ret.t = tpMat2MultVec2(&ret.m, tpVec2Make(-_trafo->t.x, -_trafo->t.y));
+    return ret;
 }
 
 TARP_API tpTransform tpTransformMake(tpFloat _a, tpFloat _b, tpFloat _x,
                                      tpFloat _c, tpFloat _d, tpFloat _y)
 {
-	tpTransform ret;
-	ret.m = tpMat2Make(_a, _b, _c, _d);
-	ret.t = tpVec2Make(_x, _y);
-	return ret;
+    tpTransform ret;
+    ret.m = tpMat2Make(_a, _b, _c, _d);
+    ret.t = tpVec2Make(_x, _y);
+    return ret;
 }
 
 TARP_API tpTransform tpTransformMakeIdentity()
 {
-	tpTransform ret;
-	ret.m = tpMat2MakeIdentity();
-	ret.t = tpVec2Make(0, 0);
-	return ret;
+    tpTransform ret;
+    ret.m = tpMat2MakeIdentity();
+    ret.t = tpVec2Make(0, 0);
+    return ret;
 }
 
 TARP_API tpTransform tpTransformMakeTranslation(tpFloat _x, tpFloat _y)
 {
-	tpTransform ret;
-	ret.m = tpMat2MakeIdentity();
-	ret.t = tpVec2Make(_x, _y);
-	return ret;
+    tpTransform ret;
+    ret.m = tpMat2MakeIdentity();
+    ret.t = tpVec2Make(_x, _y);
+    return ret;
 }
 
 TARP_API tpTransform tpTransformMakeScale(tpFloat _x, tpFloat _y)
 {
-	tpTransform ret;
-	ret.m = tpMat2MakeScale(_x, _y);
-	ret.t = tpVec2Make(0, 0);
-	return ret;
+    tpTransform ret;
+    ret.m = tpMat2MakeScale(_x, _y);
+    ret.t = tpVec2Make(0, 0);
+    return ret;
 }
 
 TARP_API tpTransform tpTransformMakeSkew(tpFloat _x, tpFloat _y)
 {
-	tpTransform ret;
-	ret.m = tpMat2MakeSkew(_x, _y);
-	ret.t = tpVec2Make(0, 0);
-	return ret;
+    tpTransform ret;
+    ret.m = tpMat2MakeSkew(_x, _y);
+    ret.t = tpVec2Make(0, 0);
+    return ret;
 }
 
 TARP_API tpTransform tpTransformMakeRotation(tpFloat _angle)
 {
-	tpTransform ret;
-	ret.m = tpMat2MakeRotation(_angle);
-	ret.t = tpVec2Make(0, 0);
-	return ret;
+    tpTransform ret;
+    ret.m = tpMat2MakeRotation(_angle);
+    ret.t = tpVec2Make(0, 0);
+    return ret;
 }
 
 TARP_API int tpTransformDecompose(const tpTransform * _trafo,
                                   tpVec2 * _outTranslation, tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation)
 {
-	*_outTranslation = _trafo->t;
-	return tpMat2Decompose(&_trafo->m, _outScale, _outSkew, _outRotation);
+    *_outTranslation = _trafo->t;
+    return tpMat2Decompose(&_trafo->m, _outScale, _outSkew, _outRotation);
 }
 
 TARP_API tpBool tpTransformEquals(const tpTransform * _a, const tpTransform * _b)
 {
-	return (tpBool)(tpMat2Equals(&_a->m, &_b->m) && tpVec2Equals(_a->t, _b->t));
+    return (tpBool)(tpMat2Equals(&_a->m, &_b->m) && tpVec2Equals(_a->t, _b->t));
 }
 
 TARP_API tpVec2 tpTransformApply(const tpTransform * _trafo, tpVec2 _vec)
 {
-	return tpVec2Add(tpMat2MultVec2(&_trafo->m, _vec), _trafo->t);
+    return tpVec2Add(tpMat2MultVec2(&_trafo->m, _vec), _trafo->t);
 }
 
 TARP_API tpTransform tpTransformCombine(const tpTransform * _a, const tpTransform * _b)
 {
-	tpTransform ret;
-	ret.t = tpTransformApply(_a, _b->t);
-	ret.m = tpMat2Mult(&_a->m, &_b->m);
-	return ret;
+    tpTransform ret;
+    ret.t = tpTransformApply(_a, _b->t);
+    ret.m = tpMat2Mult(&_a->m, &_b->m);
+    return ret;
 }
 
 TARP_API tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3,
@@ -2420,7 +2420,7 @@ TARP_LOCAL void _tpGLMakeJoinMiter(tpVec2 _p,
                                    tpFloat _cross,
                                    _tpVec2Array * _outVertices)
 {
-	tpVec2 intersection;
+    tpVec2 intersection;
 
     tpVec2 inv = tpVec2MultScalar(_dir1, -1);
     _tpGLIntersectLines(_e0, _dir0, _e1, _dir1, &intersection);
@@ -3370,26 +3370,26 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
 
 TARP_LOCAL tpFloat _tpLineUnitCircleIntersection(tpVec2 _p0, tpVec2 _p1)
 {
-	/* Find t such that tpVec2Lerp(p0, p1, t) lies on the unit circle (taking the larger of two solutions) */
+    /* Find t such that tpVec2Lerp(p0, p1, t) lies on the unit circle (taking the larger of two solutions) */
     tpFloat p0_2 = tpVec2LengthSquared(_p0);
-	tpFloat p0p1 = tpVec2Dot(_p0, _p1);
-	tpVec2 p0_p1 = tpVec2Sub(_p0, _p1);
-	tpFloat p0_p1_2 = tpVec2LengthSquared(p0_p1);
-	/* quadratic equation: a = (p0-p1)^2, b = 2 t (p0.p1 - p0^2), c = p0^2 - 1 */
-	tpFloat discriminant = (p0p1-p0_2)*(p0p1-p0_2) - p0_p1_2*(p0_2-1);
-	assert(discriminant >= 0);
-	return (sqrt(discriminant) - p0p1 + p0_2) / p0_p1_2;
+    tpFloat p0p1 = tpVec2Dot(_p0, _p1);
+    tpVec2 p0_p1 = tpVec2Sub(_p0, _p1);
+    tpFloat p0_p1_2 = tpVec2LengthSquared(p0_p1);
+    /* quadratic equation: a = (p0-p1)^2, b = 2 t (p0.p1 - p0^2), c = p0^2 - 1 */
+    tpFloat discriminant = (p0p1-p0_2)*(p0p1-p0_2) - p0_p1_2*(p0_2-1);
+    assert(discriminant >= 0);
+    return (sqrt(discriminant) - p0p1 + p0_2) / p0_p1_2;
 }
 
 TARP_LOCAL tpFloat _tpLerp(tpFloat _a, tpFloat _b, tpFloat _t)
 {
-	return _a * (1.0f - _t) + _b * _t;
+    return _a * (1.0f - _t) + _b * _t;
 }
 
 TARP_LOCAL tpFloat _tpInvLerp(tpFloat _a, tpFloat _b, tpFloat _x)
 {
-	assert(_b - _a != 0);
-	return (_x - _a) / (_b - _a);
+    assert(_b - _a != 0);
+    return (_x - _a) / (_b - _a);
 }
 
 TARP_LOCAL void _tpGLGradientRadialGeometry(
@@ -3405,7 +3405,7 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     _tpGLTextureVertex vertices[TARP_RADIAL_GRADIENT_SLICES + 7];
     int vertex_count;
     tpTransform ellipse, inverse;
-	tpMat2 rot;
+    tpMat2 rot;
     tpVec2 focalPoint, a, b, circleFocalPoint;
     tpVec2 tmp, tmp2, tmp3;
     tpFloat phi, t;
@@ -3424,7 +3424,7 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     focalPoint = tpTransformApply(_paintTransform, tmp);
     
     /* avoid numerical instabilities for gradients of near-zero size */
-	/* TODO: The values of 0.1 are somewhat arbitrarily chosen. This might require more rigorous analysis. */
+    /* TODO: The values of 0.1 are somewhat arbitrarily chosen. This might require more rigorous analysis. */
     if(tpVec2LengthSquared(a) < 0.1 || tpVec2LengthSquared(b) < 0.1 || fabs(tpVec2Cross(a,b)) < 0.1){
         vertices[0].vertex = _bounds->min;
         vertices[1].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
@@ -3451,100 +3451,100 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     
     vertices[0].vertex = focalPoint;
     vertices[0].tc = tpVec2Make(0,0);
-	vertex_count = 1;
+    vertex_count = 1;
     
     phi = (tpFloat)(2 * TARP_PI / TARP_RADIAL_GRADIENT_SLICES);
     rot = tpMat2MakeRotation(phi);
-	
-	/* max x, min y corner */
+    
+    /* max x, min y corner */
     tmp2 = tpVec2Make(_bounds->max.x, _bounds->min.y);
-	vertices[vertex_count].vertex = tmp2;
-	tmp3 = tpTransformApply(&inverse, tmp2);
-	t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
-	tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
-	vertices[vertex_count].tc.x = 1/t;
+    vertices[vertex_count].vertex = tmp2;
+    tmp3 = tpTransformApply(&inverse, tmp2);
+    t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
+    tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
+    vertices[vertex_count].tc.x = 1/t;
     ++vertex_count;
-	
+    
     /* max x edge */
     if(focalPoint.x < _bounds->max.x) for(;;){
         tmp = tpMat2MultVec2(&rot, tmp);
         tmp2 = tpTransformApply(&ellipse, tmp);
-		t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->max.x);
-		tmp3 = tpVec2Make(_bounds->max.x, _tpLerp(focalPoint.y, tmp2.y, t));
-		if(tmp2.x <= focalPoint.x || tmp3.y > _bounds->max.y) { break; }
-		vertices[vertex_count].vertex = tmp3;
-		vertices[vertex_count].tc.x   = t;
-		++vertex_count;
+        t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->max.x);
+        tmp3 = tpVec2Make(_bounds->max.x, _tpLerp(focalPoint.y, tmp2.y, t));
+        if(tmp2.x <= focalPoint.x || tmp3.y > _bounds->max.y) { break; }
+        vertices[vertex_count].vertex = tmp3;
+        vertices[vertex_count].tc.x   = t;
+        ++vertex_count;
     }
-	
-	/* max x, max y corner */
+    
+    /* max x, max y corner */
     tmp2 = _bounds->max;
-	vertices[vertex_count].vertex = tmp2;
-	tmp3 = tpTransformApply(&inverse, tmp2);
-	t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
-	tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
-	vertices[vertex_count].tc.x = 1/t;
-	++vertex_count;
-	
+    vertices[vertex_count].vertex = tmp2;
+    tmp3 = tpTransformApply(&inverse, tmp2);
+    t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
+    tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
+    vertices[vertex_count].tc.x = 1/t;
+    ++vertex_count;
+    
     /* max y edge */
     if(focalPoint.y < _bounds->max.y) for(;;){
         tmp = tpMat2MultVec2(&rot, tmp);
         tmp2 = tpTransformApply(&ellipse, tmp);
-		t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->max.y);
-		tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->max.y);
-		if(tmp2.y <= focalPoint.y || tmp3.x < _bounds->min.x) { break; }
-		vertices[vertex_count].vertex = tmp3;
-		vertices[vertex_count].tc.x   = t;
-		++vertex_count;
+        t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->max.y);
+        tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->max.y);
+        if(tmp2.y <= focalPoint.y || tmp3.x < _bounds->min.x) { break; }
+        vertices[vertex_count].vertex = tmp3;
+        vertices[vertex_count].tc.x   = t;
+        ++vertex_count;
     }
-	
-	/* min x, max y corner */
+    
+    /* min x, max y corner */
     tmp2 = tpVec2Make(_bounds->min.x, _bounds->max.y);
-	vertices[vertex_count].vertex = tmp2;
-	tmp3 = tpTransformApply(&inverse, tmp2);
-	t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
-	tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
-	vertices[vertex_count].tc.x = 1/t;
-	++vertex_count;
-	
+    vertices[vertex_count].vertex = tmp2;
+    tmp3 = tpTransformApply(&inverse, tmp2);
+    t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
+    tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
+    vertices[vertex_count].tc.x = 1/t;
+    ++vertex_count;
+    
     /* min x edge */
     if(focalPoint.x > _bounds->min.x) for(;;){
         tmp = tpMat2MultVec2(&rot, tmp);
         tmp2 = tpTransformApply(&ellipse, tmp);
-		t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->min.x);
-		tmp3 = tpVec2Make(_bounds->min.x, _tpLerp(focalPoint.y, tmp2.y, t));
-		if(tmp2.x >= focalPoint.x || tmp3.y < _bounds->min.y) { break; }
-		vertices[vertex_count].vertex = tmp3;
-		vertices[vertex_count].tc.x   = t;
-		++vertex_count;
+        t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->min.x);
+        tmp3 = tpVec2Make(_bounds->min.x, _tpLerp(focalPoint.y, tmp2.y, t));
+        if(tmp2.x >= focalPoint.x || tmp3.y < _bounds->min.y) { break; }
+        vertices[vertex_count].vertex = tmp3;
+        vertices[vertex_count].tc.x   = t;
+        ++vertex_count;
     }
-	
-	/* min x, min y corner */
+    
+    /* min x, min y corner */
     tmp2 = _bounds->min;
-	vertices[vertex_count].vertex = tmp2;
-	tmp3 = tpTransformApply(&inverse, tmp2);
-	t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
-	tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
-	vertices[vertex_count].tc.x = 1/t;
-	++vertex_count;
-	
+    vertices[vertex_count].vertex = tmp2;
+    tmp3 = tpTransformApply(&inverse, tmp2);
+    t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
+    tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
+    vertices[vertex_count].tc.x = 1/t;
+    ++vertex_count;
+    
     /* min y edge */
     if(focalPoint.y > _bounds->min.y) for(;;){
         tmp = tpMat2MultVec2(&rot, tmp);
         tmp2 = tpTransformApply(&ellipse, tmp);
-		t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->min.y);
-		tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->min.y);
-		if(tmp2.y >= focalPoint.y || tmp3.x > _bounds->max.x) { break; }
-		vertices[vertex_count].vertex = tmp3;
-		vertices[vertex_count].tc.x   = t;
-		++vertex_count;
+        t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->min.y);
+        tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->min.y);
+        if(tmp2.y >= focalPoint.y || tmp3.x > _bounds->max.x) { break; }
+        vertices[vertex_count].vertex = tmp3;
+        vertices[vertex_count].tc.x   = t;
+        ++vertex_count;
     }
-	
-	/* max x, min y corner */
+    
+    /* max x, min y corner */
     vertices[vertex_count].vertex = vertices[1].vertex;
     vertices[vertex_count].tc.x   = vertices[1].tc.x;
-	++vertex_count;
-	
+    ++vertex_count;
+    
     assert(vertex_count <= sizeof(vertices) / sizeof(_tpGLTextureVertex));
 
     *_outVertexOffset = _vertices->count;
