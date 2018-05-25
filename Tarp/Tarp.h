@@ -58,11 +58,11 @@ memory allocation!
 
 #ifdef TARP_IMPLEMENTATION_OPENGL
 #ifdef TARP_DEBUG
-#define _TARP_ASSERT_NO_GL_ERROR(_func) do { GLenum err; _func; \
-err = glGetError(); \
-if(err != GL_NO_ERROR) \
+#define _TARP_ASSERT_NO_GL_ERROR(_func) do { GLenum glerr; _func; \
+glerr = glGetError(); \
+if(glerr != GL_NO_ERROR) \
 { \
-switch(err) \
+switch(glerr) \
 { \
 case GL_NO_ERROR: \
 fprintf(stderr, "%s line %i GL_NO_ERROR: No error has been recorded.\n", __FILE__, __LINE__);\
@@ -110,7 +110,7 @@ exit(EXIT_FAILURE); \
 #define TARP_CLAMP(a,l,h) TARP_MAX(TARP_MIN(a, h),l)
 
 /* some constants */
-#define TARP_KAPPA 0.55228474983
+#define TARP_KAPPA 0.55228474983f
 #define TARP_PI 3.14159265358979323846
 #define TARP_HALF_PI (TARP_PI * 0.5)
 
@@ -212,8 +212,14 @@ typedef struct TARP_API
 
 typedef struct TARP_API
 {
-    tpFloat v[9];
-} tpMat3;
+    tpFloat v[4];
+} tpMat2;
+
+typedef struct TARP_API
+{
+    tpMat2 m;
+	tpVec2 t;
+} tpTransform;
 
 typedef struct TARP_API
 {
@@ -298,33 +304,54 @@ TARP_API tpFloat tpVec2Distance(tpVec2 _a, tpVec2 _b);
 
 TARP_API tpFloat tpVec2DistanceSquared(tpVec2 _a, tpVec2 _b);
 
+TARP_API tpVec2 tpVec2Lerp(tpVec2 _a, tpVec2 _b, tpFloat _t);
+
 
 /*
 Matrix Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-TARP_API tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, /* row1 */
-                           tpFloat _v3, tpFloat _v4, tpFloat _v5, /* row2 */
-                           tpFloat _v6, tpFloat _v7, tpFloat _v8); /* row3 */
+TARP_API tpMat2 tpMat2Make(tpFloat _a, tpFloat _b, /* row1 */
+                           tpFloat _c, tpFloat _d); /* row2 */
 
-TARP_API tpMat3 tpMat3MakeIdentity();
+TARP_API tpMat2 tpMat2MakeIdentity();
 
-TARP_API tpMat3 tpMat3MakeTranslation(tpFloat _x, tpFloat _y);
+TARP_API tpMat2 tpMat2MakeScale(tpFloat _x, tpFloat _y);
 
-TARP_API tpMat3 tpMat3MakeScale(tpFloat _x, tpFloat _y);
+TARP_API tpMat2 tpMat2MakeSkew(tpFloat _x, tpFloat _y);
 
-TARP_API tpMat3 tpMat3MakeSkew(tpFloat _x, tpFloat _y);
+TARP_API tpMat2 tpMat2MakeRotation(tpFloat _angle);
 
-TARP_API tpMat3 tpMat3MakeRotation(tpFloat _angle);
-
-TARP_API int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation,
+TARP_API int tpMat2Decompose(const tpMat2 * _mat,
                              tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation);
 
-TARP_API tpBool tpMat3Equals(const tpMat3 * _a, const tpMat3 * _b);
+TARP_API tpBool tpMat2Equals(const tpMat2 * _a, const tpMat2 * _b);
 
-TARP_API tpVec2 tpMat3MultVec2(const tpMat3 * _mat, tpVec2 _vec);
+TARP_API tpVec2 tpMat2MultVec2(const tpMat2 * _mat, tpVec2 _vec);
 
-TARP_API tpMat3 tpMat3Mult(const tpMat3 * _a, const tpMat3 * _b);
+TARP_API tpMat2 tpMat2Mult(const tpMat2 * _a, const tpMat2 * _b);
+
+TARP_API tpMat2 tpMat2Invert(const tpMat2 * _mat);
+
+TARP_API tpTransform tpTransformMake(tpFloat _a, tpFloat _b, tpFloat _x,
+                                     tpFloat _c, tpFloat _d, tpFloat _y);
+
+TARP_API tpTransform tpTransformMakeIdentity();
+
+TARP_API tpTransform tpTransformMakeScale(tpFloat _x, tpFloat _y);
+
+TARP_API tpTransform tpTransformMakeSkew(tpFloat _x, tpFloat _y);
+
+TARP_API tpTransform tpTransformMakeRotation(tpFloat _angle);
+
+TARP_API int tpTransformDecompose(const tpTransform * _trafo,
+                                  tpVec2 * _outTranslation, tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation);
+
+TARP_API tpBool tpTransformEquals(const tpTransform * _a, const tpTransform * _b);
+
+TARP_API tpVec2 tpTransformApply(const tpTransform * _trafo, tpVec2 _vec);
+
+TARP_API tpTransform tpTransformCombine(const tpTransform * _a, const tpTransform * _b);
 
 TARP_API tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3, /* row1 */
                            tpFloat _v4, tpFloat _v5, tpFloat _v6, tpFloat _v7, /* row2 */
@@ -335,7 +362,7 @@ TARP_API tpMat4 tpMat4MakeIdentity();
 
 TARP_API tpMat4 tpMat4MakeOrtho(tpFloat _left, tpFloat _right, tpFloat _bottom, tpFloat _top, tpFloat _near, tpFloat _far);
 
-TARP_API tpMat4 tpMat4MakeFrom2DTransform(const tpMat3 * _transform);
+TARP_API tpMat4 tpMat4MakeFrom2DTransform(const tpTransform * _transform);
 
 TARP_API tpMat4 tpMat4Mult(const tpMat4 * _a, const tpMat4 * _b);
 
@@ -357,10 +384,10 @@ TARP_API tpPath tpPathCreate();
 TARP_API void tpPathDestroy(tpPath _path);
 
 /* Set the fill transformation */
-TARP_API tpBool tpPathSetFillPaintTransform(tpPath, const tpMat3 * _transform);
+TARP_API tpBool tpPathSetFillPaintTransform(tpPath, const tpTransform * _transform);
 
 /* Set the stroke transformation */
-TARP_API tpBool tpPathSetStrokePaintTransform(tpPath, const tpMat3 * _transform);
+TARP_API tpBool tpPathSetStrokePaintTransform(tpPath, const tpTransform * _transform);
 
 /* Adds a circle contour to the provided path */
 TARP_API tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r);
@@ -575,7 +602,7 @@ TARP_API tpBool tpFinishDrawing(tpContext _ctx);
 TARP_API tpBool tpSetProjection(tpContext _ctx, const tpMat4 * _projection);
 
 /* Set the path transformation. All following draw calls will be affected by it. */
-TARP_API tpBool tpSetTransform(tpContext _ctx, const tpMat3 * _transform);
+TARP_API tpBool tpSetTransform(tpContext _ctx, const tpTransform * _transform);
 
 /* Reset the transformation to the identity matrix */
 TARP_API tpBool tpResetTransform(tpContext _ctx);
@@ -668,7 +695,7 @@ TARP_API tpFloat tpVec2LengthSquared(tpVec2 _vec)
 
 TARP_API void tpVec2NormalizeSelf(tpVec2 * _vec)
 {
-    tpFloat s = 1.0 / tpVec2Length(*_vec);
+    tpFloat s = 1 / tpVec2Length(*_vec);
     _vec->x *= s;
     _vec->y *= s;
 }
@@ -676,7 +703,7 @@ TARP_API void tpVec2NormalizeSelf(tpVec2 * _vec)
 TARP_API tpVec2 tpVec2Normalize(tpVec2 _vec)
 {
     tpVec2 ret = _vec;
-    tpFloat s = 1.0 / tpVec2Length(_vec);
+    tpFloat s = 1 / tpVec2Length(_vec);
     ret.x *= s; ret.y *= s;
     return ret;
 }
@@ -707,65 +734,54 @@ TARP_API tpFloat tpVec2DistanceSquared(tpVec2 _a, tpVec2 _b)
     return tpVec2LengthSquared(tpVec2Sub(_a, _b));
 }
 
-TARP_API tpMat3 tpMat3Make(tpFloat _v0, tpFloat _v1, tpFloat _v2,
-                           tpFloat _v3, tpFloat _v4, tpFloat _v5,
-                           tpFloat _v6, tpFloat _v7, tpFloat _v8)
+TARP_API tpVec2 tpVec2Lerp(tpVec2 _a, tpVec2 _b, tpFloat _t)
 {
-    tpMat3 ret;
-    ret.v[0] = _v0; ret.v[1] = _v3; ret.v[2] = _v6;
-    ret.v[3] = _v1; ret.v[4] = _v4; ret.v[5] = _v7;
-    ret.v[6] = _v2; ret.v[7] = _v5; ret.v[8] = _v8;
+    return tpVec2Add(tpVec2MultScalar(_a, 1.0f - _t), tpVec2MultScalar(_b, _t));
+}
+
+TARP_API tpMat2 tpMat2Make(tpFloat _a, tpFloat _b,
+                           tpFloat _c, tpFloat _d)
+{
+    tpMat2 ret;
+    ret.v[0] = _a; ret.v[2] = _b;
+	ret.v[1] = _c; ret.v[3] = _d;
     return ret;
 }
 
-TARP_API tpMat3 tpMat3MakeIdentity()
+TARP_API tpMat2 tpMat2MakeIdentity()
 {
-    return tpMat3Make(1, 0, 0,
-                      0, 1, 0,
-                      0, 0, 1);
+    return tpMat2Make(1, 0,
+                      0, 1);
 }
 
-TARP_API tpMat3 tpMat3MakeTranslation(tpFloat _x, tpFloat _y)
+TARP_API tpMat2 tpMat2MakeScale(tpFloat _x, tpFloat _y)
 {
-    return tpMat3Make(1, 0, _x,
-                      0, 1, _y,
-                      0, 0, 1);
+    return tpMat2Make(_x, 0,
+                      0, _y);
 }
 
-TARP_API tpMat3 tpMat3MakeScale(tpFloat _x, tpFloat _y)
+TARP_API tpMat2 tpMat2MakeSkew(tpFloat _x, tpFloat _y)
 {
-    return tpMat3Make(_x, 0, 0,
-                      0, _y, 0,
-                      0, 0, 1);
+    return tpMat2Make(1, tan(_x),
+                      tan(_y), 1);
 }
 
-TARP_API tpMat3 tpMat3MakeSkew(tpFloat _x, tpFloat _y)
-{
-    return tpMat3Make(1, tan(_x), 0,
-                      tan(_y), 1, 0,
-                      0, 0, 1);
-}
-
-TARP_API tpMat3 tpMat3MakeRotation(tpFloat _angle)
+TARP_API tpMat2 tpMat2MakeRotation(tpFloat _angle)
 {
     tpFloat c = cos(_angle);
     tpFloat s = sin(_angle);
-    return tpMat3Make(c, -s, 0,
-                      s, c, 0,
-                      0, 0, 1);
+    return tpMat2Make(c, -s,
+                      s, c);
 }
 
-TARP_API int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation)
+TARP_API int tpMat2Decompose(const tpMat2 * _mat, tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation)
 {
     tpFloat a, b, c, d, det;
 
-    _outTranslation->x = _mat->v[6];
-    _outTranslation->y = _mat->v[7];
-
     a = _mat->v[0];
-    b = _mat->v[3];
+    b = _mat->v[2];
     c = _mat->v[1];
-    d = _mat->v[4];
+    d = _mat->v[3];
     det = a * d - b * c;
 
     if (a != 0 || b != 0)
@@ -798,11 +814,123 @@ TARP_API int tpMat3Decompose(const tpMat3 * _mat, tpVec2 * _outTranslation, tpVe
     return 0;
 }
 
-TARP_API tpBool tpMat3Equals(const tpMat3 * _a, const tpMat3 * _b)
+TARP_API tpBool tpMat2Equals(const tpMat2 * _a, const tpMat2 * _b)
 {
-    return (tpBool)(_a->v[0] == _b->v[0] && _a->v[1] == _b->v[1] && _a->v[2] == _b->v[2] &&
-                    _a->v[3] == _b->v[3] && _a->v[4] == _b->v[4] && _a->v[5] == _b->v[5] &&
-                    _a->v[6] == _b->v[6] && _a->v[7] == _b->v[7] && _a->v[8] == _b->v[8]);
+    return (tpBool)(_a->v[0] == _b->v[0] && _a->v[1] == _b->v[1] &&
+	                _a->v[2] == _b->v[2] && _a->v[3] == _b->v[3]);
+}
+
+TARP_API tpVec2 tpMat2MultVec2(const tpMat2 * _mat, tpVec2 _vec)
+{
+    tpVec2 ret;
+    ret.x = _vec.x * _mat->v[0] + _vec.y * _mat->v[2];
+    ret.y = _vec.x * _mat->v[1] + _vec.y * _mat->v[3];
+    return ret;
+}
+
+TARP_API tpMat2 tpMat2Mult(const tpMat2 * _a, const tpMat2 * _b)
+{
+    tpMat2 ret;
+
+    ret.v[0] = _b->v[0] * _a->v[0] + _b->v[1] * _a->v[2];
+    ret.v[1] = _b->v[0] * _a->v[1] + _b->v[1] * _a->v[3];
+    ret.v[2] = _b->v[2] * _a->v[0] + _b->v[3] * _a->v[2];
+    ret.v[3] = _b->v[2] * _a->v[1] + _b->v[3] * _a->v[3];
+
+    return ret;
+}
+
+TARP_API tpMat2 tpMat2Invert(const tpMat2 * _mat)
+{
+	tpMat2 ret;
+    tpFloat inv_det = 1 / (_mat->v[0] * _mat->v[3] - _mat->v[1] * _mat->v[2]);
+    ret.v[0] =  _mat->v[3] * inv_det;
+    ret.v[1] = -_mat->v[1] * inv_det;
+    ret.v[2] = -_mat->v[2] * inv_det;
+    ret.v[3] =  _mat->v[0] * inv_det;
+	return ret;
+}
+
+TARP_API tpTransform tpTransformInvert(const tpTransform * _trafo)
+{
+	tpTransform ret;
+	ret.m = tpMat2Invert(&_trafo->m);
+	ret.t = tpMat2MultVec2(&ret.m, tpVec2Make(-_trafo->t.x, -_trafo->t.y));
+	return ret;
+}
+
+TARP_API tpTransform tpTransformMake(tpFloat _a, tpFloat _b, tpFloat _x,
+                                     tpFloat _c, tpFloat _d, tpFloat _y)
+{
+	tpTransform ret;
+	ret.m = tpMat2Make(_a, _b, _c, _d);
+	ret.t = tpVec2Make(_x, _y);
+	return ret;
+}
+
+TARP_API tpTransform tpTransformMakeIdentity()
+{
+	tpTransform ret;
+	ret.m = tpMat2MakeIdentity();
+	ret.t = tpVec2Make(0, 0);
+	return ret;
+}
+
+TARP_API tpTransform tpTransformMakeTranslation(tpFloat _x, tpFloat _y)
+{
+	tpTransform ret;
+	ret.m = tpMat2MakeIdentity();
+	ret.t = tpVec2Make(_x, _y);
+	return ret;
+}
+
+TARP_API tpTransform tpTransformMakeScale(tpFloat _x, tpFloat _y)
+{
+	tpTransform ret;
+	ret.m = tpMat2MakeScale(_x, _y);
+	ret.t = tpVec2Make(0, 0);
+	return ret;
+}
+
+TARP_API tpTransform tpTransformMakeSkew(tpFloat _x, tpFloat _y)
+{
+	tpTransform ret;
+	ret.m = tpMat2MakeSkew(_x, _y);
+	ret.t = tpVec2Make(0, 0);
+	return ret;
+}
+
+TARP_API tpTransform tpTransformMakeRotation(tpFloat _angle)
+{
+	tpTransform ret;
+	ret.m = tpMat2MakeRotation(_angle);
+	ret.t = tpVec2Make(0, 0);
+	return ret;
+}
+
+TARP_API int tpTransformDecompose(const tpTransform * _trafo,
+                                  tpVec2 * _outTranslation, tpVec2 * _outScale, tpVec2 * _outSkew, tpFloat * _outRotation)
+{
+	*_outTranslation = _trafo->t;
+	return tpMat2Decompose(&_trafo->m, _outScale, _outSkew, _outRotation);
+}
+
+TARP_API tpBool tpTransformEquals(const tpTransform * _a, const tpTransform * _b)
+{
+	return (tpBool)(tpMat2Equals(&_a->m, &_b->m) && tpVec2Equals(_a->t, _b->t));
+}
+
+TARP_API tpVec2 tpTransformApply(const tpTransform * _trafo, tpVec2 _vec)
+{
+	return tpVec2Add(tpMat2MultVec2(&_trafo->m, _vec), _trafo->t);
+}
+
+TARP_API tpTransform tpTransformCombine(const tpTransform * _a, const tpTransform * _b)
+{
+	tpTransform ret;
+	ret.t = tpTransformApply(_a, _b->t);
+	ret.m = tpMat2Mult(&_a->m, &_b->m);
+	return ret;
 }
 
 TARP_API tpMat4 tpMat4Make(tpFloat _v0, tpFloat _v1, tpFloat _v2, tpFloat _v3,
@@ -841,11 +969,11 @@ TARP_API tpMat4 tpMat4MakeOrtho(tpFloat _left, tpFloat _right, tpFloat _bottom, 
                       0.0, 0.0, 0, 1.0);
 }
 
-TARP_API tpMat4 tpMat4MakeFrom2DTransform(const tpMat3 * _transform)
+TARP_API tpMat4 tpMat4MakeFrom2DTransform(const tpTransform * _transform)
 {
-    return tpMat4Make(_transform->v[0], _transform->v[3], 0, _transform->v[6],
-                      _transform->v[1], _transform->v[4], 0, _transform->v[7],
-                      _transform->v[2], _transform->v[5], 1, 0,
+    return tpMat4Make(_transform->m.v[0], _transform->m.v[2], 0, _transform->t.x,
+                      _transform->m.v[1], _transform->m.v[3], 0, _transform->t.y,
+                      0, 0, 1, 0,
                       0, 0, 0, 1.0);
 }
 
@@ -869,31 +997,6 @@ TARP_API tpMat4 tpMat4Mult(const tpMat4 * _a, const tpMat4 * _b)
     ret.v[13] = _b->v[12] * _a->v[1] + _b->v[13] * _a->v[5] + _b->v[14] * _a->v[9]  + _b->v[15] * _a->v[13];
     ret.v[14] = _b->v[12] * _a->v[2] + _b->v[13] * _a->v[6] + _b->v[14] * _a->v[10] + _b->v[15] * _a->v[14];
     ret.v[15] = _b->v[12] * _a->v[3] + _b->v[13] * _a->v[7] + _b->v[14] * _a->v[11] + _b->v[15] * _a->v[15];
-
-    return ret;
-}
-
-TARP_API tpVec2 tpMat3MultVec2(const tpMat3 * _mat, tpVec2 _vec)
-{
-    tpVec2 ret;
-    ret.x = _vec.x * _mat->v[0] + _vec.y * _mat->v[3] + _mat->v[6];
-    ret.y = _vec.x * _mat->v[1] + _vec.y * _mat->v[4] + _mat->v[7];
-    return ret;
-}
-
-TARP_API tpMat3 tpMat3Mult(const tpMat3 * _a, const tpMat3 * _b)
-{
-    tpMat3 ret;
-
-    ret.v[0] = _b->v[0] * _a->v[0] + _b->v[1] * _a->v[3] + _b->v[2] * _a->v[6];
-    ret.v[1] = _b->v[0] * _a->v[1] + _b->v[1] * _a->v[4] + _b->v[2] * _a->v[7];
-    ret.v[2] = _b->v[0] * _a->v[2] + _b->v[1] * _a->v[5] + _b->v[2] * _a->v[8];
-    ret.v[3] = _b->v[3] * _a->v[0] + _b->v[4] * _a->v[3] + _b->v[5] * _a->v[6];
-    ret.v[4] = _b->v[3] * _a->v[1] + _b->v[4] * _a->v[4] + _b->v[5] * _a->v[7];
-    ret.v[5] = _b->v[3] * _a->v[2] + _b->v[4] * _a->v[5] + _b->v[5] * _a->v[8];
-    ret.v[6] = _b->v[6] * _a->v[0] + _b->v[7] * _a->v[3] + _b->v[8] * _a->v[6];
-    ret.v[7] = _b->v[6] * _a->v[1] + _b->v[7] * _a->v[4] + _b->v[8] * _a->v[7];
-    ret.v[8] = _b->v[6] * _a->v[2] + _b->v[7] * _a->v[5] + _b->v[8] * _a->v[8];
 
     return ret;
 }
@@ -1082,7 +1185,7 @@ typedef struct TARP_LOCAL
     _tpGLContourArray contours;
     int currentContourIndex;
     char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
-    tpMat3 transform;
+    tpTransform transform;
 
     /* rendering specific data/caches */
     _tpVec2Array geometryCache;
@@ -1107,8 +1210,8 @@ typedef struct TARP_LOCAL
     _tpGLContext * lastDrawContext;
     int lastTransformID;
 
-    tpMat3 fillPaintTransform;
-    tpMat3 strokePaintTransform;
+    tpTransform fillPaintTransform;
+    tpTransform strokePaintTransform;
     tpBool bFillPaintTransformDirty;
     tpBool bStrokePaintTransformDirty;
 } _tpGLPath;
@@ -1151,7 +1254,7 @@ typedef struct TARP_LOCAL
 {
     GLenum activeTexture;
     GLboolean depthTest;
-    GLint depthMask;
+    GLboolean depthMask;
     GLboolean multisample;
     GLboolean stencilTest;
     GLuint stencilMask;
@@ -1189,7 +1292,7 @@ struct _tpGLContext
     int clippingStackDepth;
     int currentClipStencilPlane;
     tpBool bCanSwapStencilPlanes;
-    tpMat3 transform;
+    tpTransform transform;
     tpMat4 renderTransform;
     tpMat4 projection;
     tpMat4 transformProjection;
@@ -1232,7 +1335,7 @@ TARP_LOCAL tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, G
     GLint state, len, infologLength;
 
     glHandle = glCreateShader(_shaderType);
-    len = strlen(_shaderCode);
+    len = (GLint)strlen(_shaderCode);
     _TARP_ASSERT_NO_GL_ERROR(glShaderSource(glHandle, 1, &_shaderCode, &len));
     _TARP_ASSERT_NO_GL_ERROR(glCompileShader(glHandle));
 
@@ -1359,7 +1462,7 @@ TARP_API tpContext tpContextCreate()
     ctx->clippingStackDepth = 0;
     ctx->currentClipStencilPlane = _kTpGLClippingStencilPlaneOne;
     ctx->bCanSwapStencilPlanes = tpTrue;
-    ctx->transform = tpMat3MakeIdentity();
+    ctx->transform = tpTransformMakeIdentity();
     ctx->renderTransform = tpMat4MakeIdentity();
     ctx->transformScale = 1.0;
     ctx->transformID = 0;
@@ -1393,8 +1496,6 @@ TARP_API const char * tpImplementationName()
 
 TARP_API void tpContextDestroy(tpContext _ctx)
 {
-    int i;
-
     _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
 
     /* free all opengl resources */
@@ -1422,7 +1523,7 @@ TARP_API tpPath tpPathCreate()
     _tpGLContourArrayInit(&path->contours, 4);
     path->currentContourIndex = -1;
     memset(path->errorMessage, 0, sizeof(path->errorMessage));
-    path->transform = tpMat3MakeIdentity();
+    path->transform = tpTransformMakeIdentity();
 
     _tpVec2ArrayInit(&path->geometryCache, 128);
     _tpGLTextureVertexArrayInit(&path->textureGeometryCache, 32);
@@ -1440,8 +1541,8 @@ TARP_API tpPath tpPathCreate()
     path->lastDrawContext = NULL;
     path->lastTransformID = 0;
 
-    path->fillPaintTransform = tpMat3MakeIdentity();
-    path->strokePaintTransform = tpMat3MakeIdentity();
+    path->fillPaintTransform = tpTransformMakeIdentity();
+    path->strokePaintTransform = tpTransformMakeIdentity();
     path->bFillPaintTransformDirty = tpFalse;
     path->bStrokePaintTransformDirty = tpFalse;
 
@@ -1801,7 +1902,7 @@ TARP_LOCAL void _tpGLMarkPathGeometryDirty(_tpGLPath * _p)
     }
 }
 
-TARP_API tpBool tpPathSetFillPaintTransform(tpPath _path, const tpMat3 * _transform)
+TARP_API tpBool tpPathSetFillPaintTransform(tpPath _path, const tpTransform * _transform)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
     p->fillPaintTransform = *_transform;
@@ -1809,7 +1910,7 @@ TARP_API tpBool tpPathSetFillPaintTransform(tpPath _path, const tpMat3 * _transf
     return tpFalse;
 }
 
-TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpMat3 * _transform)
+TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpTransform * _transform)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
     p->strokePaintTransform = *_transform;
@@ -2250,7 +2351,7 @@ TARP_LOCAL void _tpGLMakeJoinRound(tpVec2 _p,
     @TODO: The stepsize should most likely take the stroke width in user space into account
     (i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
     */
-    stepSize = TARP_PI / 16;
+    stepSize = (tpFloat)(TARP_PI / 16);
 
     last = _e0;
     for (angle = stepSize; angle < theta; angle += stepSize)
@@ -2319,8 +2420,7 @@ TARP_LOCAL void _tpGLMakeJoinMiter(tpVec2 _p,
                                    tpFloat _cross,
                                    _tpVec2Array * _outVertices)
 {
-    tpFloat t;
-    tpVec2 intersection;
+	tpVec2 intersection;
 
     tpVec2 inv = tpVec2MultScalar(_dir1, -1);
     _tpGLIntersectLines(_e0, _dir0, _e1, _dir1, &intersection);
@@ -2405,7 +2505,7 @@ TARP_LOCAL void _tpGLMakeCapRound(tpVec2 _p,
     @TODO: The stepsize should most likely take the stroke width in user space into account
     (i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
     */
-    stepSize = TARP_PI / 16;
+    stepSize = (tpFloat)(TARP_PI / 16);
 
     last = _e0;
     for (angle = stepSize; angle < TARP_PI; angle += stepSize)
@@ -2483,7 +2583,6 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
             tpVec2NormalizeSelf(&dir);
             perp.x = dir.y * halfSw;
             perp.y = -dir.x * halfSw;
-            cross = tpVec2Cross(perp, perpPrev);
 
             le0 = tpVec2Add(p0, perp);
             re0 = tpVec2Sub(p0, perp);
@@ -2515,6 +2614,7 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
             }
             else
             {
+                cross = tpVec2Cross(perp, perpPrev);
                 /* check if this is a joint */
                 if (_tpBoolArrayAt(_joints, j))
                 {
@@ -2572,10 +2672,9 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
     tpVec2 le0, le1, re0, re1, lePrev, rePrev;
     tpVec2 firstDir, firstPerp, firstLe, firstRe;
-    tpVec2 current;
     tpVec2 dirr;
     tpFloat cross, halfSw, dashOffset, dashLen, segmentOff, segmentLen;
-    tpFloat dashPatternOffset, patternLen, offsetIntoPattern;
+    tpFloat patternLen, offsetIntoPattern;
     tpBool bOnDash, bDashStart, bFirstDashMightNeedJoin, bLastSegment;
     tpBool bStartDashOn, bBarelyJoined;
     tpFloat startDashLen;
@@ -2901,7 +3000,7 @@ TARP_LOCAL void _tpGLMergeBounds(_tpGLRect * _a, const _tpGLRect * _b)
 
 TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
                                 tpFloat _angleTolerance,
-                                const tpMat3 * _transform,
+                                const tpTransform * _transform,
                                 _tpVec2Array * _outVertices,
                                 _tpBoolArray * _outJoints,
                                 _tpGLRect * _outBounds)
@@ -2943,10 +3042,10 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
 
                 if (_transform)
                 {
-                    curve.p0 = j > 1 ? lastTransformedPos : tpMat3MultVec2(_transform, curve.p0);
-                    curve.h0 = tpMat3MultVec2(_transform, curve.h0);
-                    curve.h1 = tpMat3MultVec2(_transform, curve.h1);
-                    curve.p1 = tpMat3MultVec2(_transform, curve.p1);
+                    curve.p0 = j > 1 ? lastTransformedPos : tpTransformApply(_transform, curve.p0);
+                    curve.h0 = tpTransformApply(_transform, curve.h0);
+                    curve.h1 = tpTransformApply(_transform, curve.h1);
+                    curve.p1 = tpTransformApply(_transform, curve.p1);
                     lastTransformedPos = curve.p1;
                 }
 
@@ -2979,9 +3078,9 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
                 {
                     /* @TODO: are there cases were lastTransformedPos can still be uninitialized?!?! */
                     curve.p0 = lastTransformedPos;
-                    curve.h0 = tpMat3MultVec2(_transform, curve.h0);
-                    curve.h1 = tpMat3MultVec2(_transform, curve.h1);
-                    curve.p1 = tpMat3MultVec2(_transform, curve.p1);
+                    curve.h0 = tpTransformApply(_transform, curve.h0);
+                    curve.h1 = tpTransformApply(_transform, curve.h1);
+                    curve.p1 = tpTransformApply(_transform, curve.p1);
                 }
 
                 _tpGLFlattenCurve(_path,
@@ -3148,7 +3247,7 @@ TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 TARP_LOCAL void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
 {
     /* not sure if this buffer orphaning style data upload makes a difference these days anymore. (TEST??) */
-    if (_byteCount > _vao->vboSize)
+    if ((GLuint)_byteCount > _vao->vboSize)
     {
         _TARP_ASSERT_NO_GL_ERROR(glBufferData(GL_ARRAY_BUFFER, _byteCount, _data, GL_DYNAMIC_DRAW));
         _vao->vboSize = _byteCount;
@@ -3233,7 +3332,7 @@ typedef struct TARP_LOCAL
 TARP_LOCAL void _tpGLGradientLinearGeometry(
     _tpGLContext * _ctx,
     _tpGLGradient * _grad,
-    const tpMat3 * _paintTransform,
+    const tpTransform * _paintTransform,
     const _tpGLRect * _bounds,
     _tpGLTextureVertexArray * _vertices,
     int * _outVertexOffset,
@@ -3246,8 +3345,8 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
     tpFloat len2;
     int i;
 
-    origin = tpMat3MultVec2(_paintTransform, _grad->origin);
-    dest = tpMat3MultVec2(_paintTransform, _grad->destination);
+    origin = tpTransformApply(_paintTransform, _grad->origin);
+    dest = tpTransformApply(_paintTransform, _grad->destination);
     dir = tpVec2Sub(dest, origin);
     len2 = tpVec2LengthSquared(dir);
     ndir = tpVec2MultScalar(dir, 1/len2);
@@ -3269,10 +3368,34 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
     _tpGLTextureVertexArrayAppendArray(_vertices, vertices, 4);
 }
 
+TARP_LOCAL tpFloat _tpLineUnitCircleIntersection(tpVec2 _p0, tpVec2 _p1)
+{
+	/* Find t such that tpVec2Lerp(p0, p1, t) lies on the unit circle (taking the larger of two solutions) */
+    tpFloat p0_2 = tpVec2LengthSquared(_p0);
+	tpFloat p0p1 = tpVec2Dot(_p0, _p1);
+	tpVec2 p0_p1 = tpVec2Sub(_p0, _p1);
+	tpFloat p0_p1_2 = tpVec2LengthSquared(p0_p1);
+	/* quadratic equation: a = (p0-p1)^2, b = 2 t (p0.p1 - p0^2), c = p0^2 - 1 */
+	tpFloat discriminant = (p0p1-p0_2)*(p0p1-p0_2) - p0_p1_2*(p0_2-1);
+	assert(discriminant >= 0);
+	return (sqrt(discriminant) - p0p1 + p0_2) / p0_p1_2;
+}
+
+TARP_LOCAL tpFloat _tpLerp(tpFloat _a, tpFloat _b, tpFloat _t)
+{
+	return _a * (1.0f - _t) + _b * _t;
+}
+
+TARP_LOCAL tpFloat _tpInvLerp(tpFloat _a, tpFloat _b, tpFloat _x)
+{
+	assert(_b - _a != 0);
+	return (_x - _a) / (_b - _a);
+}
+
 TARP_LOCAL void _tpGLGradientRadialGeometry(
     _tpGLContext * _ctx,
     _tpGLGradient * _grad,
-    const tpMat3 * _paintTransform,
+    const tpTransform * _paintTransform,
     const _tpGLRect * _bounds,
     _tpGLTextureVertexArray * _vertices,
     int * _outVertexOffset,
@@ -3280,36 +3403,29 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
 {   
     /* regenerate the geometry for this path/gradient combo */
     _tpGLTextureVertex vertices[TARP_RADIAL_GRADIENT_SLICES + 7];
-    int i, vertex_count;
-    tpFloat ratio, phi;
-    tpMat3 ellipse, inverse, rot;
-    tpVec2 origin, focal_point, dest, a, b;
-    tpVec2 tmp, tmp2;
-    tpFloat inv_det, r;
-    
-    tpVec2 f, p, p_f;
-    tpFloat f2, fp, p_f2, discriminant, divisor;
-    
-    ratio = fabs(_grad->ratio);
+    int vertex_count;
+    tpTransform ellipse, inverse;
+	tpMat2 rot;
+    tpVec2 focalPoint, a, b, circleFocalPoint;
+    tpVec2 tmp, tmp2, tmp3;
+    tpFloat phi, t;
     
     /* apply _paintTransform */
-    origin = _grad->origin;
-    a = tpVec2Sub(_grad->destination, origin);
-    b.x = -a.y * ratio;
-    b.y =  a.x * ratio;
-    ellipse = tpMat3Make(a.x, b.x, origin.x,
-                         a.y, b.y, origin.y,
-                           0,   0,        1);
-    ellipse = tpMat3Mult(_paintTransform, &ellipse);
-    a = tpVec2Make(ellipse.v[0], ellipse.v[1]);
-    b = tpVec2Make(ellipse.v[3], ellipse.v[4]);
-    origin = tpVec2Make(ellipse.v[6], ellipse.v[7]);
+    a = tpVec2Sub(_grad->destination, _grad->origin);
+    b.x = -a.y * _grad->ratio;
+    b.y =  a.x * _grad->ratio;
+    ellipse = tpTransformMake(a.x, b.x, _grad->origin.x,
+                              a.y, b.y, _grad->origin.y);
+    ellipse = tpTransformCombine(_paintTransform, &ellipse);
+    a = tpVec2Make(ellipse.m.v[0], ellipse.m.v[1]);
+    b = tpVec2Make(ellipse.m.v[2], ellipse.m.v[3]);
     
     tmp = tpVec2Add(_grad->focal_point_offset, _grad->origin);
-    focal_point = tpMat3MultVec2(_paintTransform, tmp);
+    focalPoint = tpTransformApply(_paintTransform, tmp);
     
-    /* handle some degenerate cases */
-    if(tpVec2LengthSquared(a) < 0.01 || tpVec2LengthSquared(b) < 0.01 || tpVec2Cross(a,b) < 0.01){
+    /* avoid numerical instabilities for gradients of near-zero size */
+	/* TODO: The values of 0.1 are somewhat arbitrarily chosen. This might require more rigorous analysis. */
+    if(tpVec2LengthSquared(a) < 0.1 || tpVec2LengthSquared(b) < 0.1 || fabs(tpVec2Cross(a,b)) < 0.1){
         vertices[0].vertex = _bounds->min;
         vertices[1].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
         vertices[2].vertex = _bounds->max;
@@ -3321,98 +3437,115 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
         return;
     }
     
-    /* find a matrix, which converts the ellipse into a unit circle */
-    inv_det = 1 / (ellipse.v[0] * ellipse.v[4] - ellipse.v[1] * ellipse.v[3]);
-    inverse = tpMat3MakeIdentity();
-    inverse.v[0] =  ellipse.v[4] * inv_det;
-    inverse.v[1] = -ellipse.v[1] * inv_det;
-    inverse.v[3] = -ellipse.v[3] * inv_det;
-    inverse.v[4] =  ellipse.v[0] * inv_det;
-    inverse.v[6] = -(origin.x * inverse.v[0] + origin.y * inverse.v[3]);
-    inverse.v[7] = -(origin.x * inverse.v[1] + origin.y * inverse.v[4]);
+    /* find a transform, which converts the ellipse into a unit circle */
+    inverse = tpTransformInvert(&ellipse);
     
     /* ensure that the focal point lies inside the ellipse */
-    tmp = tpMat3MultVec2(&inverse, focal_point);
-    r = tpVec2Length(tmp);
-    if(r > 0.999){
-        tmp2 = tpVec2MultScalar(tmp, 0.999/r);
-        focal_point = tpMat3MultVec2(&ellipse, tmp2);
+    tmp = tpTransformApply(&inverse, focalPoint);
+    t = tpVec2Length(tmp);
+    if(t > 0.999f){
+        tmp2 = tpVec2MultScalar(tmp, 0.999f/t);
+        focalPoint = tpTransformApply(&ellipse, tmp2);
     }
+    circleFocalPoint = tpTransformApply(&inverse, focalPoint);
     
-    vertices[0].vertex = focal_point;
+    vertices[0].vertex = focalPoint;
     vertices[0].tc = tpVec2Make(0,0);
-    vertex_count = 1;
+	vertex_count = 1;
     
-    phi = 2*TARP_PI / TARP_RADIAL_GRADIENT_SLICES;
-    rot = tpMat3MakeRotation(phi);
-    tmp = tpVec2Make(_bounds->max.x, _bounds->min.y);
-    tmp = tpMat3MultVec2(&inverse, tmp);
-    tmp = tpVec2Normalize(tmp);
-    
-    vertices[vertex_count].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
-    /* max x edge */
-    do{
-        ++vertex_count;
-        tmp = tpMat3MultVec2(&rot, tmp);
-        tmp2 = tpMat3MultVec2(&ellipse, tmp);
-        if(tmp2.x <= origin.x){ break; }
-        vertices[vertex_count].vertex = tpVec2Make(_bounds->max.x, origin.y + (tmp2.y - origin.y) * (_bounds->max.x - origin.x) / (tmp2.x - origin.x));
-    }while(vertices[vertex_count].vertex.y < _bounds->max.y);
-    vertices[vertex_count].vertex = _bounds->max;
-    /* max y edge */
-    do{
-        ++vertex_count;
-        tmp = tpMat3MultVec2(&rot, tmp);
-        tmp2 = tpMat3MultVec2(&ellipse, tmp);
-        if(tmp2.y <= origin.y){ break; }
-        vertices[vertex_count].vertex = tpVec2Make(origin.x + (tmp2.x - origin.x) * (_bounds->max.y - origin.y) / (tmp2.y - origin.y), _bounds->max.y);
-    }while(vertices[vertex_count].vertex.x > _bounds->min.x);
-    vertices[vertex_count].vertex = tpVec2Make(_bounds->min.x, _bounds->max.y);
-    /* min x edge */
-    do{
-        ++vertex_count;
-        tmp = tpMat3MultVec2(&rot, tmp);
-        tmp2 = tpMat3MultVec2(&ellipse, tmp);
-        if(tmp2.x >= origin.x){ break; }
-        vertices[vertex_count].vertex = tpVec2Make(_bounds->min.x, origin.y + (tmp2.y - origin.y) * (_bounds->min.x - origin.x) / (tmp2.x - origin.x));
-    }while(vertices[vertex_count].vertex.y > _bounds->min.y);
-    vertices[vertex_count].vertex = _bounds->min;
-    /* min y edge */
-    do{
-        ++vertex_count;
-        tmp = tpMat3MultVec2(&rot, tmp);
-        tmp2 = tpMat3MultVec2(&ellipse, tmp);
-        if(tmp2.y >= origin.y){ break; }
-        vertices[vertex_count].vertex = tpVec2Make(origin.x + (tmp2.x - origin.x) * (_bounds->min.y - origin.y) / (tmp2.y - origin.y), _bounds->min.y);
-    }while(vertices[vertex_count].vertex.x < _bounds->max.x);
-    vertices[vertex_count].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
+    phi = (tpFloat)(2 * TARP_PI / TARP_RADIAL_GRADIENT_SLICES);
+    rot = tpMat2MakeRotation(phi);
+	
+	/* max x, min y corner */
+    tmp2 = tpVec2Make(_bounds->max.x, _bounds->min.y);
+	vertices[vertex_count].vertex = tmp2;
+	tmp3 = tpTransformApply(&inverse, tmp2);
+	t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
+	tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
+	vertices[vertex_count].tc.x = 1/t;
     ++vertex_count;
-
-    /* calculate the texture coordinates*/
-    /* if the focal_point_offset is 0, this becomes:
-    for (i = 1; i < vertex_count; ++i)
-    {
-        tmp = tpMat3MultVec2(&inverse, vertices[i].vertex);
-        vertices[i].tc.x = tpVec2Length(tmp);
-        vertices[i].tc.y = 0;
+	
+    /* max x edge */
+    if(focalPoint.x < _bounds->max.x) for(;;){
+        tmp = tpMat2MultVec2(&rot, tmp);
+        tmp2 = tpTransformApply(&ellipse, tmp);
+		t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->max.x);
+		tmp3 = tpVec2Make(_bounds->max.x, _tpLerp(focalPoint.y, tmp2.y, t));
+		if(tmp2.x <= focalPoint.x || tmp3.y > _bounds->max.y) { break; }
+		vertices[vertex_count].vertex = tmp3;
+		vertices[vertex_count].tc.x   = t;
+		++vertex_count;
     }
-    */
-    f = tpMat3MultVec2(&inverse, focal_point);
-    f2 = tpVec2LengthSquared(f);
-    for (i = 1; i < vertex_count; ++i)
-    {
-        vertices[i].tc.x = 0;
-        vertices[i].tc.y = 0;
-        /* line-circle-intersection */
-        p = tpMat3MultVec2(&inverse, vertices[i].vertex);
-        fp = tpVec2Dot(p, f);
-        p_f = tpVec2Sub(p, f);
-        p_f2 = tpVec2LengthSquared(p_f);
-        discriminant = (fp-f2)*(fp-f2) - p_f2*(f2-1);
-        if(discriminant < 0) { continue; }
-        divisor = sqrt(discriminant) - fp + f2;
-        vertices[i].tc.x = p_f2 / divisor;
+	
+	/* max x, max y corner */
+    tmp2 = _bounds->max;
+	vertices[vertex_count].vertex = tmp2;
+	tmp3 = tpTransformApply(&inverse, tmp2);
+	t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
+	tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
+	vertices[vertex_count].tc.x = 1/t;
+	++vertex_count;
+	
+    /* max y edge */
+    if(focalPoint.y < _bounds->max.y) for(;;){
+        tmp = tpMat2MultVec2(&rot, tmp);
+        tmp2 = tpTransformApply(&ellipse, tmp);
+		t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->max.y);
+		tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->max.y);
+		if(tmp2.y <= focalPoint.y || tmp3.x < _bounds->min.x) { break; }
+		vertices[vertex_count].vertex = tmp3;
+		vertices[vertex_count].tc.x   = t;
+		++vertex_count;
     }
+	
+	/* min x, max y corner */
+    tmp2 = tpVec2Make(_bounds->min.x, _bounds->max.y);
+	vertices[vertex_count].vertex = tmp2;
+	tmp3 = tpTransformApply(&inverse, tmp2);
+	t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
+	tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
+	vertices[vertex_count].tc.x = 1/t;
+	++vertex_count;
+	
+    /* min x edge */
+    if(focalPoint.x > _bounds->min.x) for(;;){
+        tmp = tpMat2MultVec2(&rot, tmp);
+        tmp2 = tpTransformApply(&ellipse, tmp);
+		t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->min.x);
+		tmp3 = tpVec2Make(_bounds->min.x, _tpLerp(focalPoint.y, tmp2.y, t));
+		if(tmp2.x >= focalPoint.x || tmp3.y < _bounds->min.y) { break; }
+		vertices[vertex_count].vertex = tmp3;
+		vertices[vertex_count].tc.x   = t;
+		++vertex_count;
+    }
+	
+	/* min x, min y corner */
+    tmp2 = _bounds->min;
+	vertices[vertex_count].vertex = tmp2;
+	tmp3 = tpTransformApply(&inverse, tmp2);
+	t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
+	tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
+	vertices[vertex_count].tc.x = 1/t;
+	++vertex_count;
+	
+    /* min y edge */
+    if(focalPoint.y > _bounds->min.y) for(;;){
+        tmp = tpMat2MultVec2(&rot, tmp);
+        tmp2 = tpTransformApply(&ellipse, tmp);
+		t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->min.y);
+		tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->min.y);
+		if(tmp2.y >= focalPoint.y || tmp3.x > _bounds->max.x) { break; }
+		vertices[vertex_count].vertex = tmp3;
+		vertices[vertex_count].tc.x   = t;
+		++vertex_count;
+    }
+	
+	/* max x, min y corner */
+    vertices[vertex_count].vertex = vertices[1].vertex;
+    vertices[vertex_count].tc.x   = vertices[1].tc.x;
+	++vertex_count;
+	
+    assert(vertex_count <= sizeof(vertices) / sizeof(_tpGLTextureVertex));
 
     *_outVertexOffset = _vertices->count;
     *_outVertexCount = vertex_count;
@@ -3421,7 +3554,7 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
 
 TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * _grad,
         _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices,
-        const tpMat3 * _paintTransform, tpBool _bPaintTransformDirty)
+        const tpTransform * _paintTransform, tpBool _bPaintTransformDirty)
 {
     _tpGLGradient * grad = _grad;
 
@@ -3472,7 +3605,7 @@ TARP_API tpBool tpPrepareDrawing(tpContext _ctx)
     /* cache previous render state so we can reset it in tpFinishDrawing */
     glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint *)&ctx->stateBackup.activeTexture);
     ctx->stateBackup.depthTest = glIsEnabled(GL_DEPTH_TEST);
-    glGetIntegerv(GL_DEPTH_WRITEMASK, &ctx->stateBackup.depthMask);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &ctx->stateBackup.depthMask);
     ctx->stateBackup.multisample = glIsEnabled(GL_MULTISAMPLE);
     ctx->stateBackup.stencilTest = glIsEnabled(GL_STENCIL_TEST);
     glGetIntegerv(GL_STENCIL_WRITEMASK, (GLint *)&ctx->stateBackup.stencilMask);
@@ -3563,7 +3696,6 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
 {
     GLint i;
     GLuint stencilPlaneToWriteTo, stencilPlaneToTestAgainst;
-    _tpGLContour * c;
     _tpGLRect bounds;
     _tpGLPath * p = _path;
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
@@ -3613,9 +3745,9 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
 
         /* flatten the path into tmp buffers */
         if (s->bScaleStroke)
-            _tpGLFlattenPath(p, 0.15 / _ctx->transformScale, NULL, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
+            _tpGLFlattenPath(p, 0.15f / _ctx->transformScale, NULL, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
         else
-            _tpGLFlattenPath(p, 0.15, &_ctx->transform, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
+            _tpGLFlattenPath(p, 0.15f, &_ctx->transform, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
 
         /* generate and add the stroke geometry to the tmp buffers */
         if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0)
@@ -3931,19 +4063,19 @@ TARP_API tpBool tpSetProjection(tpContext _ctx, const tpMat4 * _projection)
     return tpFalse;
 }
 
-TARP_API tpBool tpSetTransform(tpContext _ctx, const tpMat3 * _transform)
+TARP_API tpBool tpSetTransform(tpContext _ctx, const tpTransform * _transform)
 {
     tpFloat rotation;
     _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
 
-    if (!tpMat3Equals(_transform, &ctx->transform))
+    if (!tpTransformEquals(_transform, &ctx->transform))
     {
         tpVec2 scale, skew, translation;
         ctx->transform = *_transform;
         ctx->transformID++;
         ctx->bTransformProjDirty = tpTrue;
 
-        tpMat3Decompose(_transform, &translation, &scale, &skew, &rotation);
+        tpTransformDecompose(_transform, &translation, &scale, &skew, &rotation);
         ctx->transformScale = TARP_MAX(scale.x, scale.y);
     }
 
@@ -3953,7 +4085,7 @@ TARP_API tpBool tpSetTransform(tpContext _ctx, const tpMat3 * _transform)
 TARP_API tpBool tpResetTransform(tpContext _ctx)
 {
     _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
-    ctx->transform = tpMat3MakeIdentity();
+    ctx->transform = tpTransformMakeIdentity();
     ctx->transformScale = 1.0;
     ctx->transformID++;
     ctx->bTransformProjDirty = tpTrue;

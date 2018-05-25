@@ -160,12 +160,14 @@ TARP_API _TARP_ITEM_T * _TARP_FN(_TARP_ARRAY_T, AtPtr)(_TARP_ARRAY_T * _array, i
 
 TARP_API int _TARP_FN(_TARP_ARRAY_T, Find)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
 {
+#if defined(_TARP_COMPARATOR_T) && _TARP_COMPARATOR_T == 0
+    assert(_array);
+    assert(_array->array);
+    return -1;
+#else
     int i;
     assert(_array);
     assert(_array->array);
-#if defined(_TARP_COMPARATOR_T) && _TARP_COMPARATOR_T == 0
-    return -1;
-#else
     for (i = 0; i < _array->count; ++i)
     {
 #ifdef _TARP_COMPARATOR_T
@@ -176,8 +178,8 @@ TARP_API int _TARP_FN(_TARP_ARRAY_T, Find)(_TARP_ARRAY_T * _array, _TARP_ITEM_T 
             return i;
 #endif
     }
-#endif
     return -1;
+#endif
 }
 
 TARP_API int _TARP_FN(_TARP_ARRAY_T, RemoveValue)(_TARP_ARRAY_T * _array, _TARP_ITEM_T _value)
