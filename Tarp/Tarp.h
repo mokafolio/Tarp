@@ -3194,7 +3194,7 @@ TARP_LOCAL void _tpGLFinalizeColorStops(_tpGLContext * _ctx, _tpGLGradient * _gr
 
 TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 {
-    tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = {};
+    tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = {0};
     int xStart, xEnd, diff, i, j;
     tpFloat mixFact;
     tpColor mixColor;
@@ -3549,7 +3549,7 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     vertices[vertexCount].tc.x   = vertices[1].tc.x;
     ++vertexCount;
     
-    assert((unsigned long long)vertexCount <= sizeof(vertices) / sizeof(_tpGLTextureVertex));
+    assert((unsigned long)vertexCount <= sizeof(vertices) / sizeof(_tpGLTextureVertex));
 
     *_outVertexOffset = _vertices->count;
     *_outVertexCount = vertexCount;
