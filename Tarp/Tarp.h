@@ -547,7 +547,8 @@ Gradient Functions
 /* Creates a linear gradient with the origin at x0, y0 and the destination at x1, y1 */
 TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
-/* Creates a radial gradient starting at fx, fy and running towards an ellipse with one semi-axis going from ox, oy, to x1, y1 and the other axis being scaled by the ratio */
+/* Creates a radial gradient starting at fx, fy and running towards an ellipse with one semi-axis 
+going from ox, oy, to x1, y1 and the other axis being scaled by the ratio */
 TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox, tpFloat _oy, tpFloat _dx, tpFloat _dy, tpFloat _ratio);
 
 /* Creates a symmetric radial gradient with radius r at x, y */
@@ -1368,10 +1369,10 @@ TARP_LOCAL tpBool _createProgram(const char * _vertexShader, const char * _fragm
     tpBool err;
 
     err = _compileShader(_vertexShader, GL_VERTEX_SHADER, &vertexShader, _outError);
-    if(err) return err;
-    
+    if (err) return err;
+
     err = _compileShader(_fragmentShader, GL_FRAGMENT_SHADER, &fragmentShader, _outError);
-    if(err) return err;
+    if (err) return err;
 
     program = glCreateProgram();
     _TARP_ASSERT_NO_GL_ERROR(glAttachShader(program, vertexShader));
@@ -2098,7 +2099,8 @@ TARP_API tpFillRule tpStyleFillRule(tpStyle _style)
     return ((_tpGLStyle *)_style.pointer)->fillRule;
 }
 
-TARP_LOCAL _tpGLGradient * tpGradientCreate(){
+TARP_LOCAL _tpGLGradient * tpGradientCreate()
+{
     static int s_id = 0;
 
     _tpGLGradient * ret = (_tpGLGradient *)TARP_MALLOC(sizeof(_tpGLGradient));
@@ -2148,7 +2150,7 @@ TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox
 
 TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFloat _radius)
 {
-    return tpGradientCreateRadial(0, 0, _x, _y, _radius, 0, 1);
+    return tpGradientCreateRadial(0, 0, _x, _y, _x + _radius, _y, 1);
 }
 
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
@@ -3349,8 +3351,8 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
     dest = tpTransformApply(_paintTransform, _grad->destination);
     dir = tpVec2Sub(dest, origin);
     len2 = tpVec2LengthSquared(dir);
-    ndir = tpVec2MultScalar(dir, 1/len2);
-    
+    ndir = tpVec2MultScalar(dir, 1 / len2);
+
     vertices[0].vertex = _bounds->min;
     vertices[1].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
     vertices[2].vertex = _bounds->max;
@@ -3376,7 +3378,7 @@ TARP_LOCAL tpFloat _tpLineUnitCircleIntersection(tpVec2 _p0, tpVec2 _p1)
     tpVec2 p0_p1 = tpVec2Sub(_p0, _p1);
     tpFloat p0_p1_2 = tpVec2LengthSquared(p0_p1);
     /* quadratic equation: a = (p0-p1)^2, b = 2 t (p0.p1 - p0^2), c = p0^2 - 1 */
-    tpFloat discriminant = (p0p1-p0_2)*(p0p1-p0_2) - p0_p1_2*(p0_2-1);
+    tpFloat discriminant = (p0p1 - p0_2) * (p0p1 - p0_2) - p0_p1_2 * (p0_2 - 1);
     assert(discriminant >= 0);
     return (sqrt(discriminant) - p0p1 + p0_2) / p0_p1_2;
 }
@@ -3400,7 +3402,7 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     _tpGLTextureVertexArray * _vertices,
     int * _outVertexOffset,
     int * _outVertexCount)
-{   
+{
     /* regenerate the geometry for this path/gradient combo */
     _tpGLTextureVertex vertices[TARP_RADIAL_GRADIENT_SLICES + 7];
     int vertexCount;
@@ -3409,7 +3411,7 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     tpVec2 focalPoint, a, b, circleFocalPoint;
     tpVec2 tmp, tmp2, tmp3;
     tpFloat phi, t;
-    
+
     /* apply _paintTransform */
     a = tpVec2Sub(_grad->destination, _grad->origin);
     b.x = -a.y * _grad->ratio;
@@ -3419,136 +3421,144 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     ellipse = tpTransformCombine(_paintTransform, &ellipse);
     a = tpVec2Make(ellipse.m.v[0], ellipse.m.v[1]);
     b = tpVec2Make(ellipse.m.v[2], ellipse.m.v[3]);
-    if(tpVec2Cross(a,b) < 0){
+    if (tpVec2Cross(a, b) < 0)
+    {
         ellipse.m.v[2] = -ellipse.m.v[2];
         ellipse.m.v[3] = -ellipse.m.v[3];
     }
-    
+
     tmp = tpVec2Add(_grad->focal_point_offset, _grad->origin);
     focalPoint = tpTransformApply(_paintTransform, tmp);
-    
+
     /* avoid numerical instabilities for gradients of near-zero size */
-    /* TODO: The values of 0.1 are somewhat arbitrarily chosen. This might require more rigorous analysis. */
-    if(tpVec2LengthSquared(a) < 0.1 || tpVec2LengthSquared(b) < 0.1 || fabs(tpVec2Cross(a,b)) < 0.1){
+    /* @TODO: The values of 0.1 are somewhat arbitrarily chosen. This might require more rigorous analysis. */
+    if (tpVec2LengthSquared(a) < 0.1 || tpVec2LengthSquared(b) < 0.1 || fabs(tpVec2Cross(a, b)) < 0.1)
+    {
         vertices[0].vertex = _bounds->min;
         vertices[1].vertex = tpVec2Make(_bounds->max.x, _bounds->min.y);
         vertices[2].vertex = _bounds->max;
         vertices[3].vertex = tpVec2Make(_bounds->min.x, _bounds->max.y);
-        vertices[0].tc = vertices[1].tc = vertices[2].tc = vertices[3].tc = tpVec2Make(1,0);
+        vertices[0].tc = vertices[1].tc = vertices[2].tc = vertices[3].tc = tpVec2Make(1, 0);
         *_outVertexOffset = _vertices->count;
         *_outVertexCount = 4;
         _tpGLTextureVertexArrayAppendArray(_vertices, vertices, 4);
         return;
     }
-    
+
     /* find a transform, which converts the ellipse into a unit circle */
     inverse = tpTransformInvert(&ellipse);
-    
+
     /* ensure that the focal point lies inside the ellipse */
     tmp = tpTransformApply(&inverse, focalPoint);
     t = tpVec2Length(tmp);
-    if(t > 0.999f){
-        tmp2 = tpVec2MultScalar(tmp, 0.999f/t);
+    /* @TODO: Proper epsilon */
+    if (t > 0.999f)
+    {
+        tmp2 = tpVec2MultScalar(tmp, 0.999f / t);
         focalPoint = tpTransformApply(&ellipse, tmp2);
     }
     circleFocalPoint = tpTransformApply(&inverse, focalPoint);
-    
+
     vertices[0].vertex = focalPoint;
-    vertices[0].tc = tpVec2Make(0,0);
+    vertices[0].tc = tpVec2Make(0, 0);
     vertexCount = 1;
-    
+
     phi = (tpFloat)(2 * TARP_PI / TARP_RADIAL_GRADIENT_SLICES);
     rot = tpMat2MakeRotation(phi);
-    
+
     /* max x, min y corner */
     tmp2 = tpVec2Make(_bounds->max.x, _bounds->min.y);
     vertices[vertexCount].vertex = tmp2;
     tmp3 = tpTransformApply(&inverse, tmp2);
     t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
     tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
-    vertices[vertexCount].tc.x = 1/t;
+    vertices[vertexCount].tc.x = 1 / t;
     ++vertexCount;
-    
+
     /* max x edge */
-    if(focalPoint.x < _bounds->max.x) for(;;){
-        tmp = tpMat2MultVec2(&rot, tmp);
-        tmp2 = tpTransformApply(&ellipse, tmp);
-        t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->max.x);
-        tmp3 = tpVec2Make(_bounds->max.x, _tpLerp(focalPoint.y, tmp2.y, t));
-        if(tmp2.x <= focalPoint.x || tmp3.y > _bounds->max.y) { break; }
-        vertices[vertexCount].vertex = tmp3;
-        vertices[vertexCount].tc.x   = t;
-        ++vertexCount;
-    }
-    
+    if (focalPoint.x < _bounds->max.x) for (;;)
+        {
+            tmp = tpMat2MultVec2(&rot, tmp);
+            tmp2 = tpTransformApply(&ellipse, tmp);
+            t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->max.x);
+            tmp3 = tpVec2Make(_bounds->max.x, _tpLerp(focalPoint.y, tmp2.y, t));
+            if (tmp2.x <= focalPoint.x || tmp3.y > _bounds->max.y) { break; }
+            vertices[vertexCount].vertex = tmp3;
+            vertices[vertexCount].tc.x   = t;
+            ++vertexCount;
+        }
+
     /* max x, max y corner */
     tmp2 = _bounds->max;
     vertices[vertexCount].vertex = tmp2;
     tmp3 = tpTransformApply(&inverse, tmp2);
     t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
     tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
-    vertices[vertexCount].tc.x = 1/t;
+    vertices[vertexCount].tc.x = 1 / t;
     ++vertexCount;
-    
+
     /* max y edge */
-    if(focalPoint.y < _bounds->max.y) for(;;){
-        tmp = tpMat2MultVec2(&rot, tmp);
-        tmp2 = tpTransformApply(&ellipse, tmp);
-        t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->max.y);
-        tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->max.y);
-        if(tmp2.y <= focalPoint.y || tmp3.x < _bounds->min.x) { break; }
-        vertices[vertexCount].vertex = tmp3;
-        vertices[vertexCount].tc.x   = t;
-        ++vertexCount;
-    }
-    
+    if (focalPoint.y < _bounds->max.y) for (;;)
+        {
+            tmp = tpMat2MultVec2(&rot, tmp);
+            tmp2 = tpTransformApply(&ellipse, tmp);
+            t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->max.y);
+            tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->max.y);
+            if (tmp2.y <= focalPoint.y || tmp3.x < _bounds->min.x) { break; }
+            vertices[vertexCount].vertex = tmp3;
+            vertices[vertexCount].tc.x   = t;
+            ++vertexCount;
+        }
+
     /* min x, max y corner */
     tmp2 = tpVec2Make(_bounds->min.x, _bounds->max.y);
     vertices[vertexCount].vertex = tmp2;
     tmp3 = tpTransformApply(&inverse, tmp2);
     t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
     tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
-    vertices[vertexCount].tc.x = 1/t;
+    vertices[vertexCount].tc.x = 1 / t;
     ++vertexCount;
-    
+
     /* min x edge */
-    if(focalPoint.x > _bounds->min.x) for(;;){
-        tmp = tpMat2MultVec2(&rot, tmp);
-        tmp2 = tpTransformApply(&ellipse, tmp);
-        t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->min.x);
-        tmp3 = tpVec2Make(_bounds->min.x, _tpLerp(focalPoint.y, tmp2.y, t));
-        if(tmp2.x >= focalPoint.x || tmp3.y < _bounds->min.y) { break; }
-        vertices[vertexCount].vertex = tmp3;
-        vertices[vertexCount].tc.x   = t;
-        ++vertexCount;
-    }
-    
+    if (focalPoint.x > _bounds->min.x) for (;;)
+        {
+            tmp = tpMat2MultVec2(&rot, tmp);
+            tmp2 = tpTransformApply(&ellipse, tmp);
+            t = _tpInvLerp(focalPoint.x, tmp2.x, _bounds->min.x);
+            tmp3 = tpVec2Make(_bounds->min.x, _tpLerp(focalPoint.y, tmp2.y, t));
+            if (tmp2.x >= focalPoint.x || tmp3.y < _bounds->min.y) { break; }
+            vertices[vertexCount].vertex = tmp3;
+            vertices[vertexCount].tc.x   = t;
+            ++vertexCount;
+        }
+
     /* min x, min y corner */
     tmp2 = _bounds->min;
     vertices[vertexCount].vertex = tmp2;
     tmp3 = tpTransformApply(&inverse, tmp2);
     t = _tpLineUnitCircleIntersection(circleFocalPoint, tmp3);
     tmp = tpVec2Lerp(circleFocalPoint, tmp3, t);
-    vertices[vertexCount].tc.x = 1/t;
+    vertices[vertexCount].tc.x = 1 / t;
     ++vertexCount;
-    
+
     /* min y edge */
-    if(focalPoint.y > _bounds->min.y) for(;;){
-        tmp = tpMat2MultVec2(&rot, tmp);
-        tmp2 = tpTransformApply(&ellipse, tmp);
-        t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->min.y);
-        tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->min.y);
-        if(tmp2.y >= focalPoint.y || tmp3.x > _bounds->max.x) { break; }
-        vertices[vertexCount].vertex = tmp3;
-        vertices[vertexCount].tc.x   = t;
-        ++vertexCount;
-    }
-    
+    if (focalPoint.y > _bounds->min.y) for (;;)
+        {
+            tmp = tpMat2MultVec2(&rot, tmp);
+            tmp2 = tpTransformApply(&ellipse, tmp);
+            t = _tpInvLerp(focalPoint.y, tmp2.y, _bounds->min.y);
+            tmp3 = tpVec2Make(_tpLerp(focalPoint.x, tmp2.x, t), _bounds->min.y);
+            if (tmp2.y >= focalPoint.y || tmp3.x > _bounds->max.x) { break; }
+            vertices[vertexCount].vertex = tmp3;
+            vertices[vertexCount].tc.x   = t;
+            ++vertexCount;
+        }
+
     /* max x, min y corner */
     vertices[vertexCount].vertex = vertices[1].vertex;
     vertices[vertexCount].tc.x   = vertices[1].tc.x;
     ++vertexCount;
-    
+
     assert((unsigned long)vertexCount <= sizeof(vertices) / sizeof(_tpGLTextureVertex));
 
     *_outVertexOffset = _vertices->count;

@@ -66,10 +66,10 @@ int main(int argc, char * argv[])
         tpPathAddCircle(path, 400, 300, 100);
 
         /* create a gradient */
-        grad = tpGradientCreateLinear(300, 200, 500, 400);
+        grad = tpGradientCreateRadial(0, 0, 400, 300, 480, 300, 1);
         tpGradientAddColorStop(grad, 1.0, 1.0, 0.0, 1.0, 0.0);
         tpGradientAddColorStop(grad, 1.0, 0.0, 1.0, 1.0, 0.75);
-        tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0);
+         tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0); 
 
         /* add another custom contour to the path */
         tpPathMoveTo(path, 400, 320);
