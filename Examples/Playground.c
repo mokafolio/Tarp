@@ -286,8 +286,8 @@ static void updateRadialGradientDrawing(tpContext _context, void * _userData, tp
         a = tpVec2Add(center, dir);
         b = tpVec2Sub(center, dir);
         tpGradientSetPositions(drawing->grad, a.x, a.y, b.x, b.y);
-		tpGradientSetFocalPointOffset(drawing->grad, dir.y, dir.x);
-		tpGradientSetRatio(drawing->grad, randomFloat(-2,2));
+        tpGradientSetFocalPointOffset(drawing->grad, dir.y, dir.x);
+        tpGradientSetRatio(drawing->grad, randomFloat(-2,2));
     }
 
     tpTransform skew = tpTransformMakeSkew(sin(s) * -0.25, cos(s * 0.125) * 0.5);
