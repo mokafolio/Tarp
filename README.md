@@ -13,7 +13,7 @@ What can Tarp do?
 - Rasterize fills and strokes.
 - Stroke joins (round, bevel, miter) and caps (round, square, butt).
 - Dashed strokes.
-- Gradients as fill and strokes (Note: only linear at the moment).
+- Gradients (linear and radial) as fill and strokes.
 - Transformations for path, fills and strokes.
 - EvenOdd and NonZero fill rules.
 - Nested path clipping.
@@ -114,7 +114,6 @@ If you use Tarp a lot and you'd prefer to have it installed, you can do so using
 
 TODO
 --------
-- Radial Gradients
 - Possibly an OpenGL ES based backend?
 - Try out NV_path_rendering on linux as a backend?
 
@@ -125,7 +124,7 @@ The only available backend right now is one written in *OpenGL*. It is based on 
 Supported Platforms
 -------------
 
-Any platform that supports OpenGL 3.0+. Tested on *OSX* and *Linux* so far.
+Any platform that supports OpenGL 3.0+. Tested on *OSX*, *Linux* and *Windows* so far.
 
 
 Credits & Inspiration
