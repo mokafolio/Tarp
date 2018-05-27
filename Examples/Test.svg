@@ -25,7 +25,7 @@
 			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
 		</radialGradient>
 		
-		<radialGradient id="rgrad3" cx="50%" cy="50%" r="50%" fx="100%" fy="-100%">
+		<radialGradient id="rgrad3" cx="50%" cy="50%" r="50%" fx="100%" fy="0%">
 			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
 		</radialGradient>
 		<radialGradient id="rgrad4" cx="0%" cy="100%" r="100%" fx="0%" fy="-200%">
@@ -44,9 +44,9 @@
 		<use href="#zigzag" transform="translate(48,160)" stroke-linecap="butt"   stroke-linejoin="bevel"/>
 	</g>
 	<g stroke-width="2" stroke="#0080ff">
-		<use href="#zigzag" transform="translate(48, 32)" stroke-linecap="round"  stroke-linejoin="round"/>
-		<use href="#zigzag" transform="translate(48, 96)" stroke-linecap="square" stroke-linejoin="miter"/>
-		<use href="#zigzag" transform="translate(48,160)" stroke-linecap="butt"   stroke-linejoin="bevel"/>
+		<use href="#zigzag" transform="translate(48, 32)" stroke-linejoin="bevel"/>
+		<use href="#zigzag" transform="translate(48, 96)" stroke-linejoin="bevel"/>
+		<use href="#zigzag" transform="translate(48,160)" stroke-linejoin="bevel"/>
 	</g>
 	
 	<use href="#square" fill="url(#grad0)" transform="translate(128,48)"/>
