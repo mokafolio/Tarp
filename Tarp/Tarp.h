@@ -455,6 +455,9 @@ Style Functions
 /* Creates a default initialized style */
 TARP_API tpStyle tpStyleCreate();
 
+/* Creates a copy of another style */
+TARP_API tpStyle tpStyleClone(tpStyle _style);
+
 TARP_API void tpStyleDestroy(tpStyle _style);
 
 /* Defines a dash pattern for the stroke */
@@ -1940,6 +1943,16 @@ TARP_API tpStyle tpStyleCreate()
     return ret;
 }
 
+TARP_API tpStyle tpStyleClone(tpStyle _style){
+    tpStyle ret;
+    _tpGLStyle * new_style = (_tpGLStyle *)TARP_MALLOC(sizeof(_tpGLStyle));
+    
+    *new_style = *(_tpGLStyle *)_style.pointer;
+    
+    ret.pointer = new_style;
+    return ret;
+}
+
 TARP_API void tpStyleDestroy(tpStyle _style)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
@@ -2236,30 +2249,25 @@ TARP_LOCAL void _tpGLSubdivideCurve(const _tpGLCurve * _curve,
                                     tpFloat _t,
                                     _tpGLCurvePair * _result)
 {
-    tpFloat v1x, v2x, v3x, v4x, v5x, v6x, v1y, v2y, v3y, v4y, v5y, v6y;
-    tpFloat u = 1 - _t;
+    tpVec2 p0h0, h0h1, h1p1, p0h0h1, h0h1p1, p0h0h1p1;
 
-    v1x = _curve->p0.x * u + _curve->h0.x * _t;
-    v1y = _curve->p0.y * u + _curve->h0.y * _t;
-    v2x = _curve->h0.x * u + _curve->h1.x * _t;
-    v2y = _curve->h0.y * u + _curve->h1.y * _t;
-    v3x = _curve->h1.x * u + _curve->p1.x * _t;
-    v3y = _curve->h1.y * u + _curve->p1.y * _t;
-    v4x = v1x * u + v2x * _t;
-    v4y = v1y * u + v2y * _t;
-    v5x = v2x * u + v3x * _t;
-    v5y = v2y * u + v3y * _t;
-    v6x = v4x * u + v5x * _t;
-    v6y = v4y * u + v5y * _t;
+    p0h0 = tpVec2Lerp(_curve->p0, _curve->h0, _t);
+    h0h1 = tpVec2Lerp(_curve->h0, _curve->h1, _t);
+    h1p1 = tpVec2Lerp(_curve->h1, _curve->p1, _t);
+    
+    p0h0h1 = tpVec2Lerp(p0h0, h0h1, _t);
+    h0h1p1 = tpVec2Lerp(h0h1, h1p1, _t);
+    
+    p0h0h1p1 = tpVec2Lerp(p0h0h1, h0h1p1, _t);
 
     _result->first.p0 = _curve->p0;
-    _result->first.h0 = tpVec2Make(v1x, v1y);
-    _result->first.h1 = tpVec2Make(v4x, v4y);
-    _result->first.p1 = tpVec2Make(v6x, v6y);
+    _result->first.h0 = p0h0;
+    _result->first.h1 = p0h0h1;
+    _result->first.p1 = p0h0h1p1;
 
-    _result->second.p0 = tpVec2Make(v6x, v6y);
-    _result->second.h0 = tpVec2Make(v5x, v5y);
-    _result->second.h1 = tpVec2Make(v3x, v3y);
+    _result->second.p0 = p0h0h1p1;
+    _result->second.h0 =   h0h1p1;
+    _result->second.h1 =     h1p1;
     _result->second.p1 = _curve->p1;
 }
 
@@ -2326,19 +2334,7 @@ TARP_LOCAL void _tpGLMakeJoinBevel(tpVec2 _lePrev, tpVec2 _rePrev,
                                    tpVec2 _le, tpVec2 _re,
                                    tpFloat _cross, _tpVec2Array * _outVertices)
 {
-    if (_cross < 0)
-    {
-        _tpVec2ArrayAppendPtr(_outVertices, &_lePrev);
-        _tpVec2ArrayAppendPtr(_outVertices, &_le);
-        _tpVec2ArrayAppendPtr(_outVertices, &_rePrev);
-    }
-    else
-    {
-
-        _tpVec2ArrayAppendPtr(_outVertices, &_re);
-        _tpVec2ArrayAppendPtr(_outVertices, &_rePrev);
-        _tpVec2ArrayAppendPtr(_outVertices, &_lePrev);
-    }
+    _tpGLPushTriangle(_outVertices, _lePrev, (_cross < 0)?_le:_re, _rePrev);
 }
 
 TARP_LOCAL tpBool _tpGLIntersectLines(tpVec2 _p0, tpVec2 _d0,
@@ -2391,7 +2387,7 @@ TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
     switch (_type)
     {
         case kTpStrokeJoinRound:
-            levelOfDetail = 0; /* TODO: levelOfDetail depend on the stroke width and the transform */
+            levelOfDetail = 0; /* TODO: levelOfDetail should depend on the stroke width and the transform */
             if (_cross < 0.0f)
             {
                 _tpGLMakeCircleSector(_p, _perp0, _perp1, levelOfDetail, _outVertices);
@@ -2402,7 +2398,7 @@ TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
                 tpVec2 flippedPerp0, flippedPerp1;
                 flippedPerp0 = tpVec2Make(-_perp0.x, -_perp0.y);
                 flippedPerp1 = tpVec2Make(-_perp1.x, -_perp1.y);
-                _tpGLMakeCircleSector(_p, flippedPerp0, flippedPerp1, levelOfDetail, _outVertices);
+                _tpGLMakeCircleSector(_p, flippedPerp1, flippedPerp0, levelOfDetail, _outVertices);
             }
             break;
         case kTpStrokeJoinMiter:

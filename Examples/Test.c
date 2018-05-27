@@ -28,7 +28,7 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
     /* create the window */
-    window = glfwCreateWindow(800, 600, "Hello Tarp", NULL, NULL);
+    window = glfwCreateWindow(512, 512, "Tarp Test", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -37,9 +37,9 @@ int main(int argc, char * argv[])
     }
     
     tpPath path;
-    tpStyle style;
+    tpStyle round_style, bevel_style, miter_style, red_style;
     tpMat4 proj;
-    tpGradient grad;
+    tpTransform transform;
     int wwidth, wheight;
 
     glfwMakeContextCurrent(window);
@@ -68,26 +68,31 @@ int main(int argc, char * argv[])
 
     /* create a path and add one circle contour */
     path = tpPathCreate();
-    tpPathAddCircle(path, 400, 300, 100);
+    tpPathMoveTo(path, -32,   0);
+    tpPathLineTo(path, -16,   0);
+    tpPathLineTo(path,   0,  16);
+    tpPathLineTo(path,   0, -16);
+    tpPathLineTo(path,  16,   0);
+    tpPathLineTo(path,  32,   0);
 
-    /* create a gradient */
-    grad = tpGradientCreateLinear(300, 200, 500, 400);
-    tpGradientAddColorStop(grad, 1.0, 1.0, 0.0, 1.0, 0.0);
-    tpGradientAddColorStop(grad, 1.0, 0.0, 1.0, 1.0, 0.75);
-    tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0);
-
-    /* add another custom contour to the path */
-    tpPathMoveTo(path, 400, 320);
-    tpPathLineTo(path, 420, 280);
-    tpPathQuadraticCurveTo(path, 400, 260, 380, 280);
-    tpPathClose(path); /* close the contour */
-
-    /* create a style that we can draw the path with */
-    style = tpStyleCreate();
-    tpStyleSetFillGradient(style, grad);
-    tpStyleSetStrokeColor(style, 1.0, 0.6, 0.1, 1.0);
-    tpStyleSetStrokeWidth(style, 10.0);
-    tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
+    round_style = tpStyleCreate();
+    tpStyleSetFillColor(round_style, 0, 0, 0, 0);
+    tpStyleSetStrokeColor(round_style, 1, 1, 1, 1);
+    tpStyleSetStrokeWidth(round_style, 16);
+    tpStyleSetStrokeJoin(round_style, kTpStrokeJoinRound);
+    tpStyleSetStrokeCap(round_style, kTpStrokeCapRound);
+    
+    bevel_style = tpStyleClone(round_style);
+    tpStyleSetStrokeJoin(bevel_style, kTpStrokeJoinBevel);
+    tpStyleSetStrokeCap(bevel_style, kTpStrokeCapButt);
+    
+    miter_style = tpStyleClone(round_style);
+    tpStyleSetStrokeJoin(miter_style, kTpStrokeJoinMiter);
+    tpStyleSetStrokeCap(miter_style, kTpStrokeCapSquare);
+    
+    red_style = tpStyleClone(bevel_style);
+    tpStyleSetStrokeWidth(red_style, 2);
+    tpStyleSetStrokeColor(red_style, 1, 0, 0, 1);
 
     /* the main loop */
     while (!glfwWindowShouldClose(window))
@@ -104,8 +109,20 @@ int main(int argc, char * argv[])
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);
 
-        /* draw the path with our style */
-        tpDrawPath(ctx, path, style);
+        transform = tpTransformMakeTranslation(64, 32);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, path, round_style);
+        tpDrawPath(ctx, path, red_style);
+        
+        transform = tpTransformMakeTranslation(64, 96);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, path, bevel_style);
+        tpDrawPath(ctx, path, red_style);
+        
+        transform = tpTransformMakeTranslation(64, 160);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, path, miter_style);
+        tpDrawPath(ctx, path, red_style);
 
         /* call this when you are done with Tarp for the frame */
         tpFinishDrawing(ctx);
@@ -115,9 +132,6 @@ int main(int argc, char * argv[])
     }
 
     /* clean up tarp */
-    tpStyleDestroy(style);
-    tpGradientDestroy(grad);
-    tpPathDestroy(path);
     tpContextDestroy(ctx);
 
     /* clean up glfw */
