@@ -455,7 +455,7 @@ Style Functions
 /* Creates a default initialized style */
 TARP_API tpStyle tpStyleCreate();
 
-/* Creates a copy of another style */
+/* Creates a copy of a style */
 TARP_API tpStyle tpStyleClone(tpStyle _style);
 
 TARP_API void tpStyleDestroy(tpStyle _style);
@@ -555,6 +555,9 @@ TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox
 
 /* Creates a symmetric radial gradient with radius r at x, y */
 TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFloat _r);
+
+/* Creates a copy of a gradient */
+TARP_API tpGradient tpGradientClone(tpGradient _gradient);
 
 /* Sets the origin to x0, y0 and the destination at x1, y1 */
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
@@ -2115,7 +2118,6 @@ TARP_LOCAL _tpGLGradient * tpGradientCreate(){
     static int s_id = 0;
 
     _tpGLGradient * ret = (_tpGLGradient *)TARP_MALLOC(sizeof(_tpGLGradient));
-    _tpColorStopArrayInit(&ret->stops, 8);
     ret->bDirty = tpTrue;
     /*
     the static id and incrementing is not multi threadding friendly...no care for now
@@ -2139,6 +2141,7 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
 {
     tpGradient rh;
     _tpGLGradient * ret = tpGradientCreate();
+    _tpColorStopArrayInit(&ret->stops, 8);
     ret->type = kTpGradientTypeLinear;
     ret->origin = tpVec2Make(_x0, _y0);
     ret->destination = tpVec2Make(_x1, _y1);
@@ -2150,6 +2153,7 @@ TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox
 {
     tpGradient rh;
     _tpGLGradient * ret = tpGradientCreate();
+    _tpColorStopArrayInit(&ret->stops, 8);
     ret->type = kTpGradientTypeRadial;
     ret->origin = tpVec2Make(_ox, _oy);
     ret->destination = tpVec2Make(_dx, _dy);
@@ -2161,7 +2165,23 @@ TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox
 
 TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFloat _radius)
 {
-    return tpGradientCreateRadial(0, 0, _x, _y, _radius, 0, 1);
+    return tpGradientCreateRadial(0, 0, _x, _y, _x + _radius, _y, 1);
+}
+
+TARP_API tpGradient tpGradientClone(tpGradient _gradient)
+{
+    tpGradient rh;
+    _tpGLGradient * ret = tpGradientCreate();
+    _tpGLGradient * grad = (_tpGLGradient *)_gradient.pointer;
+    int id = ret->gradientID;
+    
+    *ret = *grad;
+    ret->gradientID = id;
+    _tpColorStopArrayInit(&ret->stops, grad->stops.count);
+    _tpColorStopArrayAppendArray(&ret->stops, grad->stops.array, grad->stops.count);
+    
+    rh.pointer = ret;
+    return rh;
 }
 
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)

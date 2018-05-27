@@ -11,10 +11,6 @@
 
 int main(int argc, char * argv[])
 {
-    /* this example is compile in pedantic c89, so we declare the variables up here */
-    tpContext ctx;
-    GLFWwindow * window;
-
     /* initialize glfw */
     if (!glfwInit())
         return EXIT_FAILURE;
@@ -28,19 +24,13 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
     /* create the window */
-    window = glfwCreateWindow(512, 512, "Tarp Test", NULL, NULL);
+    GLFWwindow * window = glfwCreateWindow(512, 512, "Tarp Test", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
         printf("Could not open GLFW window :(\n");
         return EXIT_FAILURE;
     }
-    
-    tpPath path;
-    tpStyle round_style, bevel_style, miter_style, red_style;
-    tpMat4 proj;
-    tpTransform transform;
-    int wwidth, wheight;
 
     glfwMakeContextCurrent(window);
 
@@ -52,7 +42,7 @@ int main(int argc, char * argv[])
     }
 
     /* initialize the tarp context */
-    ctx = tpContextCreate();
+    tpContext ctx = tpContextCreate();
     if (!tpContextIsValidHandle(ctx))
     {
         printf("Could not init Tarp context: %s\n", tpContextErrorMessage(ctx));
@@ -60,69 +50,177 @@ int main(int argc, char * argv[])
     }
 
     /* set an orthographic projection on the context based on the window size */
+    int wwidth, wheight;
     glfwGetWindowSize(window, &wwidth, &wheight);
 
     /* set an orthographic projection based on the window size */
-    proj = tpMat4MakeOrtho(0, wwidth, wheight, 0, -1, 1);
+    tpMat4 proj = tpMat4MakeOrtho(0, wwidth, wheight, 0, -1, 1);
     tpSetProjection(ctx, &proj);
 
-    /* create a path and add one circle contour */
-    path = tpPathCreate();
-    tpPathMoveTo(path, -32,   0);
-    tpPathLineTo(path, -16,   0);
-    tpPathLineTo(path,   0,  16);
-    tpPathLineTo(path,   0, -16);
-    tpPathLineTo(path,  16,   0);
-    tpPathLineTo(path,  32,   0);
-
-    round_style = tpStyleCreate();
-    tpStyleSetFillColor(round_style, 0, 0, 0, 0);
-    tpStyleSetStrokeColor(round_style, 1, 1, 1, 1);
-    tpStyleSetStrokeWidth(round_style, 16);
-    tpStyleSetStrokeJoin(round_style, kTpStrokeJoinRound);
-    tpStyleSetStrokeCap(round_style, kTpStrokeCapRound);
+    tpPath zigzagPath = tpPathCreate();
+    tpPathMoveTo(zigzagPath, -32,   0);
+    tpPathLineTo(zigzagPath, -16,   0);
+    tpPathLineTo(zigzagPath,   0,  16);
+    tpPathLineTo(zigzagPath,   0, -16);
+    tpPathLineTo(zigzagPath,  16,   0);
+    tpPathLineTo(zigzagPath,  32,   0);
     
-    bevel_style = tpStyleClone(round_style);
-    tpStyleSetStrokeJoin(bevel_style, kTpStrokeJoinBevel);
-    tpStyleSetStrokeCap(bevel_style, kTpStrokeCapButt);
+    tpPath squarePath = tpPathCreate();
+    tpPathAddRect(squarePath, -32, -32, 64, 64);
     
-    miter_style = tpStyleClone(round_style);
-    tpStyleSetStrokeJoin(miter_style, kTpStrokeJoinMiter);
-    tpStyleSetStrokeCap(miter_style, kTpStrokeCapSquare);
+    tpStyle roundStyle = tpStyleCreate();
+    tpStyleSetFillColor(roundStyle, 0, 0, 0, 0);
+    tpStyleSetStrokeColor(roundStyle, 1, 1, 1, 1);
+    tpStyleSetStrokeWidth(roundStyle, 16);
+    tpStyleSetStrokeJoin(roundStyle, kTpStrokeJoinRound);
+    tpStyleSetStrokeCap(roundStyle, kTpStrokeCapRound);
     
-    red_style = tpStyleClone(bevel_style);
-    tpStyleSetStrokeWidth(red_style, 2);
-    tpStyleSetStrokeColor(red_style, 1, 0, 0, 1);
+    tpStyle miterStyle = tpStyleClone(roundStyle);
+    tpStyleSetStrokeJoin(miterStyle, kTpStrokeJoinMiter);
+    tpStyleSetStrokeCap(miterStyle, kTpStrokeCapSquare);
+    
+    tpStyle bevelStyle = tpStyleClone(roundStyle);
+    tpStyleSetStrokeJoin(bevelStyle, kTpStrokeJoinBevel);
+    tpStyleSetStrokeCap(bevelStyle, kTpStrokeCapButt);
+    
+    tpStyle redStyle = tpStyleClone(bevelStyle);
+    tpStyleSetStrokeWidth(redStyle, 2);
+    tpStyleSetStrokeColor(redStyle, 0.0f, 0.5f, 1.0f, 1.0f);
+    
+    tpGradient grad0 = tpGradientCreateLinear(-16, 16, 16, -16);
+    tpGradientAddColorStop(grad0, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+    tpGradientAddColorStop(grad0, 1.0f, 1.0f, 1.0f, 1.0f, 0.5f);
+    tpGradientAddColorStop(grad0, 1.0f, 1.0f, 1.0f, 1.0f, 0.75f);
+    tpGradientAddColorStop(grad0, 0.0f, 0.5f, 1.0f, 1.0f, 0.7501f);
+    tpGradientAddColorStop(grad0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+    tpStyle gradStyle0 = tpStyleCreate();
+    tpStyleSetFillGradient(gradStyle0, grad0);
+    
+    tpGradient grad1 = tpGradientClone(grad0);
+    tpGradientSetPositions(grad1, -32, 16, 32, -16);
+    tpStyle gradStyle1 = tpStyleClone(gradStyle0);
+    tpStyleSetFillGradient(gradStyle1, grad1);
+    
+    tpGradient grad2 = tpGradientClone(grad0);
+    tpGradientSetPositions(grad2, -48, 48, 48, -48);
+    tpStyle gradStyle2 = tpStyleClone(gradStyle0);
+    tpStyleSetFillGradient(gradStyle2, grad2);
+    
+    
+    tpGradient rgrad0 = tpGradientCreateRadialSymmetric(0, 0, 32);
+    tpGradientAddColorStop(rgrad0, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+    tpGradientAddColorStop(rgrad0, 1.0f, 1.0f, 1.0f, 1.0f, 0.5f);
+    tpGradientAddColorStop(rgrad0, 1.0f, 1.0f, 1.0f, 1.0f, 0.75f);
+    tpGradientAddColorStop(rgrad0, 0.0f, 0.5f, 1.0f, 1.0f, 0.7501f);
+    tpGradientAddColorStop(rgrad0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f);
+    tpStyle rgradStyle0 = tpStyleClone(gradStyle0);
+    tpStyleSetFillGradient(rgradStyle0, rgrad0);
+    
+    tpGradient rgrad1 = tpGradientClone(rgrad0);
+    tpGradientSetPositions(rgrad1, -32, 32, 32, 32);
+    tpStyle rgradStyle1 = tpStyleClone(rgradStyle0);
+    tpStyleSetFillGradient(rgradStyle1, rgrad1);
+    
+    tpGradient rgrad2 = tpGradientClone(rgrad0);
+    tpGradientSetPositions(rgrad2, 0, 0, 0, 0);
+    tpStyle rgradStyle2 = tpStyleClone(rgradStyle0);
+    tpStyleSetFillGradient(rgradStyle2, rgrad2);
+    
+    tpGradient rgrad3 = tpGradientClone(rgrad0);
+    tpGradientSetFocalPointOffset(rgrad3, 32, -32);
+    tpStyle rgradStyle3 = tpStyleClone(rgradStyle0);
+    tpStyleSetFillGradient(rgradStyle3, rgrad3);
+    
+    tpGradient rgrad4 = tpGradientClone(rgrad1);
+    tpGradientSetFocalPointOffset(rgrad4, 0, -64);
+    tpStyle rgradStyle4 = tpStyleClone(rgradStyle0);
+    tpStyleSetFillGradient(rgradStyle4, rgrad4);
+    
+    tpGradient rgrad5 = tpGradientClone(rgrad2);
+    tpGradientSetPositions(rgrad5, 64, 0, 32, 0);
+    tpStyle rgradStyle5 = tpStyleClone(rgradStyle0);
+    tpStyleSetFillGradient(rgradStyle5, rgrad5);
+    
+    tpTransform distortion = tpTransformMake(-0.1, 0.9, 0.0,
+                                             -1.1, 0.1, 0.0);
 
     /* the main loop */
     while (!glfwWindowShouldClose(window))
     {
-        int width, height;
-
         glClearColor(0.0, 0.0, 0.0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
         /* set the viewport based on the pixel dimensions of the window */
+        int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
 
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);
 
-        transform = tpTransformMakeTranslation(64, 32);
+        /* zig-zag paths */
+        tpTransform transform;
+        transform = tpTransformMakeTranslation(48, 32);
         tpSetTransform(ctx, &transform);
-        tpDrawPath(ctx, path, round_style);
-        tpDrawPath(ctx, path, red_style);
+        tpDrawPath(ctx, zigzagPath, roundStyle);
+        tpDrawPath(ctx, zigzagPath, redStyle);
         
-        transform = tpTransformMakeTranslation(64, 96);
+        transform = tpTransformMakeTranslation(48, 96);
         tpSetTransform(ctx, &transform);
-        tpDrawPath(ctx, path, bevel_style);
-        tpDrawPath(ctx, path, red_style);
+        tpDrawPath(ctx, zigzagPath, miterStyle);
+        tpDrawPath(ctx, zigzagPath, redStyle);
         
-        transform = tpTransformMakeTranslation(64, 160);
+        transform = tpTransformMakeTranslation(48, 160);
         tpSetTransform(ctx, &transform);
-        tpDrawPath(ctx, path, miter_style);
-        tpDrawPath(ctx, path, red_style);
+        tpDrawPath(ctx, zigzagPath, bevelStyle);
+        tpDrawPath(ctx, zigzagPath, redStyle);
+        
+        /* linear gradients */
+        transform = tpTransformMakeTranslation(128, 48);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, gradStyle0);
+        
+        transform = tpTransformMakeTranslation(128, 128);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, gradStyle1);
+        
+        transform = tpTransformMakeTranslation(128, 208);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, gradStyle2);
+        
+        /* radial gradients */
+        transform = tpTransformMakeTranslation(192, 48);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, rgradStyle0);
+        
+        transform = tpTransformMakeTranslation(192, 128);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, rgradStyle1);
+        
+        transform = tpTransformMakeTranslation(192, 208);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, rgradStyle2);
+        
+        transform = tpTransformMakeTranslation(256, 48);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, rgradStyle3);
+        
+        transform = tpTransformMakeTranslation(256, 128);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, rgradStyle4);
+        
+        transform = tpTransformMakeTranslation(256, 208);
+        transform = tpTransformCombine(&transform, &distortion);
+        tpSetTransform(ctx, &transform);
+        tpDrawPath(ctx, squarePath, rgradStyle5);
 
         /* call this when you are done with Tarp for the frame */
         tpFinishDrawing(ctx);

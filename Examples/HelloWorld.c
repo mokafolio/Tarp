@@ -14,6 +14,12 @@ int main(int argc, char * argv[])
     /* this example is compile in pedantic c89, so we declare the variables up here */
     tpContext ctx;
     GLFWwindow * window;
+    
+    tpPath path;
+    tpStyle style;
+    tpMat4 proj;
+    tpGradient grad;
+    int wwidth, wheight;
 
     /* initialize glfw */
     if (!glfwInit())
@@ -35,12 +41,6 @@ int main(int argc, char * argv[])
         printf("Could not open GLFW window :(\n");
         return EXIT_FAILURE;
     }
-    
-    tpPath path;
-    tpStyle style;
-    tpMat4 proj;
-    tpGradient grad;
-    int wwidth, wheight;
 
     glfwMakeContextCurrent(window);
 
