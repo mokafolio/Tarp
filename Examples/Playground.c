@@ -255,12 +255,12 @@ static void updateGradientDrawing(tpContext _context, void * _userData, tpBool _
     }
 
     tpTransform skew = tpTransformMakeSkew(sin(s) * 0.25, cos(s * 0.125) * 0.5);
-    tpTransform trans = tpTransformMakeTranslation(475, 475);
+    tpTransform trans = tpTransformMakeTranslation(475, 450);
     trans = tpTransformCombine(&trans, &skew);
     tpSetTransform(_context, &trans);
     tpDrawPath(_context, drawing->path, drawing->style);
     tpResetTransform(_context);
-    s += 0.25;
+    s += 0.5;
 }
 
 static void updateRadialGradientDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
@@ -290,7 +290,7 @@ static void updateRadialGradientDrawing(tpContext _context, void * _userData, tp
 		tpGradientSetRatio(drawing->grad, randomFloat(-2,2));
     }
 
-    tpTransform skew = tpTransformMakeSkew(sin(s) * -0.25, cos(s * 0.125) * 0.5);
+    tpTransform skew = tpTransformMakeSkew(sin(s) * -0.5, cos(s * 0.125) * 0.25);
     tpTransform trans = tpTransformMakeTranslation(475, 675);
     trans = tpTransformCombine(&trans, &skew);
     tpSetTransform(_context, &trans);
@@ -628,7 +628,7 @@ int main(int argc, char * argv[])
     PathWithStyle gradientDrawing = {};
     {
         tpPath path = tpPathCreate();
-        tpPathAddCircle(path, 0, 0, 100);
+        tpPathAddCircle(path, 0, 0, 75);
 
         tpGradient grad = tpGradientCreateLinear(-100, -100, 100, 100);
         tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 0.0);
@@ -647,7 +647,7 @@ int main(int argc, char * argv[])
     PathWithStyle radialGradientDrawing = {};
     {
         tpPath path = tpPathCreate();
-        tpPathAddCircle(path, 0, 0, 100);
+        tpPathAddCircle(path, 0, 0, 75);
 
         tpGradient grad = tpGradientCreateRadial(0, 0, 0, 0, 100, 100, 1);
         tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 0.0);
@@ -660,7 +660,7 @@ int main(int argc, char * argv[])
         radialGradientDrawing.path = path;
         radialGradientDrawing.style = style;
         radialGradientDrawing.grad = grad;
-        drawCallbacks[callbackCount++] = makeDrawCallback(updateRadialGradientDrawing, 1.0, ctx, &radialGradientDrawing);
+        drawCallbacks[callbackCount++] = makeDrawCallback(updateRadialGradientDrawing, 0.5, ctx, &radialGradientDrawing);
     }
 
     PathWithStyle zigZagDrawing = {};
@@ -697,7 +697,6 @@ int main(int argc, char * argv[])
     while (!glfwWindowShouldClose(window))
     {
         // clear the background to a color
-        // glClearColor(0.4, 0.45, 0.43, 1);
         glClearColor(1.0, 1.0, 1.0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
