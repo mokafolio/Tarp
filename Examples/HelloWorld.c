@@ -50,7 +50,7 @@ int main(int argc, char * argv[])
         ctx = tpContextCreate();
         if (!tpContextIsValidHandle(ctx))
         {
-            printf("Could not init Tarp context: %s\n", tpContextErrorMessage(ctx));
+            printf("Could not init Tarp context: %s\n", tpErrorMessage());
             return EXIT_FAILURE;
         }
 

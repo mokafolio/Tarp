@@ -100,7 +100,7 @@ exit(EXIT_FAILURE); \
 /* some settings that you most likely won't have to touch*/
 #define TARP_MAX_COLOR_STOPS 128
 #define TARP_MAX_DASH_ARRAY_SIZE 64
-#define TARP_MAX_ERROR_MESSAGE 256
+#define TARP_MAX_ERROR_MESSAGE 512
 #define TARP_MAX_CURVE_SUBDIVISIONS 16
 #define TARP_RADIAL_GRADIENT_SLICES 64
 
@@ -251,10 +251,6 @@ typedef struct TARP_API
     tpPaintType type;
 } tpPaint;
 
-/*typedef struct TARP_API
-{
-    void * _impl;
-} tpContext;*/
 TARP_HANDLE(tpContext);
 
 /*
@@ -305,7 +301,6 @@ TARP_API tpFloat tpVec2Distance(tpVec2 _a, tpVec2 _b);
 TARP_API tpFloat tpVec2DistanceSquared(tpVec2 _a, tpVec2 _b);
 
 TARP_API tpVec2 tpVec2Lerp(tpVec2 _a, tpVec2 _b, tpFloat _t);
-
 
 /*
 Matrix Functions
@@ -587,9 +582,6 @@ Context Related Functions
 /* Call this to initialize a tarp context. */
 TARP_API tpContext tpContextCreate();
 
-/* retrieves a context error message  */
-TARP_API const char * tpContextErrorMessage(tpContext _ctx);
-
 /* shut down a context */
 TARP_API void tpContextDestroy(tpContext _ctx);
 
@@ -629,6 +621,10 @@ TARP_API const char * tpImplementationName();
 /* generates tpContextInvalidHandle() and tpContextIsValidHandle(tpContext) functions to generate
 an invalid handle and check a handle for validity. */
 TARP_HANDLE_FUNCTIONS(tpContext)
+
+
+/* retrieves a context error message  */
+TARP_API const char * tpErrorMessage();
 
 
 #ifdef TARP_IMPLEMENTATION
@@ -1015,6 +1011,14 @@ TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloa
 
 /* @TODO: Clean up the layout of all the structs */
 
+/* global to hold the last error message */
+TARP_LOCAL char __g_error[TARP_MAX_ERROR_MESSAGE];
+
+TARP_LOCAL void _tpGLSetErrorMessage(const char * _message)
+{
+    strcpy(__g_error, _message);
+}
+
 /* The shader programs used by the renderer */
 static const char * _vertexShaderCode =
     "#version 150 \n"
@@ -1185,7 +1189,6 @@ typedef struct TARP_LOCAL
 {
     _tpGLContourArray contours;
     int currentContourIndex;
-    char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
     tpTransform transform;
 
     /* rendering specific data/caches */
@@ -1313,7 +1316,6 @@ struct _tpGLContext
     _tpColorStopArray tmpColorStops;
 
     _tpGLStateBackup stateBackup;
-    char errorMessage[TARP_GL_ERROR_MESSAGE_SIZE];
 };
 
 typedef struct TARP_LOCAL
@@ -1330,6 +1332,7 @@ TARP_LOCAL void _tpGLGradientCacheDataInit(_tpGLGradientCacheData * _gd, _tpGLRe
     _gd->vertexCount = 0;
 }
 
+/* @TODO: Get rid of all the _ErrorMessage things and call _tpGLSetErrorMessage instead? */
 TARP_LOCAL tpBool _compileShader(const char * _shaderCode, GLenum _shaderType, GLuint * _outHandle, _ErrorMessage * _outError)
 {
     GLenum glHandle;
@@ -1428,13 +1431,13 @@ TARP_API tpContext tpContextCreate()
     err = _createProgram(_vertexShaderCode, _fragmentShaderCode, 0, &ctx->program, &msg);
     if (err)
     {
-        strcpy(ctx->errorMessage, msg.message);
+        _tpGLSetErrorMessage(msg.message);
         return ret;
     }
     err = _createProgram(_vertexShaderCodeTexture, _fragmentShaderCodeTexture, 1, &ctx->textureProgram, &msg);
     if (err)
     {
-        strcpy(ctx->errorMessage, msg.message);
+        _tpGLSetErrorMessage(msg.message);
         return ret;
     }
 
@@ -1484,10 +1487,9 @@ TARP_API tpContext tpContextCreate()
     return ret;
 }
 
-TARP_API const char * tpContextErrorMessage(tpContext _ctx)
+TARP_API const char * tpErrorMessage()
 {
-    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
-    return ctx->errorMessage;
+    return __g_error;
 }
 
 TARP_API const char * tpImplementationName()
@@ -1523,7 +1525,6 @@ TARP_API tpPath tpPathCreate()
     _tpGLPath * path = (_tpGLPath *)TARP_MALLOC(sizeof(_tpGLPath));
     _tpGLContourArrayInit(&path->contours, 4);
     path->currentContourIndex = -1;
-    memset(path->errorMessage, 0, sizeof(path->errorMessage));
     path->transform = tpTransformMakeIdentity();
 
     _tpVec2ArrayInit(&path->geometryCache, 128);
@@ -1608,7 +1609,7 @@ TARP_LOCAL tpBool _tpGLContourAddSegments(_tpGLPath * _p, _tpGLContour * _c, tpS
     int err = _tpSegmentArrayAppendArray(&_c->segments, _segments, count);
     if (err)
     {
-        strcpy(_p->errorMessage, "Could not allocate memory for segments.");
+        _tpGLSetErrorMessage("Could not allocate memory for segments.");
         return tpTrue;
     }
 
@@ -1651,7 +1652,7 @@ TARP_API tpBool tpPathLineTo(tpPath _path, tpFloat _x, tpFloat _y)
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (!c || c->lastSegmentIndex == -1)
     {
-        strcpy(p->errorMessage, "You have to start a contour before issuing this command (see tpPathMoveTo).");
+        _tpGLSetErrorMessage("You have to start a contour before issuing this command (see tpPathMoveTo).");
         return tpTrue;
     }
 
@@ -1692,7 +1693,7 @@ TARP_API tpBool tpPathCubicCurveTo(tpPath _path, tpFloat _h0x, tpFloat _h0y, tpF
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (!c || c->lastSegmentIndex == -1)
     {
-        strcpy(p->errorMessage, "You have to start a contour before issuing this command (see tpPathMoveTo).");
+        _tpGLSetErrorMessage("You have to start a contour before issuing this command (see tpPathMoveTo).");
         return tpTrue;
     }
 
@@ -1706,7 +1707,7 @@ TARP_API tpBool tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, t
     _tpGLContour * c = _tpGLCurrentContour(p);
     if (!c || c->lastSegmentIndex == -1)
     {
-        strcpy(p->errorMessage, "You have to start a contour before issuing this command (see tpPathMoveTo).");
+        _tpGLSetErrorMessage("You have to start a contour before issuing this command (see tpPathMoveTo).");
         return tpTrue;
     }
 
@@ -1718,12 +1719,16 @@ TARP_API tpBool tpPathClose(tpPath _path)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
     _tpGLContour * c = _tpGLCurrentContour(p);
-    if (c->segments.count > 1)
+    if (c && c->segments.count > 1)
     {
         c->bIsClosed = tpTrue;
         c->bDirty = tpTrue;
         p->currentContourIndex = -1;
         p->bPathGeometryDirty = tpTrue;
+    }
+    else
+    {
+        _tpGLSetErrorMessage("tpPathClose failed because the path has no contour or the current contour is empty.");
     }
     return tpFalse;
 }
@@ -1764,7 +1769,7 @@ TARP_LOCAL tpBool _tpGLPathAddSegmentsToCurrentContour(_tpGLPath * _p, _tpGLCont
     int err = _tpSegmentArrayAppendArray(&_c->segments, _segments, _count);
     if (err)
     {
-        strcpy(_p->errorMessage, "Could not allocate memory for segments.");
+        _tpGLSetErrorMessage("Could not allocate memory for segments.");
         return tpTrue;
     }
 
