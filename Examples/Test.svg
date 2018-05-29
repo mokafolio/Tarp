@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="512px" height="512px" viewBox="0 0 512 512" fill="#fff" stroke="#000">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	width="512px" height="512px"
+	viewBox="0 0 512 512"
+	fill="#fff" stroke="#000">
 	<defs>
 		<path id="zigzag" fill="none" d="M -32 0 -16 0 0 16 0 -16 16 0 32 0"/>
 		<rect id="square" stroke="none" x="-32" y="-32" width="64" height="64"
@@ -39,25 +43,25 @@
 	<rect fill="#000" width="512" height="512"/>
 	
 	<g stroke-width="16" stroke="#fff">
-		<use href="#zigzag" transform="translate(48, 32)" stroke-linecap="round"  stroke-linejoin="round"/>
-		<use href="#zigzag" transform="translate(48, 96)" stroke-linecap="square" stroke-linejoin="miter"/>
-		<use href="#zigzag" transform="translate(48,160)" stroke-linecap="butt"   stroke-linejoin="bevel"/>
+		<use xlink:href="#zigzag" transform="translate(48, 32)" stroke-linecap="round"  stroke-linejoin="round"/>
+		<use xlink:href="#zigzag" transform="translate(48, 96)" stroke-linecap="square" stroke-linejoin="miter"/>
+		<use xlink:href="#zigzag" transform="translate(48,160)" stroke-linecap="butt"   stroke-linejoin="bevel"/>
 	</g>
 	<g stroke-width="2" stroke="#0080ff">
-		<use href="#zigzag" transform="translate(48, 32)" stroke-linejoin="bevel"/>
-		<use href="#zigzag" transform="translate(48, 96)" stroke-linejoin="bevel"/>
-		<use href="#zigzag" transform="translate(48,160)" stroke-linejoin="bevel"/>
+		<use xlink:href="#zigzag" transform="translate(48, 32)" stroke-linejoin="bevel"/>
+		<use xlink:href="#zigzag" transform="translate(48, 96)" stroke-linejoin="bevel"/>
+		<use xlink:href="#zigzag" transform="translate(48,160)" stroke-linejoin="bevel"/>
 	</g>
 	
-	<use href="#square" fill="url(#grad0)" transform="translate(128,48)"/>
-	<use href="#square" fill="url(#grad1)" transform="translate(128,128)"/>
-	<use href="#square" fill="url(#grad2)" transform="translate(128,208)"/>
+	<use xlink:href="#square" fill="url(#grad0)" transform="translate(128,48)"/>
+	<use xlink:href="#square" fill="url(#grad1)" transform="translate(128,128)"/>
+	<use xlink:href="#square" fill="url(#grad2)" transform="translate(128,208)"/>
 	
-	<use href="#square" fill="url(#rgrad0)" transform="translate(192,48)"/>
-	<use href="#square" fill="url(#rgrad1)" transform="translate(192,128)"/>
-	<use href="#square" fill="url(#rgrad2)" transform="translate(192,208)"/>
+	<use xlink:href="#square" fill="url(#rgrad0)" transform="translate(192,48)"/>
+	<use xlink:href="#square" fill="url(#rgrad1)" transform="translate(192,128)"/>
+	<use xlink:href="#square" fill="url(#rgrad2)" transform="translate(192,208)"/>
 	
-	<use href="#square" fill="url(#rgrad3)" transform="translate(256,48)"/>
-	<use href="#square" fill="url(#rgrad4)" transform="translate(256,128)"/>
-	<use href="#square" fill="url(#rgrad5)" transform="translate(256,208)"/>
+	<use xlink:href="#square" fill="url(#rgrad3)" transform="translate(256,48)"/>
+	<use xlink:href="#square" fill="url(#rgrad4)" transform="translate(256,128)"/>
+	<use xlink:href="#square" fill="url(#rgrad5)" transform="translate(256,208)"/>
 </svg>
