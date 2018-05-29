@@ -3313,7 +3313,7 @@ TARP_LOCAL void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _
         on the stroke width and miter limit.
         @TODO: Make sure that this is actually good enough of a solution
         */
-        adder = _style->strokeJoin == kTpStrokeJoinMiter ? _style->miterLimit * _style->strokeWidth * 0.5 : _style->strokeWidth;
+        adder = _style->strokeJoin == kTpStrokeJoinMiter ? _style->miterLimit * _style->strokeWidth * 0.5f : _style->strokeWidth;
         bounds.min.x -= adder;
         bounds.min.y -= adder;
         bounds.max.x += adder;
