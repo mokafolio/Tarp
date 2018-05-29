@@ -550,7 +550,7 @@ Gradient Functions
 /* Creates a linear gradient with the origin at x0, y0 and the destination at x1, y1 */
 TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
 
-/* Creates a radial gradient starting at fx, fy and running towards an ellipse with one semi-axis 
+/* Creates a radial gradient starting at fx, fy and running towards an ellipse with one semi-axis
 going from ox, oy, to x1, y1 and the other axis being scaled by the ratio */
 TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox, tpFloat _oy, tpFloat _dx, tpFloat _dy, tpFloat _ratio);
 
@@ -2427,6 +2427,11 @@ TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
             nperp0 = tpVec2Perp(_dir0);
             nperp1 = tpVec2Perp(_dir1);
             theta = acos(tpVec2Dot(nperp0, nperp1));
+
+            /* make sure we have the shortest angle */
+            if (theta > TARP_HALF_PI)
+                theta = TARP_PI - theta;
+
             miterLen = 1.0 / sin(theta / 2.0);
             if (miterLen < _miterLimit)
             {
@@ -3238,7 +3243,12 @@ TARP_LOCAL void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _
     {
         tpFloat adder;
         bounds = _path->boundsCache;
-        adder = TARP_MAX(_style->strokeWidth, _style->miterLimit);
+        /*
+        for miter we don't calculate a tight bounding box but instead increase it to cover the worst case based
+        on the stroke width and miter limit.
+        @TODO: Make sure that this is actually good enough of a solution
+        */
+        adder = _style->strokeJoin == kTpStrokeJoinMiter ? _style->miterLimit * _style->strokeWidth * 0.5f : _style->strokeWidth;
         bounds.min.x -= adder;
         bounds.min.y -= adder;
         bounds.max.x += adder;
