@@ -66,7 +66,7 @@ int main(int argc, char * argv[])
         tpPathAddCircle(path, 400, 300, 100);
 
         /* create a gradient */
-        grad = tpGradientCreateRadialSymmetric(400, 300, 80);
+        grad = tpGradientCreateRadialSymmetric(400, 300, 100);
         tpGradientAddColorStop(grad, 1.0, 1.0, 0.0, 1.0, 0.0);
         tpGradientAddColorStop(grad, 1.0, 0.0, 1.0, 1.0, 0.75);
         tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0); 
