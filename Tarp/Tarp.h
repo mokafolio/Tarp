@@ -111,8 +111,8 @@ exit(EXIT_FAILURE); \
 
 /* some constants */
 #define TARP_KAPPA 0.55228474983f
-#define TARP_PI 3.14159265358979323846
-#define TARP_HALF_PI (TARP_PI * 0.5)
+#define TARP_PI 3.14159265358979323846f
+#define TARP_HALF_PI (TARP_PI * 0.5f)
 
 /* define TARP_IMPLEMENTATION if any implementation is defined */
 #ifdef TARP_IMPLEMENTATION_OPENGL
@@ -450,6 +450,9 @@ Style Functions
 /* Creates a default initialized style */
 TARP_API tpStyle tpStyleCreate();
 
+/* Creates a copy of a style */
+TARP_API tpStyle tpStyleClone(tpStyle _style);
+
 TARP_API void tpStyleDestroy(tpStyle _style);
 
 /* Defines a dash pattern for the stroke */
@@ -548,6 +551,9 @@ TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox
 
 /* Creates a symmetric radial gradient with radius r at x, y */
 TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFloat _r);
+
+/* Creates a copy of a gradient */
+TARP_API tpGradient tpGradientClone(tpGradient _gradient);
 
 /* Sets the origin to x0, y0 and the destination at x1, y1 */
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1);
@@ -1946,6 +1952,16 @@ TARP_API tpStyle tpStyleCreate()
     return ret;
 }
 
+TARP_API tpStyle tpStyleClone(tpStyle _style){
+    tpStyle ret;
+    _tpGLStyle * new_style = (_tpGLStyle *)TARP_MALLOC(sizeof(_tpGLStyle));
+    
+    *new_style = *(_tpGLStyle *)_style.pointer;
+    
+    ret.pointer = new_style;
+    return ret;
+}
+
 TARP_API void tpStyleDestroy(tpStyle _style)
 {
     _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
@@ -2109,7 +2125,6 @@ TARP_LOCAL _tpGLGradient * tpGradientCreate()
     static int s_id = 0;
 
     _tpGLGradient * ret = (_tpGLGradient *)TARP_MALLOC(sizeof(_tpGLGradient));
-    _tpColorStopArrayInit(&ret->stops, 8);
     ret->bDirty = tpTrue;
     /*
     the static id and incrementing is not multi threadding friendly...no care for now
@@ -2133,6 +2148,7 @@ TARP_API tpGradient tpGradientCreateLinear(tpFloat _x0, tpFloat _y0, tpFloat _x1
 {
     tpGradient rh;
     _tpGLGradient * ret = tpGradientCreate();
+    _tpColorStopArrayInit(&ret->stops, 8);
     ret->type = kTpGradientTypeLinear;
     ret->origin = tpVec2Make(_x0, _y0);
     ret->destination = tpVec2Make(_x1, _y1);
@@ -2144,6 +2160,7 @@ TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox
 {
     tpGradient rh;
     _tpGLGradient * ret = tpGradientCreate();
+    _tpColorStopArrayInit(&ret->stops, 8);
     ret->type = kTpGradientTypeRadial;
     ret->origin = tpVec2Make(_ox, _oy);
     ret->destination = tpVec2Make(_dx, _dy);
@@ -2156,6 +2173,22 @@ TARP_API tpGradient tpGradientCreateRadial(tpFloat _fx, tpFloat _fy, tpFloat _ox
 TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFloat _radius)
 {
     return tpGradientCreateRadial(0, 0, _x, _y, _x + _radius, _y, 1);
+}
+
+TARP_API tpGradient tpGradientClone(tpGradient _gradient)
+{
+    tpGradient rh;
+    _tpGLGradient * ret = tpGradientCreate();
+    _tpGLGradient * grad = (_tpGLGradient *)_gradient.pointer;
+    int id = ret->gradientID;
+    
+    *ret = *grad;
+    ret->gradientID = id;
+    _tpColorStopArrayInit(&ret->stops, grad->stops.count);
+    _tpColorStopArrayAppendArray(&ret->stops, grad->stops.array, grad->stops.count);
+    
+    rh.pointer = ret;
+    return rh;
 }
 
 TARP_API void tpGradientSetPositions(tpGradient _gradient, tpFloat _x0, tpFloat _y0, tpFloat _x1, tpFloat _y1)
@@ -2243,30 +2276,25 @@ TARP_LOCAL void _tpGLSubdivideCurve(const _tpGLCurve * _curve,
                                     tpFloat _t,
                                     _tpGLCurvePair * _result)
 {
-    tpFloat v1x, v2x, v3x, v4x, v5x, v6x, v1y, v2y, v3y, v4y, v5y, v6y;
-    tpFloat u = 1 - _t;
+    tpVec2 p0h0, h0h1, h1p1, p0h0h1, h0h1p1, p0h0h1p1;
 
-    v1x = _curve->p0.x * u + _curve->h0.x * _t;
-    v1y = _curve->p0.y * u + _curve->h0.y * _t;
-    v2x = _curve->h0.x * u + _curve->h1.x * _t;
-    v2y = _curve->h0.y * u + _curve->h1.y * _t;
-    v3x = _curve->h1.x * u + _curve->p1.x * _t;
-    v3y = _curve->h1.y * u + _curve->p1.y * _t;
-    v4x = v1x * u + v2x * _t;
-    v4y = v1y * u + v2y * _t;
-    v5x = v2x * u + v3x * _t;
-    v5y = v2y * u + v3y * _t;
-    v6x = v4x * u + v5x * _t;
-    v6y = v4y * u + v5y * _t;
+    p0h0 = tpVec2Lerp(_curve->p0, _curve->h0, _t);
+    h0h1 = tpVec2Lerp(_curve->h0, _curve->h1, _t);
+    h1p1 = tpVec2Lerp(_curve->h1, _curve->p1, _t);
+    
+    p0h0h1 = tpVec2Lerp(p0h0, h0h1, _t);
+    h0h1p1 = tpVec2Lerp(h0h1, h1p1, _t);
+    
+    p0h0h1p1 = tpVec2Lerp(p0h0h1, h0h1p1, _t);
 
     _result->first.p0 = _curve->p0;
-    _result->first.h0 = tpVec2Make(v1x, v1y);
-    _result->first.h1 = tpVec2Make(v4x, v4y);
-    _result->first.p1 = tpVec2Make(v6x, v6y);
+    _result->first.h0 = p0h0;
+    _result->first.h1 = p0h0h1;
+    _result->first.p1 = p0h0h1p1;
 
-    _result->second.p0 = tpVec2Make(v6x, v6y);
-    _result->second.h0 = tpVec2Make(v5x, v5y);
-    _result->second.h1 = tpVec2Make(v3x, v3y);
+    _result->second.p0 = p0h0h1p1;
+    _result->second.h0 =   h0h1p1;
+    _result->second.h1 =     h1p1;
     _result->second.p1 = _curve->p1;
 }
 
@@ -2289,6 +2317,13 @@ tpFloat _tpGLShortestAngle(tpVec2 _d0, tpVec2 _d1)
     return theta;
 }
 
+TARP_LOCAL void _tpGLPushTriangle(_tpVec2Array * _vertices, tpVec2 _a, tpVec2 _b, tpVec2 _c)
+{
+    _tpVec2ArrayAppendPtr(_vertices, &_a);
+    _tpVec2ArrayAppendPtr(_vertices, &_b);
+    _tpVec2ArrayAppendPtr(_vertices, &_c);
+}
+
 TARP_LOCAL void _tpGLPushQuad(_tpVec2Array * _vertices, tpVec2 _a, tpVec2 _b, tpVec2 _c, tpVec2 _d)
 {
     _tpVec2ArrayAppendPtr(_vertices, &_a);
@@ -2299,105 +2334,34 @@ TARP_LOCAL void _tpGLPushQuad(_tpVec2Array * _vertices, tpVec2 _a, tpVec2 _b, tp
     _tpVec2ArrayAppendPtr(_vertices, &_a);
 }
 
-TARP_LOCAL void _tpGLMakeCapOrJoinRound2(tpVec2 _p, tpVec2 _d, tpFloat _theta, tpFloat _radius, _tpVec2Array * _outVertices)
+TARP_LOCAL void _tpGLMakeCircleSector(tpVec2 _center, tpVec2 _r0, tpVec2 _r1, tpFloat _levelOfDetail, _tpVec2Array * _outVertices)
 {
-    tpFloat cosa, sina;
-    tpVec2 dir, perp, last, current;
-    int circleSubdivisionCount, i;
-    tpFloat currentAngle, radStep;
-
-    dir = tpVec2MultScalar(_d, _radius);
-    perp.x = -dir.y;
-    perp.y = dir.x;
-
-    /* @TODO: Make this based on the stroke width and theta? */
-    circleSubdivisionCount = 12;
-    currentAngle = 0;
-    radStep = _theta / (tpFloat)(circleSubdivisionCount);
-
-    for (i = 0; i <= circleSubdivisionCount; ++i)
+    tpMat2 rot;
+    tpVec2 r, current, last;
+    tpFloat stepSize;
+    
+    /* @TODO: The step size should depend on _levelOfDetail. */
+    stepSize = TARP_PI / 16;
+    rot = tpMat2MakeRotation(stepSize);
+    r = _r0;
+    last = tpVec2Add(_center, r);
+    for(;;)
     {
-        currentAngle = radStep * i;
-
-        cosa = cos(-currentAngle);
-        sina = sin(-currentAngle);
-
-        current.x = _p.x + (perp.x * cosa - perp.y * sina);
-        current.y = _p.y + (perp.x * sina - perp.y * cosa);
-
-        if (i > 0)
-        {
-            _tpVec2ArrayAppendPtr(_outVertices, &last);
-            _tpVec2ArrayAppendPtr(_outVertices, &current);
-            _tpVec2ArrayAppendPtr(_outVertices, &_p);
-        }
-
+        r = tpMat2MultVec2(&rot, r);
+        if(tpVec2Cross(r, _r1) < 0) { break; }
+        current = tpVec2Add(_center, r);
+        _tpGLPushTriangle(_outVertices, _center, last, current);
         last = current;
     }
-}
-
-TARP_LOCAL void _tpGLMakeJoinRound(tpVec2 _p,
-                                   tpVec2 _e0, tpVec2 _e1,
-                                   tpVec2 _perp0, tpVec2 _perp1,
-                                   _tpVec2Array * _outVertices)
-{
-    tpVec2 nperp0, nperp1, last, current;
-    tpFloat angle, theta, stepSize, cosa, sina;
-
-    /*
-    @TODO: We could avoid these normalize/sqrt calls by either passing in
-    the directions (that are normalized) and getting the normalized
-    perp from there
-    */
-    nperp0 = tpVec2Normalize(_perp0);
-    nperp1 = tpVec2Normalize(_perp1);
-
-    theta = acos(tpVec2Dot(nperp0, nperp1));
-
-    /*
-    @TODO: The stepsize should most likely take the stroke width in user space into account
-    (i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
-    */
-    stepSize = (tpFloat)(TARP_PI / 16);
-
-    last = _e0;
-    for (angle = stepSize; angle < theta; angle += stepSize)
-    {
-        cosa = cos(angle);
-        sina = sin(angle);
-
-        current.x = _p.x + (_perp0.x * cosa - _perp0.y * sina);
-        current.y = _p.y + (_perp0.x * sina + _perp0.y * cosa);
-
-        _tpVec2ArrayAppendPtr(_outVertices, &last);
-        _tpVec2ArrayAppendPtr(_outVertices, &current);
-        _tpVec2ArrayAppendPtr(_outVertices, &_p);
-
-        last = current;
-    }
-
-    _tpVec2ArrayAppendPtr(_outVertices, &last);
-    _tpVec2ArrayAppendPtr(_outVertices, &_e1);
-    _tpVec2ArrayAppendPtr(_outVertices, &_p);
+    current = tpVec2Add(_center, _r1);
+    _tpGLPushTriangle(_outVertices, _center, last, current);
 }
 
 TARP_LOCAL void _tpGLMakeJoinBevel(tpVec2 _lePrev, tpVec2 _rePrev,
                                    tpVec2 _le, tpVec2 _re,
                                    tpFloat _cross, _tpVec2Array * _outVertices)
 {
-    if (_cross < 0)
-    {
-        _tpVec2ArrayAppendPtr(_outVertices, &_lePrev);
-        _tpVec2ArrayAppendPtr(_outVertices, &_le);
-        _tpVec2ArrayAppendPtr(_outVertices, &_rePrev);
-    }
-    else
-    {
-
-        _tpVec2ArrayAppendPtr(_outVertices, &_re);
-        _tpVec2ArrayAppendPtr(_outVertices, &_rePrev);
-        _tpVec2ArrayAppendPtr(_outVertices, &_lePrev);
-    }
+    _tpGLPushTriangle(_outVertices, _lePrev, (_cross < 0)?_le:_re, _rePrev);
 }
 
 TARP_LOCAL tpBool _tpGLIntersectLines(tpVec2 _p0, tpVec2 _d0,
@@ -2445,14 +2409,15 @@ TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
                               _tpVec2Array * _outVertices)
 {
     tpVec2 nperp0, nperp1;
-    tpFloat miterLen, theta;
+    tpFloat miterLen, theta, levelOfDetail;
 
     switch (_type)
     {
         case kTpStrokeJoinRound:
+            levelOfDetail = 0; /* TODO: levelOfDetail should depend on the stroke width and the transform */
             if (_cross < 0.0f)
             {
-                _tpGLMakeJoinRound(_p, _lePrev, _le, _perp0, _perp1, _outVertices);
+                _tpGLMakeCircleSector(_p, _perp0, _perp1, levelOfDetail, _outVertices);
             }
             else
             {
@@ -2460,7 +2425,7 @@ TARP_LOCAL void _tpGLMakeJoin(tpStrokeJoin _type,
                 tpVec2 flippedPerp0, flippedPerp1;
                 flippedPerp0 = tpVec2Make(-_perp0.x, -_perp0.y);
                 flippedPerp1 = tpVec2Make(-_perp1.x, -_perp1.y);
-                _tpGLMakeJoinRound(_p, _re, _rePrev, flippedPerp1, flippedPerp0, _outVertices);
+                _tpGLMakeCircleSector(_p, flippedPerp1, flippedPerp0, levelOfDetail, _outVertices);
             }
             break;
         case kTpStrokeJoinMiter:
@@ -2505,41 +2470,6 @@ TARP_LOCAL void _tpGLMakeCapSquare(tpVec2 _p,
     _tpGLPushQuad(_outVertices, _re, a, b, _le);
 }
 
-TARP_LOCAL void _tpGLMakeCapRound(tpVec2 _p,
-                                  tpVec2 _perp,
-                                  tpVec2 _e0, tpVec2 _e1,
-                                  _tpVec2Array * _outVertices)
-{
-    tpFloat angle, stepSize, sina, cosa;
-    tpVec2 last, current;
-
-    /*
-    @TODO: The stepsize should most likely take the stroke width in user space into account
-    (i.e. including the transform) to also guarantee smooth round joins for very thick/zoomed strokes.
-    */
-    stepSize = (tpFloat)(TARP_PI / 16);
-
-    last = _e0;
-    for (angle = stepSize; angle < TARP_PI; angle += stepSize)
-    {
-        cosa = cos(angle);
-        sina = sin(angle);
-
-        current.x = _p.x + (_perp.x * cosa - _perp.y * sina);
-        current.y = _p.y + (_perp.x * sina + _perp.y * cosa);
-
-        _tpVec2ArrayAppendPtr(_outVertices, &last);
-        _tpVec2ArrayAppendPtr(_outVertices, &current);
-        _tpVec2ArrayAppendPtr(_outVertices, &_p);
-
-        last = current;
-    }
-
-    _tpVec2ArrayAppendPtr(_outVertices, &last);
-    _tpVec2ArrayAppendPtr(_outVertices, &_e1);
-    _tpVec2ArrayAppendPtr(_outVertices, &_p);
-}
-
 TARP_LOCAL void _tpGLMakeCap(tpStrokeCap _type,
                              tpVec2 _p,
                              tpVec2 _dir,
@@ -2548,10 +2478,15 @@ TARP_LOCAL void _tpGLMakeCap(tpStrokeCap _type,
                              tpBool _bStart,
                              _tpVec2Array * _outVertices)
 {
+    tpFloat levelOfDetail;
+    tpVec2 flippedPerp;
     switch (_type)
     {
         case kTpStrokeCapRound:
-            _tpGLMakeCapRound(_p, _perp, _bStart ? _re : _le, _bStart ? _le : _re, _outVertices);
+            /* TODO: levelOfDetail should depend on the stroke width and the transform */
+            levelOfDetail = 0;
+            flippedPerp = tpVec2Make(-_perp.x, -_perp.y);
+            _tpGLMakeCircleSector(_p, _perp, flippedPerp, levelOfDetail, _outVertices);
             break;
         case kTpStrokeCapSquare:
             _tpGLMakeCapSquare(_p, _dir, _le, _re, _outVertices);
@@ -3478,7 +3413,7 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     vertices[0].tc = tpVec2Make(0, 0);
     vertexCount = 1;
 
-    phi = (tpFloat)(2 * TARP_PI / TARP_RADIAL_GRADIENT_SLICES);
+    phi = 2 * TARP_PI / TARP_RADIAL_GRADIENT_SLICES;
     rot = tpMat2MakeRotation(phi);
 
     /* max x, min y corner */

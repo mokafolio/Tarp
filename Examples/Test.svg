@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	width="512px" height="512px"
+	viewBox="0 0 512 512"
+	fill="#fff" stroke="#000">
+	<defs>
+		<path id="zigzag" fill="none" d="M -32 0 -16 0 0 16 0 -16 16 0 32 0"/>
+		<rect id="square" stroke="none" x="-32" y="-32" width="64" height="64"
+			transform="matrix(-0.1,-1.1, 0.9, 0.1, 0.0, 0.0)"/>
+		
+		<linearGradient id="grad0" x1="25%" y1="75%" x2="75%" y2="25%">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</linearGradient>
+		<linearGradient id="grad1" x1="0%" y1="75%" x2="100%" y2="25%">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</linearGradient>
+		<linearGradient id="grad2" x1="-25%" y1="125%" x2="125%" y2="-25%">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</linearGradient>
+		
+		<radialGradient id="rgrad0" cx="50%" cy="50%" r="50%">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</radialGradient>
+		<radialGradient id="rgrad1" cx="0%" cy="100%" r="100%" transform="scale(1,0.75)">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</radialGradient>
+		<radialGradient id="rgrad2" cx="50%" cy="50%" r="0%">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</radialGradient>
+		
+		<radialGradient id="rgrad3" cx="50%" cy="50%" r="50%" fx="100%" fy="0%">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</radialGradient>
+		<radialGradient id="rgrad4" cx="0%" cy="100%" r="100%" fx="0%" fy="-200%">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</radialGradient>
+		<radialGradient id="rgrad5" cx="150%" cy="50%" r="50%">
+			<stop offset="0%" stop-color="#f00"/> <stop offset="50%" stop-color="#fff"/> <stop offset="75%" stop-color="#fff"/> <stop offset="75.01%" stop-color="#0080ff"/> <stop offset="100%" stop-color="#fff"/>
+		</radialGradient>
+	</defs>
+	
+	<rect fill="#000" width="512" height="512"/>
+	
+	<g stroke-width="16" stroke="#fff">
+		<use xlink:href="#zigzag" transform="translate(48, 32)" stroke-linecap="round"  stroke-linejoin="round"/>
+		<use xlink:href="#zigzag" transform="translate(48, 96)" stroke-linecap="square" stroke-linejoin="miter"/>
+		<use xlink:href="#zigzag" transform="translate(48,160)" stroke-linecap="butt"   stroke-linejoin="bevel"/>
+	</g>
+	<g stroke-width="2" stroke="#0080ff">
+		<use xlink:href="#zigzag" transform="translate(48, 32)" stroke-linejoin="bevel"/>
+		<use xlink:href="#zigzag" transform="translate(48, 96)" stroke-linejoin="bevel"/>
+		<use xlink:href="#zigzag" transform="translate(48,160)" stroke-linejoin="bevel"/>
+	</g>
+	
+	<use xlink:href="#square" fill="url(#grad0)" transform="translate(128,48)"/>
+	<use xlink:href="#square" fill="url(#grad1)" transform="translate(128,128)"/>
+	<use xlink:href="#square" fill="url(#grad2)" transform="translate(128,208)"/>
+	
+	<use xlink:href="#square" fill="url(#rgrad0)" transform="translate(192,48)"/>
+	<use xlink:href="#square" fill="url(#rgrad1)" transform="translate(192,128)"/>
+	<use xlink:href="#square" fill="url(#rgrad2)" transform="translate(192,208)"/>
+	
+	<use xlink:href="#square" fill="url(#rgrad3)" transform="translate(256,48)"/>
+	<use xlink:href="#square" fill="url(#rgrad4)" transform="translate(256,128)"/>
+	<use xlink:href="#square" fill="url(#rgrad5)" transform="translate(256,208)"/>
+</svg>
