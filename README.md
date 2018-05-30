@@ -1,4 +1,4 @@
-Tarp
+Tarp (v0.1.2)
 ======
 
 Overview
@@ -72,11 +72,11 @@ tpPathQuadraticCurveTo(path, 400, 260, 380, 280);
 tpPathClose(path); /* close the contour */
 
 /* create a style that we can draw the path with */
-style = tpStyleCreate();
-tpStyleSetFillColor(style, 1.0, 1.0, 0.0, 1.0);
-tpStyleSetStrokeColor(style, 1.0, 0.6, 0.1, 1.0);
-tpStyleSetStrokeWidth(style, 10.0);
-tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
+style = tpStyleMake();
+style.fill = tpPaintMakeColor(1.0f, 1.0f, 0.0f, 1.0f);
+style.stroke = tpPaintMakeColor(1.0f, 0.6f, 0.1f, 1.0f);
+style.strokeWidth = 10.0;
+style.strokeJoin = kTpStrokeJoinRound;
 
 /* ... */
 
@@ -84,7 +84,7 @@ tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
 tpPrepareDrawing(ctx);
 
 /* draw the path with our style */
-tpDrawPath(ctx, path, style);
+tpDrawPath(ctx, path, &style);
 
 /* call this when you are done with Tarp for the frame */
 tpFinishDrawing(ctx);
@@ -92,7 +92,6 @@ tpFinishDrawing(ctx);
 /* ... */
 
 /* clean up tarp */
-tpStyleDestroy(style);
 tpPathDestroy(path);
 tpContextDestroy(ctx);
 ```

@@ -70,18 +70,18 @@ int main(int argc, char * argv[])
     /* create a path and add one circle contour */
     path = tpPathCreate();
     tpPathAddCircle(path, 400, 300, 100);
+    
+    /* add another custom contour to the path */
+    tpPathMoveTo(path, 400, 320);
+    tpPathLineTo(path, 420, 280);
+    tpPathQuadraticCurveTo(path, 400, 260, 380, 280);
+    tpPathClose(path); /* close the contour */
 
     /* create a gradient */
     grad = tpGradientCreateRadialSymmetric(400, 300, 80);
     tpGradientAddColorStop(grad, 1.0, 1.0, 0.0, 1.0, 0.0);
     tpGradientAddColorStop(grad, 1.0, 0.0, 1.0, 1.0, 0.75);
     tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0); 
-
-    /* add another custom contour to the path */
-    tpPathMoveTo(path, 400, 320);
-    tpPathLineTo(path, 420, 280);
-    tpPathQuadraticCurveTo(path, 400, 260, 380, 280);
-    tpPathClose(path); /* close the contour */
 
     /* create a style that we can draw the path with */
     style = tpStyleMake();

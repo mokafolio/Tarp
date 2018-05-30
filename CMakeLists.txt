@@ -13,6 +13,7 @@ Tarp/Tarp.h
 Tarp/TarpArray.h
 )
 
+#this is only for use in the examples/tests etc.
 SET(TARPDEPS
 ${OPENGL_LIBRARIES}
 )

@@ -106,7 +106,6 @@ int main(int argc, char * argv[])
     tpStyle gradStyle2 = tpStyleClone(gradStyle0);
     tpStyleSetFillGradient(gradStyle2, grad2);
     
-    
     tpGradient rgrad0 = tpGradientCreateRadialSymmetric(0, 0, 32);
     tpGradientAddColorStop(rgrad0, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
     tpGradientAddColorStop(rgrad0, 1.0f, 1.0f, 1.0f, 1.0f, 0.5f);

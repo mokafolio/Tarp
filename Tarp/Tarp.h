@@ -472,8 +472,10 @@ Paint Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+/* creates a color paint */
 TARP_API tpPaint tpPaintMakeColor(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
 
+/* creates a gradient paint */
 TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient);
 
 /*
