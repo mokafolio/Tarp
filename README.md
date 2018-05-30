@@ -53,7 +53,7 @@ tpMat4 proj;
 ctx = tpContextCreate();
 if (!tpContextIsValidHandle(ctx))
 {
-    printf("Could not init Tarp context: %s\n", tpContextErrorMessage(ctx));
+    printf("Could not init Tarp context: %s\n", tpErrorMessage());
     return EXIT_FAILURE;
 }
 
