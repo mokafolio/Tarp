@@ -84,11 +84,11 @@ int main(int argc, char * argv[])
     tpPathClose(path); /* close the contour */
 
     /* create a style that we can draw the path with */
-    style = tpStyleCreate();
-    tpStyleSetFillGradient(style, grad);
-    tpStyleSetStrokeColor(style, 1.0, 0.6, 0.1, 1.0);
-    tpStyleSetStrokeWidth(style, 10.0);
-    tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
+    style = tpStyleMake();
+    style.fill = tpPaintMakeGradient(grad);
+    style.stroke = tpPaintMakeColor(1.0, 0.6, 0.1, 1.0);
+    style.strokeWidth = 10.0;
+    style.strokeJoin = kTpStrokeJoinRound;
 
     /* the main loop */
     while (!glfwWindowShouldClose(window))
@@ -106,7 +106,7 @@ int main(int argc, char * argv[])
         tpPrepareDrawing(ctx);
 
         /* draw the path with our style */
-        tpDrawPath(ctx, path, style);
+        tpDrawPath(ctx, path, &style);
 
         /* call this when you are done with Tarp for the frame */
         tpFinishDrawing(ctx);
@@ -116,7 +116,6 @@ int main(int argc, char * argv[])
     }
 
     /* clean up tarp */
-    tpStyleDestroy(style);
     tpGradientDestroy(grad);
     tpPathDestroy(path);
     tpContextDestroy(ctx);

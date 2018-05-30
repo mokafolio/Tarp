@@ -4,15 +4,16 @@
 // we use GLFW to open a simple window
 #include <GLFW/glfw3.h>
 
-// tell Tarp to compile the opengl implementations
-#define TARP_IMPLEMENTATION_OPENGL
-#include <Tarp/Tarp.h>
-
-#ifdef TARP_DEBUG
-//to check for memory leaks
+//we need to include leackcheck before tarp!!
+#if !defined(NDEBUG)
+// to check for memory leaks
 #define STB_LEAKCHECK_IMPLEMENTATION
 #include "stb_leakcheck.h"
 #endif
+
+// tell Tarp to compile the opengl implementations
+#define TARP_IMPLEMENTATION_OPENGL
+#include <Tarp/Tarp.h>
 
 // for timing
 #include <time.h>
@@ -62,10 +63,19 @@ typedef struct
     tpGradient grad;
 } PathWithStyle;
 
-static void destroyPathWithStyle(PathWithStyle * _ps)
+static PathWithStyle makePathWithStyle()
+{
+    PathWithStyle ret;
+    ret.path = tpPathInvalidHandle();
+    ret.grad = tpGradientInvalidHandle();
+    ret.style = tpStyleMake();
+    return ret;
+}
+
+static void deallocatePathWithStyle(PathWithStyle * _ps)
 {
     tpPathDestroy(_ps->path);
-    tpStyleDestroy(_ps->style);
+    // tpStyleDestroy(_ps->style);
     tpGradientDestroy(_ps->grad);
 }
 
@@ -85,8 +95,8 @@ static float randomFloat(float _a, float _b)
 static void updateStrokeOffsetDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
     PathWithStyle * drawing = (PathWithStyle *) _userData;
-    tpStyleSetDashOffset(drawing->style, tpStyleDashOffset(drawing->style) + 0.2);
-    tpDrawPath(_context, drawing->path, drawing->style);
+    drawing->style.dashOffset += 0.2;
+    tpDrawPath(_context, drawing->path, &drawing->style);
 }
 
 static void updateStarFillRuleDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
@@ -94,10 +104,9 @@ static void updateStarFillRuleDrawing(tpContext _context, void * _userData, tpBo
     PathWithStyle * starDrawing = (PathWithStyle *) _userData;
     if (_bTimeElapsed)
     {
-        tpFillRule fr = tpStyleFillRule(starDrawing->style);
-        tpStyleSetFillRule(starDrawing->style, fr == kTpFillRuleEvenOdd ? kTpFillRuleNonZero : kTpFillRuleEvenOdd);
+        starDrawing->style.fillRule = starDrawing->style.fillRule == kTpFillRuleEvenOdd ? kTpFillRuleNonZero : kTpFillRuleEvenOdd;
     }
-    tpDrawPath(_context, starDrawing->path, starDrawing->style);
+    tpDrawPath(_context, starDrawing->path, &starDrawing->style);
 }
 
 static void updateRandomDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
@@ -112,11 +121,12 @@ static void updateRandomDrawing(tpContext _context, void * _userData, tpBool _bT
             // tpPathLineTo(drawing->path, randomFloat(350, 450), randomFloat(50, 150));
             tpPathQuadraticCurveTo(drawing->path, randomFloat(350, 450), randomFloat(50, 150), randomFloat(350, 450), randomFloat(50, 150));
         }
-        tpStyleSetStrokeWidth(drawing->style, randomFloat(1, 6));
-        tpStyleSetStrokeColor(drawing->style, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0);
-        tpStyleSetFillColor(drawing->style, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0);
+
+        drawing->style.strokeWidth = randomFloat(1, 6);
+        drawing->style.stroke = tpPaintMakeColor(randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1);
+        drawing->style.fill = tpPaintMakeColor(randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1);
     }
-    tpDrawPath(_context, drawing->path, drawing->style);
+    tpDrawPath(_context, drawing->path, &drawing->style);
 }
 
 static void updateConfettiDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
@@ -132,11 +142,11 @@ static void updateConfettiDrawing(tpContext _context, void * _userData, tpBool _
             tpPathAddCircle(drawing->path, randomFloat(-50 + rad, 50 - rad), randomFloat(-50 + rad, 50 - rad), rad);
         }
 
-        tpStyleSetFillColor(drawing->style, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1);
+        drawing->style.fill = tpPaintMakeColor(randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1);
     }
     tpTransform transform = tpTransformMakeTranslation(550, 100);
     tpSetTransform(_context, &transform);
-    tpDrawPath(_context, drawing->path, drawing->style);
+    tpDrawPath(_context, drawing->path, &drawing->style);
     tpResetTransform(_context);
 }
 
@@ -150,7 +160,7 @@ static void updateRotatingDrawing(tpContext _context, void * _userData, tpBool _
     transform = tpTransformCombine(&transform, &rot);
     // tpPathSetTransform(drawing->path, &transform);
     tpSetTransform(_context, &transform);
-    tpDrawPath(_context, drawing->path, drawing->style);
+    tpDrawPath(_context, drawing->path, &drawing->style);
     tpResetTransform(_context);
     rotTimer += 0.1;
     angle += (sin(rotTimer) + 1.0) * 0.5 * 0.05;
@@ -167,7 +177,7 @@ static void updateWormDrawing(tpContext _context, void * _userData, tpBool _bTim
     rot = tpTransformCombine(&scale, &rot);
     transform = tpTransformCombine(&transform, &rot);
     tpPathSetStrokePaintTransform(drawing->path, &transform);
-    tpDrawPath(_context, drawing->path, drawing->style);
+    tpDrawPath(_context, drawing->path, &drawing->style);
     angle += 0.1;
 }
 
@@ -179,7 +189,7 @@ static void updateScalingStrokeDrawing(tpContext _context, void * _userData, tpB
     tpTransform scale = tpTransformMakeScale(1.0, 0.25 + (sin(s * 1.5) + 1.0) * 0.5 * 2.0);
     trans = tpTransformCombine(&trans, &scale);
     tpSetTransform(_context, &trans);
-    tpDrawPath(_context, drawing->path, drawing->style);
+    tpDrawPath(_context, drawing->path, &drawing->style);
     tpResetTransform(_context);
     s += 0.1;
 }
@@ -193,7 +203,7 @@ static void updateNoneScalingStrokeDrawing(tpContext _context, void * _userData,
     trans = tpTransformCombine(&trans, &scale);
     // tpPathSetTransform(drawing->path, &trans);
     tpSetTransform(_context, &trans);
-    tpDrawPath(_context, drawing->path, drawing->style);
+    tpDrawPath(_context, drawing->path, &drawing->style);
     tpResetTransform(_context);
     s += 0.05;
 }
@@ -222,7 +232,7 @@ static void updateTigerDrawing(tpContext _context, void * _userData, tpBool _bTi
     tpSetTransform(_context, &rot);
     for (int i = 0; i < td->pathCount; ++i)
     {
-        tpDrawPath(_context, td->paths[i].path, td->paths[i].style);
+        tpDrawPath(_context, td->paths[i].path, &td->paths[i].style);
     }
     tpResetClipping(_context);
     tpResetTransform(_context);
@@ -258,7 +268,7 @@ static void updateGradientDrawing(tpContext _context, void * _userData, tpBool _
     tpTransform trans = tpTransformMakeTranslation(475, 450);
     trans = tpTransformCombine(&trans, &skew);
     tpSetTransform(_context, &trans);
-    tpDrawPath(_context, drawing->path, drawing->style);
+    tpDrawPath(_context, drawing->path, &drawing->style);
     tpResetTransform(_context);
     s += 0.5;
 }
@@ -294,7 +304,7 @@ static void updateRadialGradientDrawing(tpContext _context, void * _userData, tp
     tpTransform trans = tpTransformMakeTranslation(475, 675);
     trans = tpTransformCombine(&trans, &skew);
     tpSetTransform(_context, &trans);
-    tpDrawPath(_context, drawing->path, drawing->style);
+    tpDrawPath(_context, drawing->path, &drawing->style);
     tpResetTransform(_context);
     s += 0.25;
 }
@@ -326,7 +336,7 @@ static void updateZigZagLineDrawing(tpContext _context, void * _userData, tpBool
         tpTransform rot = tpTransformMakeRotation(s * 3.0 + i * 0.5);
         tpPathSetStrokePaintTransform(drawing->path, &rot);
 
-        tpDrawPath(_context, drawing->path, drawing->style);
+        tpDrawPath(_context, drawing->path, &drawing->style);
     }
     tpResetTransform(_context);
     s += 0.05;
@@ -358,7 +368,7 @@ int main(int argc, char * argv[])
         printf("Could not open GLFW window :(\n");
         return EXIT_FAILURE;
     }
-    
+
     glfwMakeContextCurrent(window);
 
     //init opengl function pointers
@@ -387,27 +397,26 @@ int main(int argc, char * argv[])
     tpSetProjection(ctx, &proj);
 
     //create the dash offset drawing
-    PathWithStyle dashOffsetDrawing = {};
+    PathWithStyle dashOffsetDrawing = makePathWithStyle();
+    tpFloat dashOffsetDrawingDashes[] = {10, 20};
     {
         tpPath path = tpPathCreate();
         tpPathAddCircle(path, 100, 100, 50);
         tpPathAddCircle(path, 100, 100, 25);
 
-        tpStyle style = tpStyleCreate();
-        tpFloat dashArray[] = {10, 20};
-        tpStyleSetDashArray(style, dashArray, 2);
-        tpStyleSetStrokeWidth(style, 8);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
-        tpStyleSetStrokeCap(style, kTpStrokeCapRound);
-        tpStyleSetFillColor(style, 1, 1, 0, 1);
+        dashOffsetDrawing.style.strokeWidth = 8;
+        dashOffsetDrawing.style.strokeJoin = kTpStrokeJoinRound;
+        dashOffsetDrawing.style.strokeCap = kTpStrokeCapRound;
+        dashOffsetDrawing.style.fill = tpPaintMakeColor(1.0f, 1.0f, 0.0f, 1.0f);
+        dashOffsetDrawing.style.dashArray = dashOffsetDrawingDashes;
+        dashOffsetDrawing.style.dashCount = 2;
 
-        dashOffsetDrawing.style = style;
         dashOffsetDrawing.path = path;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateStrokeOffsetDrawing, 0.0, ctx, &dashOffsetDrawing);
     }
 
     //init the star drawing to show EvenOdd vs NonZero fill rule
-    PathWithStyle starDrawing = {};
+    PathWithStyle starDrawing = makePathWithStyle();
     {
         tpPath path = tpPathCreate();
         tpPathMoveTo(path, 250, 50);
@@ -417,48 +426,39 @@ int main(int argc, char * argv[])
         tpPathLineTo(path, 275, 150);
         tpPathClose(path);
 
-        tpStyle style = tpStyleCreate();
-        tpStyleSetFillColor(style, 0.4, 0.6, 1.0, 1.0);
-        tpStyleSetStrokeColor(style, 1.0, 0.0, 1.0, 1.0);
-        tpStyleSetStrokeWidth(style, 6.0);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
-        tpStyleSetMiterLimit(style, 25);
+        starDrawing.style.fill = tpPaintMakeColor(0.4f, 0.6f, 1.0f, 1.0f);
+        starDrawing.style.stroke = tpPaintMakeColor(1.0f, 0.0f, 1.0f, 1.0f);
+        starDrawing.style.strokeWidth = 6;
+        starDrawing.style.strokeJoin = kTpStrokeJoinMiter;
+        starDrawing.style.miterLimit = 10;
 
         starDrawing.path = path;
-        starDrawing.style = style;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateStarFillRuleDrawing, 1.0, ctx, &starDrawing);
     }
 
-    //path that randomly regenerates every half second
-    PathWithStyle randomDrawing = {};
+    // path that randomly regenerates every half second
+    PathWithStyle randomDrawing = makePathWithStyle();
     {
         tpPath path = tpPathCreate();
 
-        tpStyle style = tpStyleCreate();
-        tpStyleSetStrokeCap(style, kTpStrokeCapRound);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
+        randomDrawing.style.strokeCap = kTpStrokeCapRound;
+        randomDrawing.style.strokeJoin = kTpStrokeJoinRound;
 
         randomDrawing.path = path;
-        randomDrawing.style = style;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateRandomDrawing, 0.5, ctx, &randomDrawing);
     }
 
-    PathWithStyle confettiDrawing = {};
+    PathWithStyle confettiDrawing = makePathWithStyle();
     {
         tpPath path = tpPathCreate();
 
-        tpStyle style = tpStyleCreate();
-        tpStyleRemoveStroke(style);
-
         confettiDrawing.path = path;
-        confettiDrawing.style = style;
+        confettiDrawing.style.stroke.type = kTpPaintTypeNone;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateConfettiDrawing, 0.25, ctx, &confettiDrawing);
-
-        // tpTransform trans = tpTransformMakeTranslation(550, 100);
-        // tpPathSetTransform(path, &trans);
     }
 
-    PathWithStyle rotatingDrawing = {};
+    PathWithStyle rotatingDrawing = makePathWithStyle();
+    tpFloat rotatingDrawingDashes[] = {20.0, 2.0};
     {
         tpPath path = tpPathCreate();
         tpPathAddRect(path, -50, -50, 100, 100);
@@ -467,20 +467,18 @@ int main(int argc, char * argv[])
         tpPathQuadraticCurveTo(path, 0, -20, -20, -20);
         tpPathClose(path);
 
-        tpStyle style = tpStyleCreate();
-        tpStyleSetFillColor(style, 1.0, 0.7, 0.1, 1.0);
-        tpStyleSetStrokeColor(style, 0.1, 0.7, 1.0, 1.0);
-        tpStyleSetStrokeWidth(style, 5.0);
-        tpFloat dashes[] = {20.0, 2.0};
-        tpStyleSetDashArray(style, dashes, 2);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
+        rotatingDrawing.style.fill = tpPaintMakeColor(1.0, 0.7, 0.1, 1.0);
+        rotatingDrawing.style.stroke = tpPaintMakeColor(0.1, 0.7, 1.0, 1.0);
+        rotatingDrawing.style.strokeWidth = 5.0f;
+        rotatingDrawing.style.dashArray = rotatingDrawingDashes;
+        rotatingDrawing.style.dashCount = 2;
+        rotatingDrawing.style.strokeJoin = kTpStrokeJoinMiter;
 
         rotatingDrawing.path = path;
-        rotatingDrawing.style = style;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateRotatingDrawing, 0, ctx, &rotatingDrawing);
     }
 
-    PathWithStyle wormDrawing = {};
+    PathWithStyle wormDrawing = makePathWithStyle();
     {
         tpPath path = tpPathCreate();
         tpPathMoveTo(path, 200, 200);
@@ -494,13 +492,10 @@ int main(int argc, char * argv[])
             xoff += 200;
         }
 
-        // tpPathClose(path);
-
-        tpStyle style = tpStyleCreate();
-        tpStyleRemoveFill(style);
-        tpStyleSetStrokeWidth(style, 20.0);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
-        tpStyleSetStrokeCap(style, kTpStrokeCapRound);
+        wormDrawing.style.fill.type = kTpPaintTypeNone;
+        wormDrawing.style.strokeWidth = 20.0;
+        wormDrawing.style.strokeJoin = kTpStrokeJoinRound;
+        wormDrawing.style.strokeCap = kTpStrokeCapRound;
 
         tpGradient grad = tpGradientCreateLinear(-200, -50, 200, 50);
         tpFloat off = 0.0;
@@ -510,15 +505,14 @@ int main(int argc, char * argv[])
             off += randomFloat(0.1, 0.3);
         }
 
-        tpStyleSetStrokeGradient(style, grad);
+        wormDrawing.style.stroke = tpPaintMakeGradient(grad);
 
         wormDrawing.path = path;
-        wormDrawing.style = style;
         wormDrawing.grad = grad;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateWormDrawing, 0.0, ctx, &wormDrawing);
     }
 
-    PathWithStyle scalingStrokeDrawing = {};
+    PathWithStyle scalingStrokeDrawing = makePathWithStyle();
     {
         tpPath path = tpPathCreate();
         tpPathMoveTo(path, -50, 0);
@@ -526,19 +520,17 @@ int main(int argc, char * argv[])
         tpPathQuadraticCurveTo(path, 0, 30, -50, 0);
         tpPathClose(path);
 
-        tpStyle style = tpStyleCreate();
-        tpStyleSetStrokeWidth(style, 10);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
-        tpStyleSetStrokeCap(style, kTpStrokeCapRound);
-        tpStyleSetStrokeColor(style, 1.0, 0.15, 0.5, 1.0);
-        tpStyleSetFillColor(style, 0.6, 0.05, 0.25, 1.0);
+        scalingStrokeDrawing.style.strokeWidth = 10.0f;
+        scalingStrokeDrawing.style.strokeJoin = kTpStrokeJoinRound;
+        scalingStrokeDrawing.style.strokeCap = kTpStrokeCapRound;
+        scalingStrokeDrawing.style.stroke = tpPaintMakeColor(1.0, 0.15, 0.5, 1.0);
+        scalingStrokeDrawing.style.fill = tpPaintMakeColor(0.6, 0.05, 0.25, 1.0);
 
         scalingStrokeDrawing.path = path;
-        scalingStrokeDrawing.style = style;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateScalingStrokeDrawing, 0.0, ctx, &scalingStrokeDrawing);
     }
 
-    PathWithStyle noneScalingStrokeDrawing = {};
+    PathWithStyle noneScalingStrokeDrawing = makePathWithStyle();
     {
         tpPath path = tpPathCreate();
         tpPathMoveTo(path, -50, 0);
@@ -546,34 +538,32 @@ int main(int argc, char * argv[])
         tpPathQuadraticCurveTo(path, 0, 30, -50, 0);
         tpPathClose(path);
 
-        tpStyle style = tpStyleCreate();
-        tpStyleSetStrokeWidth(style, 10);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinRound);
-        tpStyleSetStrokeCap(style, kTpStrokeCapRound);
-        tpStyleSetStrokeColor(style, 1.0, 0.15, 0.5, 1.0);
-        tpStyleSetFillColor(style, 0.6, 0.05, 0.25, 1.0);
-        tpStyleSetScaleStroke(style, tpFalse);
+        noneScalingStrokeDrawing.style.strokeWidth = 10.0f;
+        noneScalingStrokeDrawing.style.strokeJoin = kTpStrokeJoinRound;
+        noneScalingStrokeDrawing.style.strokeCap = kTpStrokeCapRound;
+        noneScalingStrokeDrawing.style.stroke = tpPaintMakeColor(1.0, 0.15, 0.5, 1.0);
+        noneScalingStrokeDrawing.style.fill = tpPaintMakeColor(0.6, 0.05, 0.25, 1.0);
+        noneScalingStrokeDrawing.style.scaleStroke = tpFalse;
 
         noneScalingStrokeDrawing.path = path;
-        noneScalingStrokeDrawing.style = style;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateNoneScalingStrokeDrawing, 0.0, ctx, &noneScalingStrokeDrawing);
     }
 
-    /* we use nano svg to create a drawing from an SVG in a quick n dirty way...not general purpose at all! */
+    //  we use nano svg to create a drawing from an SVG in a quick n dirty way...not general purpose at all!
     NSVGimage * image;
-    image = nsvgParseFromFile("../../Examples/Tiger.svg", "px", 4096);
+    image = nsvgParseFromFile("../../Examples/Assets/Tiger.svg", "px", 4096);
     if (!image)
     {
-        printf("Could not parse \"../../Examples/Tiger.svg\" :(\n");
+        printf("Could not parse \"../../Examples/Assets/Tiger.svg\" :(\n");
         return EXIT_FAILURE;
     }
 
-    TigerDrawing tigerDrawing = {};
+    TigerDrawing tigerDrawing = {0};
     tigerDrawing.pathCount = 0;
     for (NSVGshape * shape = image->shapes; shape != NULL; shape = shape->next)
     {
         tpPath tpp = tpPathCreate();
-        tpStyle ds = tpStyleCreate();
+        tpStyle style = tpStyleMake();
 
         if (shape->fill.type == NSVG_PAINT_COLOR)
         {
@@ -582,11 +572,12 @@ int main(int argc, char * argv[])
             cg = (shape->fill.color >> 8) & 0xff;
             cb = (shape->fill.color >> 16) & 0xff;
             ca = (shape->fill.color >> 24) & 0xff;
-            tpStyleSetFillColor(ds, cr / 255.0, cg / 255.0, cb / 255.0, ca / 255.0);
+
+            style.fill = tpPaintMakeColor(cr / 255.0, cg / 255.0, cb / 255.0, ca / 255.0);
         }
         else
         {
-            tpStyleRemoveFill(ds);
+            style.fill.type = kTpPaintTypeNone;
         }
 
         if (shape->stroke.type == NSVG_PAINT_COLOR && shape->strokeWidth > 0)
@@ -596,12 +587,13 @@ int main(int argc, char * argv[])
             scg = (shape->stroke.color >> 8) & 0xff;
             scb = (shape->stroke.color >> 16) & 0xff;
             sca = (shape->stroke.color >> 24) & 0xff;
-            tpStyleSetStrokeColor(ds, scr / 255.0, scg / 255.0, scb / 255.0, sca / 255.0);
-            tpStyleSetStrokeWidth(ds, shape->strokeWidth);
+
+            style.stroke = tpPaintMakeColor(scr / 255.0, scg / 255.0, scb / 255.0, sca / 255.0);
+            style.strokeWidth = shape->strokeWidth;
         }
         else
         {
-            tpStyleRemoveStroke(ds);
+            style.stroke.type = kTpPaintTypeNone;
         }
 
         for (NSVGpath * path = shape->paths; path != NULL; path = path->next)
@@ -611,11 +603,10 @@ int main(int argc, char * argv[])
             {
                 float * p = &path->pts[i * 2];
                 tpPathCubicCurveTo(tpp, p[2], p[3], p[4], p[5], p[6], p[7]);
-                // drawCubicBez(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
             }
             tigerDrawing.paths[tigerDrawing.pathCount].path = tpp;
-            tigerDrawing.paths[tigerDrawing.pathCount].style = ds;
-            tigerDrawing.pathCount ++;
+            tigerDrawing.paths[tigerDrawing.pathCount].style = style;
+            tigerDrawing.pathCount++;
         }
     }
 
@@ -625,7 +616,7 @@ int main(int argc, char * argv[])
     nsvgDelete(image);
     /* done with tiger/nano svg */
 
-    PathWithStyle gradientDrawing = {};
+    PathWithStyle gradientDrawing = makePathWithStyle();
     {
         tpPath path = tpPathCreate();
         tpPathAddCircle(path, 0, 0, 75);
@@ -634,17 +625,15 @@ int main(int argc, char * argv[])
         tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 0.0);
         tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 1.0);
 
-        tpStyle style = tpStyleCreate();
-        tpStyleRemoveStroke(style);
-        tpStyleSetFillGradient(style, grad);
+        gradientDrawing.style.stroke.type = kTpPaintTypeNone;
+        gradientDrawing.style.fill = tpPaintMakeGradient(grad);
 
         gradientDrawing.path = path;
-        gradientDrawing.style = style;
         gradientDrawing.grad = grad;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateGradientDrawing, 1.0, ctx, &gradientDrawing);
     }
 
-    PathWithStyle radialGradientDrawing = {};
+    PathWithStyle radialGradientDrawing = makePathWithStyle();
     {
         tpPath path = tpPathCreate();
         tpPathAddCircle(path, 0, 0, 75);
@@ -653,17 +642,15 @@ int main(int argc, char * argv[])
         tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 0.0);
         tpGradientAddColorStop(grad, randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1.0, 1.0);
 
-        tpStyle style = tpStyleCreate();
-        tpStyleRemoveStroke(style);
-        tpStyleSetFillGradient(style, grad);
+        radialGradientDrawing.style.stroke.type = kTpPaintTypeNone;
+        radialGradientDrawing.style.fill = tpPaintMakeGradient(grad);
 
         radialGradientDrawing.path = path;
-        radialGradientDrawing.style = style;
         radialGradientDrawing.grad = grad;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateRadialGradientDrawing, 0.5, ctx, &radialGradientDrawing);
     }
 
-    PathWithStyle zigZagDrawing = {};
+    PathWithStyle zigZagDrawing = makePathWithStyle();
     {
         int count = randomFloat(3, 6);
         tpFloat step = 100.0f / count;
@@ -680,15 +667,13 @@ int main(int argc, char * argv[])
         tpGradientAddColorStop(grad, 1, 0.0, 1, 1.0, 0.0);
         tpGradientAddColorStop(grad, 1, 1, 0.0, 0.0, 1.0);
 
-        tpStyle style = tpStyleCreate();
-        tpStyleRemoveFill(style);
-        tpStyleSetStrokeWidth(style, 10.0);
-        tpStyleSetStrokeCap(style, kTpStrokeCapRound);
-        tpStyleSetStrokeJoin(style, kTpStrokeJoinMiter);
-        tpStyleSetStrokeGradient(style, grad);
+        zigZagDrawing.style.fill.type = kTpPaintTypeNone;
+        zigZagDrawing.style.strokeWidth = 10.0f;
+        zigZagDrawing.style.strokeCap = kTpStrokeCapRound;
+        zigZagDrawing.style.strokeJoin = kTpStrokeJoinMiter;
+        zigZagDrawing.style.stroke = tpPaintMakeGradient(grad);
 
         zigZagDrawing.path = path;
-        zigZagDrawing.style = style;
         zigZagDrawing.grad = grad;
         drawCallbacks[callbackCount++] = makeDrawCallback(updateZigZagLineDrawing, 1.0, ctx, &zigZagDrawing);
     }
@@ -732,16 +717,15 @@ int main(int argc, char * argv[])
             TigerDrawing * td = (TigerDrawing *)drawCallbacks[i].userData;
             for (int i = 0; i < td->pathCount; ++i)
             {
-                destroyPathWithStyle(&td->paths[i]);
+                deallocatePathWithStyle(&td->paths[i]);
             }
             tpPathDestroy(td->clipPath);
         }
         else
         {
-            destroyPathWithStyle((PathWithStyle *)drawCallbacks[i].userData);
+            deallocatePathWithStyle((PathWithStyle *)drawCallbacks[i].userData);
         }
     }
-
 
     tpContextDestroy(ctx);
 
@@ -749,7 +733,7 @@ int main(int argc, char * argv[])
     glfwDestroyWindow(window);
     glfwTerminate();
 
-#ifdef TARP_DEBUG
+#if !defined(NDEBUG)
     stb_leakcheck_dumpmem();
 #endif
 

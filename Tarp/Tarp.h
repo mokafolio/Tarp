@@ -1,5 +1,5 @@
 /*
-Tarp - v0.1.1
+Tarp - v0.1.2
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Tarp is an almost single header C library to raster vector graphics.
 It provides a lightweight and portable API purely focussed on decently
@@ -12,6 +12,15 @@ Specify the implementation you want to compile in one c/c++ file to create the i
 
 #define TARP_IMPLEMENTATION_OPENGL
 #include <Tarp/Tarp.h>
+
+Contributors <3
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Tilmann Rübbelke: Radial Gradients, bug fixes, ideas
+
+Change History
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+v0.1.2 (05/30/2018): Radial Gradients, bug fixes, removed tpStyle API in favor of a purely data based approach (see tpStyle struct).
+v0.1.1 (05/18/2018): Initial release.
 
 LICENSE
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -192,7 +201,6 @@ typedef enum TARP_API
 } tpBool;
 
 TARP_HANDLE(tpPath);
-TARP_HANDLE(tpStyle);
 TARP_HANDLE(tpGradient);
 
 /*
@@ -250,6 +258,21 @@ typedef struct TARP_API
     _tpPaintUnion data;
     tpPaintType type;
 } tpPaint;
+
+typedef struct TARP_API
+{
+    tpPaint fill;
+    tpPaint stroke;
+    tpFloat strokeWidth;
+    tpStrokeCap strokeCap;
+    tpStrokeJoin strokeJoin;
+    tpFillRule fillRule;
+    const tpFloat * dashArray;
+    int dashCount;
+    tpFloat dashOffset;
+    tpFloat miterLimit;
+    tpBool scaleStroke;
+} tpStyle;
 
 TARP_HANDLE(tpContext);
 
@@ -443,100 +466,23 @@ TARP_API tpBool tpPathSetContour(tpPath _path, int _contourIndex, tpSegment * _s
 an invalid handle and check a handle for validity. */
 TARP_HANDLE_FUNCTIONS(tpPath)
 
+
+/*
+Paint Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+TARP_API tpPaint tpPaintMakeColor(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
+
+TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient);
+
 /*
 Style Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-/* Creates a default initialized style */
-TARP_API tpStyle tpStyleCreate();
 
-/* Creates a copy of a style */
-TARP_API tpStyle tpStyleClone(tpStyle _style);
-
-TARP_API void tpStyleDestroy(tpStyle _style);
-
-/* Defines a dash pattern for the stroke */
-TARP_API void tpStyleSetDashArray(tpStyle _style, const tpFloat * _dashArray, int _count);
-
-/* Specifies an offset into the dash pattern */
-TARP_API void tpStyleSetDashOffset(tpStyle _style, tpFloat _offset);
-
-/* Set the fill to a color */
-TARP_API void tpStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
-
-/* Set the stroke to a color */
-TARP_API void tpStyleSetStrokeColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a);
-
-/* Set the fill to a gradient */
-TARP_API void tpStyleSetFillGradient(tpStyle _style, const tpGradient _gradient);
-
-/* Set the stroke to a gradient */
-TARP_API void tpStyleSetStrokeGradient(tpStyle _style, const tpGradient _gradient);
-
-/* Set the width of the stroke */
-TARP_API void tpStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth);
-
-/* Set the join of the stroke */
-TARP_API void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join);
-
-/*
-Set if strokes scale with the path. If false, the stroke will ignore the
-path transform and maintain its thickness.
- */
-TARP_API void tpStyleSetScaleStroke(tpStyle _style, tpBool _b);
-
-/* Set the miter limit of the stroke. Only affects strokes that use kTpStrokeJoinMiter */
-TARP_API void tpStyleSetMiterLimit(tpStyle _style, tpFloat _limit);
-
-/* Set the stroke cap of the style */
-TARP_API void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap);
-
-/* Set the fill rule. This affects how overlapping contours and self intersecting paths generate holes */
-TARP_API void tpStyleSetFillRule(tpStyle _style, tpFillRule _fillType);
-
-/* Removes the fill from a style */
-TARP_API void tpStyleRemoveFill(tpStyle _style);
-
-/* Removes the stroke from a style */
-TARP_API void tpStyleRemoveStroke(tpStyle _style);
-
-/* Retrieves the current dash pattern */
-TARP_API tpFloat * tpStyleDashArrayPtr(tpStyle _style);
-
-/* Retrieves the number of dashes in the current dash pattern  */
-TARP_API int tpStyleDashCount(tpStyle _style);
-
-/* Retrieves the current dash offset into the dash pattern */
-TARP_API tpFloat tpStyleDashOffset(tpStyle _style);
-
-/* Retrieves the current fill */
-TARP_API tpPaint tpStyleFillPaint(tpStyle _style);
-
-/* Retrieves the current stroke */
-TARP_API tpPaint tpStyleStrokePaint(tpStyle _style);
-
-/* Retrieves the current stroke width */
-TARP_API tpFloat tpStyleStrokeWidth(tpStyle _style);
-
-/* Retrieves the current stroke join */
-TARP_API tpStrokeJoin tpStyleStrokeJoin(tpStyle _style);
-
-/* Retrieves if the stroke scales or not */
-TARP_API tpBool tpStyleScaleStroke(tpStyle _style);
-
-/* Retrieves the current miter limit */
-TARP_API tpFloat tpStyleMiterLimit(tpStyle _style);
-
-/* Retrieves the current stroke cap */
-TARP_API tpStrokeCap tpStyleStrokeCap(tpStyle _style);
-
-/* Retrieves the current fill rule */
-TARP_API tpFillRule tpStyleFillRule(tpStyle _style);
-
-/* generates tpStyleInvalidHandle() and tpStyleIsValidHandle(tpStyle) functions to generate
-an invalid handle and check a handle for validity. */
-TARP_HANDLE_FUNCTIONS(tpStyle)
-
+/* default initializes and returns a tpStyle struct. */
+TARP_API tpStyle tpStyleMake();
 
 /*
 Gradient Functions
@@ -607,7 +553,7 @@ TARP_API tpBool tpSetTransform(tpContext _ctx, const tpTransform * _transform);
 TARP_API tpBool tpResetTransform(tpContext _ctx);
 
 /* Draw a path with the provided style */
-TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle _style);
+TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle * _style);
 
 /*
 Define a clipping path. You can nest these calls. All following draw
@@ -1013,6 +959,22 @@ TARP_API tpSegment tpSegmentMake(tpFloat _h0x, tpFloat _h0y, tpFloat _px, tpFloa
     return ret;
 }
 
+TARP_API tpPaint tpPaintMakeColor(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
+{
+    tpPaint ret;
+    ret.data.color = tpColorMake(_r, _g, _b, _a);
+    ret.type = kTpPaintTypeColor;
+    return ret;
+}
+
+TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient)
+{
+    tpPaint ret;
+    ret.data.gradient = _gradient;
+    ret.type = kTpPaintTypeGradient;
+    return ret;
+}
+
 #ifdef TARP_IMPLEMENTATION_OPENGL
 
 /* @TODO: Clean up the layout of all the structs */
@@ -1164,7 +1126,7 @@ typedef struct TARP_LOCAL
     int dashCount;
     tpStrokeJoin join;
     tpStrokeCap cap;
-    tpBool bScaleStroke;
+    tpBool scaleStroke;
 } _tpGLStrokeData;
 
 typedef struct TARP_LOCAL
@@ -1225,33 +1187,6 @@ typedef struct TARP_LOCAL
     tpBool bFillPaintTransformDirty;
     tpBool bStrokePaintTransformDirty;
 } _tpGLPath;
-
-typedef struct TARP_LOCAL
-{
-    tpPaint fill;
-    tpPaint stroke;
-    tpFloat strokeWidth;
-    tpStrokeCap strokeCap;
-    tpStrokeJoin strokeJoin;
-    tpFillRule fillRule;
-    tpFloat dashArray[TARP_MAX_DASH_ARRAY_SIZE];
-    int dashCount;
-    tpFloat dashOffset;
-    tpFloat miterLimit;
-    tpBool bScaleStroke;
-} _tpGLStyle;
-
-#define _TARP_ARRAY_T _tpGLPathPtrArray
-#define _TARP_ITEM_T _tpGLPath *
-#include <Tarp/TarpArray.h>
-
-#define _TARP_ARRAY_T _tpGLStylePtrArray
-#define _TARP_ITEM_T _tpGLStyle *
-#include <Tarp/TarpArray.h>
-
-#define _TARP_ARRAY_T _tpGLGradientPtrArray
-#define _TARP_ITEM_T _tpGLGradient *
-#include <Tarp/TarpArray.h>
 
 typedef struct TARP_LOCAL
 {
@@ -1486,8 +1421,8 @@ TARP_API tpContext tpContextCreate()
     _tpGLTextureVertexArrayInit(&ctx->tmpTexVertices, 64);
     _tpColorStopArrayInit(&ctx->tmpColorStops, 16);
 
-    ctx->clippingStyle = tpStyleCreate();
-    tpStyleRemoveStroke(ctx->clippingStyle);
+    ctx->clippingStyle = tpStyleMake();
+    ctx->clippingStyle.stroke.type = kTpPaintTypeNone;
 
     ret.pointer = ctx;
     return ret;
@@ -1520,7 +1455,6 @@ TARP_API void tpContextDestroy(tpContext _ctx)
     _tpGLTextureVertexArrayDeallocate(&ctx->tmpTexVertices);
     _tpColorStopArrayDeallocate(&ctx->tmpColorStops);
 
-    tpStyleDestroy(ctx->clippingStyle);
     TARP_FREE(ctx);
 }
 
@@ -1930,194 +1864,24 @@ TARP_API tpBool tpPathSetStrokePaintTransform(tpPath _path, const tpTransform * 
     return tpFalse;
 }
 
-TARP_API tpStyle tpStyleCreate()
+TARP_API tpStyle tpStyleMake()
 {
     tpStyle ret;
-    _tpGLStyle * style = (_tpGLStyle *)TARP_MALLOC(sizeof(_tpGLStyle));
 
-    style->fill.data.color = tpColorMake(1, 1, 1, 1);
-    style->fill.type = kTpPaintTypeColor;
-    style->stroke.data.color = tpColorMake(0, 0, 0, 1);
-    style->stroke.type = kTpPaintTypeColor;
-    style->strokeWidth = 1.0;
-    style->strokeJoin = kTpStrokeJoinBevel;
-    style->strokeCap = kTpStrokeCapButt;
-    style->fillRule = kTpFillRuleEvenOdd;
-    style->dashCount = 0;
-    style->dashOffset = 0;
-    style->miterLimit = 4;
-    style->bScaleStroke = tpTrue;
+    ret.fill.data.color = tpColorMake(1, 1, 1, 1);
+    ret.fill.type = kTpPaintTypeColor;
+    ret.stroke.data.color = tpColorMake(0, 0, 0, 1);
+    ret.stroke.type = kTpPaintTypeColor;
+    ret.strokeWidth = 1.0;
+    ret.strokeJoin = kTpStrokeJoinBevel;
+    ret.strokeCap = kTpStrokeCapButt;
+    ret.fillRule = kTpFillRuleEvenOdd;
+    ret.dashCount = 0;
+    ret.dashOffset = 0;
+    ret.miterLimit = 4;
+    ret.scaleStroke = tpTrue;
 
-    ret.pointer = style;
     return ret;
-}
-
-TARP_API tpStyle tpStyleClone(tpStyle _style){
-    tpStyle ret;
-    _tpGLStyle * new_style = (_tpGLStyle *)TARP_MALLOC(sizeof(_tpGLStyle));
-    
-    *new_style = *(_tpGLStyle *)_style.pointer;
-    
-    ret.pointer = new_style;
-    return ret;
-}
-
-TARP_API void tpStyleDestroy(tpStyle _style)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    TARP_FREE(s);
-}
-
-TARP_API void tpStyleSetDashArray(tpStyle _style, const tpFloat * _dashArray, int _count)
-{
-    int i;
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-
-    assert(_count < TARP_MAX_DASH_ARRAY_SIZE);
-
-    for (i = 0; i < _count; ++i)
-    {
-        s->dashArray[i] = _dashArray[i];
-    }
-    s->dashCount = _count;
-}
-
-TARP_API void tpStyleSetDashOffset(tpStyle _style, tpFloat _offset)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->dashOffset = _offset;
-}
-
-TARP_API void tpStyleSetFillColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-
-    s->fill.data.color = tpColorMake(_r, _g, _b, _a);
-    s->fill.type = kTpPaintTypeColor;
-}
-
-TARP_API void tpStyleSetStrokeColor(tpStyle _style, tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->stroke.data.color = tpColorMake(_r, _g, _b, _a);
-    s->stroke.type = kTpPaintTypeColor;
-}
-
-TARP_API void tpStyleSetFillGradient(tpStyle _style, const tpGradient _gradient)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->fill.data.gradient = _gradient;
-    s->fill.type = kTpPaintTypeGradient;
-}
-
-TARP_API void tpStyleSetStrokeGradient(tpStyle _style, const tpGradient _gradient)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->stroke.data.gradient = _gradient;
-    s->stroke.type = kTpPaintTypeGradient;
-}
-
-TARP_API void tpStyleSetStrokeWidth(tpStyle _style, tpFloat _strokeWidth)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->strokeWidth = _strokeWidth;
-}
-
-TARP_API void tpStyleSetStrokeJoin(tpStyle _style, tpStrokeJoin _join)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->strokeJoin = _join;
-}
-
-TARP_API void tpStyleSetMiterLimit(tpStyle _style, tpFloat _limit)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->miterLimit = _limit;
-}
-
-TARP_API void tpStyleSetStrokeCap(tpStyle _style, tpStrokeCap _cap)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->strokeCap = _cap;
-}
-
-TARP_API void tpStyleSetScaleStroke(tpStyle _style, tpBool _b)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->bScaleStroke = _b;
-}
-
-TARP_API void tpStyleSetFillRule(tpStyle _style, tpFillRule _rule)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->fillRule = _rule;
-}
-
-TARP_API void tpStyleRemoveFill(tpStyle _style)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->fill.type = kTpPaintTypeNone;
-}
-
-TARP_API void tpStyleRemoveStroke(tpStyle _style)
-{
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
-    s->stroke.type = kTpPaintTypeNone;
-}
-
-TARP_API tpFloat * tpStyleDashArrayPtr(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->dashArray;
-}
-
-TARP_API int tpStyleDashCount(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->dashCount;
-}
-
-TARP_API tpFloat tpStyleDashOffset(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->dashOffset;
-}
-
-TARP_API tpPaint tpStyleFillPaint(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->fill;
-}
-
-TARP_API tpPaint tpStyleStrokePaint(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->stroke;
-}
-
-TARP_API tpFloat tpStyleStrokeWidth(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->strokeWidth;
-}
-
-TARP_API tpStrokeJoin tpStyleStrokeJoin(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->strokeJoin;
-}
-
-TARP_API tpBool tpStyleScaleStroke(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->bScaleStroke;
-}
-
-TARP_API tpFloat tpStyleMiterLimit(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->miterLimit;
-}
-
-TARP_API tpStrokeCap tpStyleStrokeCap(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->strokeCap;
-}
-
-TARP_API tpFillRule tpStyleFillRule(tpStyle _style)
-{
-    return ((_tpGLStyle *)_style.pointer)->fillRule;
 }
 
 TARP_LOCAL _tpGLGradient * tpGradientCreate()
@@ -2181,12 +1945,12 @@ TARP_API tpGradient tpGradientClone(tpGradient _gradient)
     _tpGLGradient * ret = tpGradientCreate();
     _tpGLGradient * grad = (_tpGLGradient *)_gradient.pointer;
     int id = ret->gradientID;
-    
+
     *ret = *grad;
     ret->gradientID = id;
     _tpColorStopArrayInit(&ret->stops, grad->stops.count);
     _tpColorStopArrayAppendArray(&ret->stops, grad->stops.array, grad->stops.count);
-    
+
     rh.pointer = ret;
     return rh;
 }
@@ -2281,10 +2045,10 @@ TARP_LOCAL void _tpGLSubdivideCurve(const _tpGLCurve * _curve,
     p0h0 = tpVec2Lerp(_curve->p0, _curve->h0, _t);
     h0h1 = tpVec2Lerp(_curve->h0, _curve->h1, _t);
     h1p1 = tpVec2Lerp(_curve->h1, _curve->p1, _t);
-    
+
     p0h0h1 = tpVec2Lerp(p0h0, h0h1, _t);
     h0h1p1 = tpVec2Lerp(h0h1, h1p1, _t);
-    
+
     p0h0h1p1 = tpVec2Lerp(p0h0h1, h0h1p1, _t);
 
     _result->first.p0 = _curve->p0;
@@ -2339,16 +2103,16 @@ TARP_LOCAL void _tpGLMakeCircleSector(tpVec2 _center, tpVec2 _r0, tpVec2 _r1, tp
     tpMat2 rot;
     tpVec2 r, current, last;
     tpFloat stepSize;
-    
+
     /* @TODO: The step size should depend on _levelOfDetail. */
     stepSize = TARP_PI / 16;
     rot = tpMat2MakeRotation(stepSize);
     r = _r0;
     last = tpVec2Add(_center, r);
-    for(;;)
+    for (;;)
     {
         r = tpMat2MultVec2(&rot, r);
-        if(tpVec2Cross(r, _r1) < 0) { break; }
+        if (tpVec2Cross(r, _r1) < 0) { break; }
         current = tpVec2Add(_center, r);
         _tpGLPushTriangle(_outVertices, _center, last, current);
         last = current;
@@ -2361,7 +2125,7 @@ TARP_LOCAL void _tpGLMakeJoinBevel(tpVec2 _lePrev, tpVec2 _rePrev,
                                    tpVec2 _le, tpVec2 _re,
                                    tpFloat _cross, _tpVec2Array * _outVertices)
 {
-    _tpGLPushTriangle(_outVertices, _lePrev, (_cross < 0)?_le:_re, _rePrev);
+    _tpGLPushTriangle(_outVertices, _lePrev, (_cross < 0) ? _le : _re, _rePrev);
 }
 
 TARP_LOCAL tpBool _tpGLIntersectLines(tpVec2 _p0, tpVec2 _d0,
@@ -2497,7 +2261,7 @@ TARP_LOCAL void _tpGLMakeCap(tpStrokeCap _type,
     }
 }
 
-TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
+TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const tpStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
     int i, j, voff;
     _tpGLContour * c;
@@ -2613,7 +2377,7 @@ TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLPath * _path, const _tpGLStyle
     }
 }
 
-TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
+TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const tpStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
     int j, i, dashIndex, voff, startDashIndex;
     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
@@ -2843,7 +2607,7 @@ TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLPath * _path, const _tpGLStyle * 
     }
 }
 
-TARP_LOCAL void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
+TARP_LOCAL void _tpGLStroke(_tpGLPath * _path, const tpStyle * _style, _tpVec2Array * _vertices, _tpBoolArray * _joints)
 {
     _path->strokeVertexCount = 0;
 
@@ -2866,7 +2630,7 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path, const _tpGLStyle * _style, _tpVec
     _path->lastStroke.dashCount = _style->dashCount;
     _path->lastStroke.join = _style->strokeJoin;
     _path->lastStroke.cap = _style->strokeCap;
-    _path->lastStroke.bScaleStroke = _style->bScaleStroke;
+    _path->lastStroke.scaleStroke = _style->scaleStroke;
 }
 
 TARP_LOCAL void _tpGLFlattenCurve(_tpGLPath * _path,
@@ -3232,7 +2996,7 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
     }
 }
 
-TARP_LOCAL void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const _tpGLStyle * _style)
+TARP_LOCAL void _tpGLCacheBoundsGeometry(_tpGLPath * _path, const tpStyle * _style)
 {
     _tpGLRect bounds;
     _tpGLRect * bptr;
@@ -3656,23 +3420,21 @@ TARP_LOCAL void _tpGLPrepareStencilPlanes(_tpGLContext * _ctx, tpBool _bIsClippi
     *_outTestStencilPlane = _ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne ? _kTpGLClippingStencilPlaneTwo : _kTpGLClippingStencilPlaneOne;
 }
 
-TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpStyle _style, tpBool _bIsClipPath)
+TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, const tpStyle * _style, tpBool _bIsClipPath)
 {
     GLint i;
     GLuint stencilPlaneToWriteTo, stencilPlaneToTestAgainst;
     _tpGLRect bounds;
     _tpGLPath * p = _path;
-    _tpGLStyle * s = (_tpGLStyle *)_style.pointer;
 
-    assert(_ctx);
-    assert(p && s);
+    assert(_ctx && p);
 
     /* check if the transform projection is dirty */
     if (p->lastDrawContext != _ctx ||
             p->lastTransformID != _ctx->transformID)
     {
         /* @TODO: we should also take skew into account here, not only scale */
-        if (_ctx->transformScale > p->lastTransformScale || !s->bScaleStroke)
+        if (_ctx->transformScale > p->lastTransformScale || !_style->scaleStroke)
         {
             _tpGLMarkPathGeometryDirty(p);
         }
@@ -3687,7 +3449,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     we also do this if the style has non scaling stroke and the transform changed since we
     last drew the path.
     */
-    if (!p->bPathGeometryDirty && s->stroke.type != kTpPaintTypeNone && p->lastStroke.bScaleStroke != s->bScaleStroke)
+    if (!p->bPathGeometryDirty && _style->stroke.type != kTpPaintTypeNone && p->lastStroke.scaleStroke != _style->scaleStroke)
     {
         _tpGLMarkPathGeometryDirty(p);
     }
@@ -3708,14 +3470,14 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         p->bPathGeometryDirty = tpFalse;
 
         /* flatten the path into tmp buffers */
-        if (s->bScaleStroke)
+        if (_style->scaleStroke)
             _tpGLFlattenPath(p, 0.15f / _ctx->transformScale, NULL, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
         else
             _tpGLFlattenPath(p, 0.15f, &_ctx->transform, &_ctx->tmpVertices, &_ctx->tmpJoints, &bounds);
 
         /* generate and add the stroke geometry to the tmp buffers */
-        if (s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0)
-            _tpGLStroke(p, s, &_ctx->tmpVertices, &_ctx->tmpJoints);
+        if (_style->stroke.type != kTpPaintTypeNone && _style->strokeWidth > 0)
+            _tpGLStroke(p, _style, &_ctx->tmpVertices, &_ctx->tmpJoints);
 
         /* swap the tmp buffers with the path caches */
         _tpVec2ArrayClear(&p->geometryCache);
@@ -3727,39 +3489,39 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         p->boundsCache = bounds;
 
         /* add the bounds geometry to the geom cache (and potentially cache stroke bounds) */
-        _tpGLCacheBoundsGeometry(p, s);
+        _tpGLCacheBoundsGeometry(p, _style);
 
         /* force recalculation of gradient related geometries */
         p->fillGradientData.lastGradientID = -1;
         p->strokeGradientData.lastGradientID = -1;
     }
     /* check if the stroke should be removed */
-    else if (((s->stroke.type == kTpPaintTypeNone &&
+    else if (((_style->stroke.type == kTpPaintTypeNone &&
                p->lastStroke.strokeType != kTpPaintTypeNone) ||
-              (s->strokeWidth == 0 && p->lastStroke.strokeWidth > 0)))
+              (_style->strokeWidth == 0 && p->lastStroke.strokeWidth > 0)))
     {
-        p->lastStroke.strokeType = s->stroke.type;
+        p->lastStroke.strokeType = _style->stroke.type;
         p->lastStroke.strokeWidth = 0;
         p->strokeVertexOffset = 0;
         p->strokeVertexCount = 0;
     }
     /* check if the stroke needs to be regenerated (due to a change in stroke width or dash related settings) */
-    else if (!_bIsClipPath && ((s->stroke.type != kTpPaintTypeNone && s->strokeWidth > 0 &&
-                                (p->lastStroke.strokeWidth != s->strokeWidth ||
-                                 p->lastStroke.cap != s->strokeCap ||
-                                 p->lastStroke.join != s->strokeJoin ||
-                                 p->lastStroke.dashCount != s->dashCount ||
-                                 p->lastStroke.dashOffset != s->dashOffset ||
-                                 memcmp(p->lastStroke.dashArray, s->dashArray, sizeof(tpFloat) * s->dashCount) != 0))))
+    else if (!_bIsClipPath && ((_style->stroke.type != kTpPaintTypeNone && _style->strokeWidth > 0 &&
+                                (p->lastStroke.strokeWidth != _style->strokeWidth ||
+                                 p->lastStroke.cap != _style->strokeCap ||
+                                 p->lastStroke.join != _style->strokeJoin ||
+                                 p->lastStroke.dashCount != _style->dashCount ||
+                                 p->lastStroke.dashOffset != _style->dashOffset ||
+                                 memcmp(p->lastStroke.dashArray, _style->dashArray, sizeof(tpFloat) * _style->dashCount) != 0))))
     {
         /* remove all the old stoke vertices from the cache */
         _tpVec2ArrayRemoveRange(&p->geometryCache, p->strokeVertexOffset, p->geometryCache.count);
 
         /* generate and add the stroke geometry to the cache. */
-        _tpGLStroke(p, s, &p->geometryCache, &p->jointCache);
+        _tpGLStroke(p, _style, &p->geometryCache, &p->jointCache);
 
         /* add the bounds geometry to the geom cache. */
-        _tpGLCacheBoundsGeometry(p, s);
+        _tpGLCacheBoundsGeometry(p, _style);
 
         /* force rebuilding of the stroke gradient geometry */
         p->strokeGradientData.lastGradientID = -1;
@@ -3770,24 +3532,24 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     @TODO: This if statement could really need a cleaner rework. Basically what we are doing here is
     checking if any property changed that triggers the gradient geometry to be recached.
     */
-    if (!_bIsClipPath && ((s->fill.type == kTpPaintTypeGradient &&
-                           (p->fillGradientData.lastGradientID != ((_tpGLGradient *)s->fill.data.gradient.pointer)->gradientID ||
-                            p->bFillPaintTransformDirty || ((_tpGLGradient *)s->fill.data.gradient.pointer)->bDirty)) ||
-                          (s->stroke.type == kTpPaintTypeGradient &&
-                           (p->strokeGradientData.lastGradientID != ((_tpGLGradient *)s->stroke.data.gradient.pointer)->gradientID ||
-                            p->bStrokePaintTransformDirty || ((_tpGLGradient *)s->stroke.data.gradient.pointer)->bDirty))))
+    if (!_bIsClipPath && ((_style->fill.type == kTpPaintTypeGradient &&
+                           (p->fillGradientData.lastGradientID != ((_tpGLGradient *)_style->fill.data.gradient.pointer)->gradientID ||
+                            p->bFillPaintTransformDirty || ((_tpGLGradient *)_style->fill.data.gradient.pointer)->bDirty)) ||
+                          (_style->stroke.type == kTpPaintTypeGradient &&
+                           (p->strokeGradientData.lastGradientID != ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->gradientID ||
+                            p->bStrokePaintTransformDirty || ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->bDirty))))
     {
         _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
-        if (s->fill.type == kTpPaintTypeGradient)
+        if (_style->fill.type == kTpPaintTypeGradient)
         {
-            _tpGLGradient * grad = (_tpGLGradient *)s->fill.data.gradient.pointer;
+            _tpGLGradient * grad = (_tpGLGradient *)_style->fill.data.gradient.pointer;
             _tpGLCacheGradientGeometry(_ctx, grad, p, &p->fillGradientData, &_ctx->tmpTexVertices, &p->fillPaintTransform, p->bFillPaintTransformDirty);
             p->bFillPaintTransformDirty = tpFalse;
         }
 
-        if (s->stroke.type == kTpPaintTypeGradient)
+        if (_style->stroke.type == kTpPaintTypeGradient)
         {
-            _tpGLGradient * grad = (_tpGLGradient *)s->stroke.data.gradient.pointer;
+            _tpGLGradient * grad = (_tpGLGradient *)_style->stroke.data.gradient.pointer;
             _tpGLCacheGradientGeometry(_ctx, grad, p, &p->strokeGradientData, &_ctx->tmpTexVertices, &p->strokePaintTransform, p->bStrokePaintTransformDirty);
             p->bStrokePaintTransformDirty = tpFalse;
         }
@@ -3795,7 +3557,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _tpGLTextureVertexArraySwap(&p->textureGeometryCache, &_ctx->tmpTexVertices);
     }
 
-    if (!_bIsClipPath && (s->fill.type == kTpPaintTypeGradient || s->stroke.type == kTpPaintTypeGradient))
+    if (!_bIsClipPath && (_style->fill.type == kTpPaintTypeGradient || _style->stroke.type == kTpPaintTypeGradient))
     {
         _TARP_ASSERT_NO_GL_ERROR(glBindBuffer(GL_ARRAY_BUFFER, _ctx->textureVao.vbo));
         _tpGLUpdateVAO(&_ctx->textureVao, p->textureGeometryCache.array, sizeof(_tpGLTextureVertex) * p->textureGeometryCache.count);
@@ -3805,7 +3567,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     /* upload the paths geometry cache to the gpu */
     _tpGLUpdateVAO(&_ctx->vao, p->geometryCache.array, sizeof(tpVec2) * p->geometryCache.count);
 
-    if (s->bScaleStroke)
+    if (_style->scaleStroke)
         _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpLoc, 1, GL_FALSE, &_ctx->transformProjection.v[0]));
     else
     {
@@ -3816,11 +3578,11 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
     stencilPlaneToWriteTo = _bIsClipPath ? _ctx->currentClipStencilPlane : _kTpGLFillRasterStencilPlane;
     stencilPlaneToTestAgainst = _ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne ? _kTpGLClippingStencilPlaneTwo : _kTpGLClippingStencilPlaneOne;
 
-    if (_bIsClipPath || s->fill.type != kTpPaintTypeNone)
+    if (_bIsClipPath || _style->fill.type != kTpPaintTypeNone)
     {
         _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
-        if (s->fillRule == kTpFillRuleEvenOdd)
+        if (_style->fillRule == kTpFillRuleEvenOdd)
         {
             _TARP_ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
             _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
@@ -3836,7 +3598,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
 
             _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpGLFillRasterStencilPlane));
         }
-        else if (s->fillRule == kTpFillRuleNonZero)
+        else if (_style->fillRule == kTpFillRuleNonZero)
         {
             /*
             NonZero winding rule needs to use Increment and Decrement stencil operations.
@@ -3893,7 +3655,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLFillRasterStencilPlane));
         _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
-        _tpGLDrawPaint(_ctx, p, &s->fill, &p->fillGradientData);
+        _tpGLDrawPaint(_ctx, p, &_style->fill, &p->fillGradientData);
     }
 
     /* we don't care for stroke if this is a clipping path */
@@ -3914,14 +3676,14 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, tpSt
         _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpGLStrokeRasterStencilPlane));
         _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
 
-        _tpGLDrawPaint(_ctx, p, &s->stroke, &p->strokeGradientData);
+        _tpGLDrawPaint(_ctx, p, &_style->stroke, &p->strokeGradientData);
     }
 
     /* WE DONE BABY */
     return tpFalse;
 }
 
-TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle _style)
+TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle * _style)
 {
     return _tpGLDrawPathImpl((_tpGLContext *)_ctx.pointer, (_tpGLPath *)_path.pointer, _style, tpFalse);
 }
@@ -3943,7 +3705,7 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx, _tpGLPath * _pa
     _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
     /* draw path */
-    drawResult = _tpGLDrawPathImpl(_ctx, _path, _ctx->clippingStyle, tpTrue);
+    drawResult = _tpGLDrawPathImpl(_ctx, _path, &_ctx->clippingStyle, tpTrue);
     if (drawResult) return tpTrue;
 
     _ctx->currentClipStencilPlane = _ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne ?
