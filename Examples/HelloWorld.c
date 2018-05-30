@@ -20,6 +20,7 @@ int main(int argc, char * argv[])
     tpMat4 proj;
     tpGradient grad;
     int wwidth, wheight;
+    tpFloat animationTimer;
 
     /* initialize glfw */
     if (!glfwInit())
@@ -70,7 +71,7 @@ int main(int argc, char * argv[])
     /* create a path and add one circle contour */
     path = tpPathCreate();
     tpPathAddCircle(path, 400, 300, 100);
-    
+
     /* add another custom contour to the path */
     tpPathMoveTo(path, 400, 320);
     tpPathLineTo(path, 420, 280);
@@ -81,7 +82,7 @@ int main(int argc, char * argv[])
     grad = tpGradientCreateRadialSymmetric(400, 300, 80);
     tpGradientAddColorStop(grad, 1.0, 1.0, 0.0, 1.0, 0.0);
     tpGradientAddColorStop(grad, 1.0, 0.0, 1.0, 1.0, 0.75);
-    tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0); 
+    tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0);
 
     /* create a style that we can draw the path with */
     style = tpStyleMake();
@@ -89,6 +90,8 @@ int main(int argc, char * argv[])
     style.stroke = tpPaintMakeColor(1.0, 0.6, 0.1, 1.0);
     style.strokeWidth = 10.0;
     style.strokeJoin = kTpStrokeJoinRound;
+
+    animationTimer = 0.0f;
 
     /* the main loop */
     while (!glfwWindowShouldClose(window))
@@ -102,6 +105,9 @@ int main(int argc, char * argv[])
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
 
+        /* animate the gradient */
+        tpGradientSetFocalPointOffset(grad, sin(animationTimer) * 60.0, cos(animationTimer * 2) * 40.0);
+
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);
 
@@ -113,6 +119,8 @@ int main(int argc, char * argv[])
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        animationTimer += 0.1;
     }
 
     /* clean up tarp */
