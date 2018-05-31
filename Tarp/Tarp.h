@@ -399,6 +399,8 @@ Path Functions
 */
 TARP_API tpPath tpPathCreate();
 
+TARP_API tpPath tpPathClone(tpPath _path);
+
 TARP_API void tpPathDestroy(tpPath _path);
 
 /* Set the fill transformation */
@@ -1494,6 +1496,76 @@ TARP_API tpPath tpPathCreate()
     return ret;
 }
 
+TARP_API tpPath tpPathClone(tpPath _path)
+{
+    int i;
+    tpPath ret = tpPathCreate();
+
+    _tpGLPath * from = (_tpGLPath *)_path.pointer;
+    _tpGLPath * path = (_tpGLPath *)ret.pointer;
+
+    if (from->contours.count)
+    {
+        _tpGLContourArrayReserve(&path->contours, from->contours.count);
+        for (i = 0; i < from->contours.count; ++i)
+        {
+            _tpGLContour contour;
+            _tpGLContour * fromCont = _tpGLContourArrayAtPtr(&from->contours, i);
+            _tpSegmentArrayInit(&contour.segments, fromCont->segments.count);
+            _tpSegmentArrayAppendArray(&contour.segments, fromCont->segments.array, fromCont->segments.count);
+            contour.bDirty = fromCont->bDirty;
+            contour.bIsClosed = fromCont->bIsClosed;
+            contour.bLengthDirty = fromCont->bLengthDirty;
+            contour.fillVertexOffset = fromCont->fillVertexOffset;
+            contour.fillVertexCount = fromCont->fillVertexCount;
+            contour.strokeVertexOffset = fromCont->strokeVertexOffset;
+            contour.strokeVertexCount = fromCont->strokeVertexCount;
+            contour.bounds = fromCont->bounds;
+            contour.length = fromCont->length;
+            _tpGLContourArrayAppendPtr(&path->contours, &contour);
+        }
+    }
+
+    path->currentContourIndex = from->currentContourIndex;
+    path->transform = from->transform;
+    if (from->geometryCache.count)
+        _tpVec2ArrayAppendArray(&path->geometryCache, from->geometryCache.array, from->geometryCache.count);
+    if (from->textureGeometryCache.count)
+        _tpGLTextureVertexArrayAppendArray(&path->textureGeometryCache, from->textureGeometryCache.array, from->textureGeometryCache.count);
+    if (from->jointCache.count)
+        _tpBoolArrayAppendArray(&path->jointCache, from->jointCache.array, from->jointCache.count);
+
+    path->bPathGeometryDirty = from->bPathGeometryDirty;
+    path->lastTransformScale = from->lastTransformScale;
+
+    path->strokeVertexOffset = from->strokeVertexOffset;
+    path->strokeVertexCount = from->strokeVertexCount;
+    path->boundsVertexOffset = from->boundsVertexOffset;
+
+    path->boundsCache = from->boundsCache;
+    path->strokeBoundsCache = from->strokeBoundsCache;
+
+    path->fillGradientData.bounds = &path->boundsCache;
+    path->fillGradientData.lastGradientID = from->fillGradientData.lastGradientID;
+    path->fillGradientData.vertexOffset = from->fillGradientData.vertexOffset;
+    path->fillGradientData.vertexCount = from->fillGradientData.vertexCount;
+
+    path->strokeGradientData.bounds = &path->strokeBoundsCache;
+    path->strokeGradientData.lastGradientID = from->strokeGradientData.lastGradientID;
+    path->strokeGradientData.vertexOffset = from->strokeGradientData.vertexOffset;
+    path->strokeGradientData.vertexCount = from->strokeGradientData.vertexCount;
+
+    path->fillPaintTransform = from->fillPaintTransform;
+    path->strokePaintTransform = from->strokePaintTransform;
+    path->bFillPaintTransformDirty = from->bFillPaintTransformDirty;
+    path->bStrokePaintTransformDirty = from->bStrokePaintTransformDirty;
+
+    path->lastDrawContext = from->lastDrawContext;
+    path->lastTransformID = from->lastTransformID;
+
+    return ret;
+}
+
 TARP_API void tpPathDestroy(tpPath _path)
 {
     int i;
@@ -1532,7 +1604,7 @@ TARP_LOCAL _tpGLContour * _tpGLPathCreateNextContour(_tpGLPath * _p)
     contour.strokeVertexCount = 0;
     contour.bLengthDirty = tpTrue;
     _p->currentContourIndex = _p->contours.count;
-    _tpGLContourArrayAppend(&_p->contours, contour);
+    _tpGLContourArrayAppendPtr(&_p->contours, &contour);
     return _tpGLContourArrayAtPtr(&_p->contours, _p->currentContourIndex);
 }
 

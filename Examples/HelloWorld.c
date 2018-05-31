@@ -14,7 +14,7 @@ int main(int argc, char * argv[])
     /* this example is compile in pedantic c89, so we declare the variables up here */
     tpContext ctx;
     GLFWwindow * window;
-    
+
     tpPath path;
     tpStyle style;
     tpMat4 proj;
