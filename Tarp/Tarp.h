@@ -1498,6 +1498,9 @@ TARP_API tpPath tpPathCreate()
 
 TARP_API tpPath tpPathClone(tpPath _path)
 {
+    if(!tpPathIsValidHandle(_path))
+        return tpPathInvalidHandle();
+
     int i;
     tpPath ret = tpPathCreate();
 
@@ -2015,6 +2018,9 @@ TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFl
 
 TARP_API tpGradient tpGradientClone(tpGradient _gradient)
 {
+    if(!tpGradientIsValidHandle(_gradient))
+        return tpGradientInvalidHandle();
+
     tpGradient rh;
     _tpGLGradient * ret = tpGradientCreate();
     _tpGLGradient * grad = (_tpGLGradient *)_gradient.pointer;
