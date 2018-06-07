@@ -115,6 +115,8 @@ TODO
 --------
 - Possibly an OpenGL ES based backend?
 - Try out NV_path_rendering on linux as a backend?
+- Vulkan backend?
+- Metal backend on osx/ios?
 
 How does Tarp rasterize
 --------
