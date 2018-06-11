@@ -2024,7 +2024,7 @@ TARP_API tpGradient tpGradientClone(tpGradient _gradient)
     tpGradient rh;
     _tpGLGradient * ret, *grad;
     int id;
-    
+
     if (!tpGradientIsValidHandle(_gradient))
         return tpGradientInvalidHandle();
 
@@ -3643,14 +3643,15 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
     /*
     check if there are any gradients to be cached.
     @TODO: This if statement could really need a cleaner rework. Basically what we are doing here is
-    checking if any property changed that triggers the gradient geometry to be recached.
+    checking if any property changed that triggers the gradient geometry to be regenerated.
     */
     if (!_bIsClipPath && ((_style->fill.type == kTpPaintTypeGradient &&
                            (p->fillGradientData.lastGradientID != ((_tpGLGradient *)_style->fill.data.gradient.pointer)->gradientID ||
                             p->bFillPaintTransformDirty || ((_tpGLGradient *)_style->fill.data.gradient.pointer)->bDirty)) ||
                           (_style->stroke.type == kTpPaintTypeGradient &&
                            (p->strokeGradientData.lastGradientID != ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->gradientID ||
-                            p->bStrokePaintTransformDirty || ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->bDirty))))
+                            p->bStrokePaintTransformDirty || ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->bDirty)) ||
+                          p->lastStroke.scaleStroke != _style->scaleStroke))
     {
         _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
         if (_style->fill.type == kTpPaintTypeGradient)
