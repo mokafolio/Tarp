@@ -1498,14 +1498,17 @@ TARP_API tpPath tpPathCreate()
 
 TARP_API tpPath tpPathClone(tpPath _path)
 {
-    if(!tpPathIsValidHandle(_path))
+    int i;
+    tpPath ret;
+    _tpGLPath * from, *path;
+
+    if (!tpPathIsValidHandle(_path))
         return tpPathInvalidHandle();
 
-    int i;
-    tpPath ret = tpPathCreate();
+    ret = tpPathCreate();
 
-    _tpGLPath * from = (_tpGLPath *)_path.pointer;
-    _tpGLPath * path = (_tpGLPath *)ret.pointer;
+    from = (_tpGLPath *)_path.pointer;
+    path = (_tpGLPath *)ret.pointer;
 
     if (from->contours.count)
     {
@@ -2018,13 +2021,16 @@ TARP_API tpGradient tpGradientCreateRadialSymmetric(tpFloat _x, tpFloat _y, tpFl
 
 TARP_API tpGradient tpGradientClone(tpGradient _gradient)
 {
-    if(!tpGradientIsValidHandle(_gradient))
+    tpGradient rh;
+    _tpGLGradient * ret, *grad;
+    int id;
+    
+    if (!tpGradientIsValidHandle(_gradient))
         return tpGradientInvalidHandle();
 
-    tpGradient rh;
-    _tpGLGradient * ret = tpGradientCreate();
-    _tpGLGradient * grad = (_tpGLGradient *)_gradient.pointer;
-    int id = ret->gradientID;
+    ret = tpGradientCreate();
+    grad = (_tpGLGradient *)_gradient.pointer;
+    id = ret->gradientID;
 
     *ret = *grad;
     ret->gradientID = id;
@@ -3051,7 +3057,7 @@ TARP_LOCAL void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
 }
 
 TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
-                               const tpPaint * _paint, const _tpGLGradientCacheData * _gradCache)
+                               const tpPaint * _paint, const _tpGLGradientCacheData * _gradCache, tpBool _bIsScalingStroke)
 {
     if (_paint->type == kTpPaintTypeColor)
     {
@@ -3068,7 +3074,10 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx, _tpGLPath * _path,
         _TARP_ASSERT_NO_GL_ERROR(glBindTexture(GL_TEXTURE_1D, grad->rampTexture));
 
         _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
-        _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpTextureLoc, 1, GL_FALSE, &_ctx->transformProjection.v[0]));
+        if (_bIsScalingStroke)
+            _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpTextureLoc, 1, GL_FALSE, &_ctx->transformProjection.v[0]));
+        else
+            _TARP_ASSERT_NO_GL_ERROR(glUniformMatrix4fv(_ctx->tpTextureLoc, 1, GL_FALSE, &_ctx->projection.v[0]));
         _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
         _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_FAN, _gradCache->vertexOffset, _gradCache->vertexCount));
         _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->program));
@@ -3130,6 +3139,7 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
     _tpGLGradient * _grad,
     const tpTransform * _paintTransform,
     const _tpGLRect * _bounds,
+    tpBool _bIsScalingStroke,
     _tpGLTextureVertexArray * _vertices,
     int * _outVertexOffset,
     int * _outVertexCount)
@@ -3143,6 +3153,15 @@ TARP_LOCAL void _tpGLGradientLinearGeometry(
 
     origin = tpTransformApply(_paintTransform, _grad->origin);
     dest = tpTransformApply(_paintTransform, _grad->destination);
+
+    /* if we are not scaling the stroke, the geometry will be transformed before being send to the GPU,
+    hence we need to transform the gradient geometry, too! */
+    if (!_bIsScalingStroke)
+    {
+        origin = tpTransformApply(&_ctx->transform, origin);
+        dest = tpTransformApply(&_ctx->transform, dest);
+    }
+
     dir = tpVec2Sub(dest, origin);
     len2 = tpVec2LengthSquared(dir);
     ndir = tpVec2MultScalar(dir, 1 / len2);
@@ -3193,6 +3212,7 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     _tpGLGradient * _grad,
     const tpTransform * _paintTransform,
     const _tpGLRect * _bounds,
+    tpBool _bIsScalingStroke,
     _tpGLTextureVertexArray * _vertices,
     int * _outVertexOffset,
     int * _outVertexCount)
@@ -3213,6 +3233,10 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     ellipse = tpTransformMake(a.x, b.x, _grad->origin.x,
                               a.y, b.y, _grad->origin.y);
     ellipse = tpTransformCombine(_paintTransform, &ellipse);
+
+    if (!_bIsScalingStroke)
+        ellipse = tpTransformCombine(&_ctx->transform, &ellipse);
+
     a = tpVec2Make(ellipse.m.v[0], ellipse.m.v[1]);
     b = tpVec2Make(ellipse.m.v[2], ellipse.m.v[3]);
     if (tpVec2Cross(a, b) < 0)
@@ -3223,6 +3247,9 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
 
     tmp = tpVec2Add(_grad->focal_point_offset, _grad->origin);
     focalPoint = tpTransformApply(_paintTransform, tmp);
+
+    if (!_bIsScalingStroke)
+        focalPoint = tpTransformApply(&_ctx->transform, focalPoint);
 
     /* avoid numerical instabilities for gradients of near-zero size */
     /* @TODO: The values of 0.1 are somewhat arbitrarily chosen. This might require more rigorous analysis. */
@@ -3360,9 +3387,15 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(
     _tpGLTextureVertexArrayAppendArray(_vertices, vertices, vertexCount);
 }
 
-TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * _grad,
-        _tpGLPath * _path, _tpGLGradientCacheData * _gradCache, _tpGLTextureVertexArray * _vertices,
-        const tpTransform * _paintTransform, tpBool _bPaintTransformDirty)
+TARP_LOCAL void _tpGLCacheGradientGeometry(
+    _tpGLContext * _ctx,
+    _tpGLGradient * _grad,
+    _tpGLPath * _path,
+    _tpGLGradientCacheData * _gradCache,
+    _tpGLTextureVertexArray * _vertices,
+    const tpTransform * _paintTransform,
+    tpBool _bPaintTransformDirty,
+    tpBool _bIsScalingStroke)
 {
     _tpGLGradient * grad = _grad;
 
@@ -3384,14 +3417,14 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx, _tpGLGradient * 
         if (grad->type == kTpGradientTypeLinear)
         {
             _tpGLGradientLinearGeometry(_ctx, grad, _paintTransform,
-                                        _gradCache->bounds, _vertices,
+                                        _gradCache->bounds, _bIsScalingStroke, _vertices,
                                         &_gradCache->vertexOffset, &_gradCache->vertexCount);
 
         }
         else if (grad->type == kTpGradientTypeRadial)
         {
             _tpGLGradientRadialGeometry(_ctx, grad, _paintTransform,
-                                        _gradCache->bounds, _vertices,
+                                        _gradCache->bounds, _bIsScalingStroke, _vertices,
                                         &_gradCache->vertexOffset, &_gradCache->vertexCount);
 
         }
@@ -3623,14 +3656,14 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
         if (_style->fill.type == kTpPaintTypeGradient)
         {
             _tpGLGradient * grad = (_tpGLGradient *)_style->fill.data.gradient.pointer;
-            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->fillGradientData, &_ctx->tmpTexVertices, &p->fillPaintTransform, p->bFillPaintTransformDirty);
+            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->fillGradientData, &_ctx->tmpTexVertices, &p->fillPaintTransform, p->bFillPaintTransformDirty, _style->scaleStroke);
             p->bFillPaintTransformDirty = tpFalse;
         }
 
         if (_style->stroke.type == kTpPaintTypeGradient)
         {
             _tpGLGradient * grad = (_tpGLGradient *)_style->stroke.data.gradient.pointer;
-            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->strokeGradientData, &_ctx->tmpTexVertices, &p->strokePaintTransform, p->bStrokePaintTransformDirty);
+            _tpGLCacheGradientGeometry(_ctx, grad, p, &p->strokeGradientData, &_ctx->tmpTexVertices, &p->strokePaintTransform, p->bStrokePaintTransformDirty, _style->scaleStroke);
             p->bStrokePaintTransformDirty = tpFalse;
         }
 
@@ -3735,7 +3768,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
         _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLFillRasterStencilPlane));
         _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
-        _tpGLDrawPaint(_ctx, p, &_style->fill, &p->fillGradientData);
+        _tpGLDrawPaint(_ctx, p, &_style->fill, &p->fillGradientData, _style->scaleStroke);
     }
 
     /* we don't care for stroke if this is a clipping path */
@@ -3756,7 +3789,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
         _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpGLStrokeRasterStencilPlane));
         _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
 
-        _tpGLDrawPaint(_ctx, p, &_style->stroke, &p->strokeGradientData);
+        _tpGLDrawPaint(_ctx, p, &_style->stroke, &p->strokeGradientData, _style->scaleStroke);
     }
 
     /* WE DONE BABY */
