@@ -1,6 +1,7 @@
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
 
+link_directories(${GLFW_STATIC_LIBRARY_DIRS})
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(HelloWorld HelloWorld.c ../ExampleAndTestDeps/GL/gl3w.c)

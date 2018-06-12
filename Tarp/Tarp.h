@@ -2059,6 +2059,8 @@ TARP_API void tpGradientSetFocalPointOffset(tpGradient _gradient, tpFloat _x, tp
 TARP_API void tpGradientSetRatio(tpGradient _gradient, tpFloat _ratio)
 {
     _tpGLGradient * g = (_tpGLGradient *)_gradient.pointer;
+    /* since it only makes sense for radial grads, we assert so we can at least catch it in debug */
+    assert(g->type == kTpGradientTypeRadial);
     g->ratio = _ratio;
     g->bDirty = tpTrue;
 }
