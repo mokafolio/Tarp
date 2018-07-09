@@ -26,7 +26,7 @@ What does Tarp not want to provide?
 - Any form of document loading. (SVG etc.)
 - Bezier math that goes beyond rendering.
 - Raster image rendering
-- Text rendering. (Dealing with fonts is a huge task by itself, you can easily build a font rasterizer on top of Tarp using *stb_truetype* or *freeimage*, though)
+- Text rendering. (Dealing with fonts is a huge task by itself, you can easily build a font rasterizer on top of Tarp using *stb_truetype* or *freetype*, though)
 
 Basic usage
 --------
