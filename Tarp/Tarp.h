@@ -55,6 +55,13 @@ by simply defining them before including tarp.
 #define TARP_LOCAL __attribute__ ((visibility("hidden")))
 #endif
 
+/* thread local storage. Only used for error variable */
+#if defined(__GNUC__)
+#define TARP_TLS __thread
+#elif defined(_MSC_VER)
+#define TARP_TLS __declspec( thread )
+#endif
+
 /*
 memory allocation, you can define you own before including tarp for custom
 memory allocation!
@@ -984,7 +991,7 @@ TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient)
 /* @TODO: Clean up the layout of all the structs */
 
 /* global to hold the last error message */
-TARP_LOCAL char __g_error[TARP_MAX_ERROR_MESSAGE];
+TARP_LOCAL TARP_TLS char __g_error[TARP_MAX_ERROR_MESSAGE];
 
 TARP_LOCAL void _tpGLSetErrorMessage(const char * _message)
 {
