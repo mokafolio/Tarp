@@ -1052,9 +1052,9 @@ typedef enum TARP_LOCAL
     Increment, Decrement stencil operations
     http://www.opengl.org/discussion_boards/showthread.php/149740-glStencilOp-s-GL_INCR-GL_DECR-behaviour-when-masked
     */
-    _kTpGLFillRasterStencilPlane = 0x1F, /* binary mask    00011111 */
-    _kTpGLClippingStencilPlaneOne = 1 << 5, /* binary mask     00100000 */
-    _kTpGLClippingStencilPlaneTwo = 1 << 6, /* binary mask     01000000 */
+    _kTpGLFillRasterStencilPlane = 0x1F,    /* binary mask 00011111 */
+    _kTpGLClippingStencilPlaneOne = 1 << 5, /* binary mask 00100000 */
+    _kTpGLClippingStencilPlaneTwo = 1 << 6, /* binary mask 01000000 */
     _kTpGLStrokeRasterStencilPlane = 1 << 7 /* binary mask 10000000 */
 } _tpGLStencilPlane;
 
@@ -3489,7 +3489,7 @@ TARP_API tpBool tpPrepareDrawing(tpContext _ctx)
 
     _TARP_ASSERT_NO_GL_ERROR(glEnable(GL_STENCIL_TEST));
     _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLFillRasterStencilPlane | _kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo | _kTpGLStrokeRasterStencilPlane));
-    _TARP_ASSERT_NO_GL_ERROR(glClearStencil(255));
+    _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));
     _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
     _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(ctx->vao.vao));
@@ -3703,7 +3703,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
 
     if (_bIsClipPath || _style->fill.type != kTpPaintTypeNone)
     {
-        _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
+        _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_EQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
         if (_style->fillRule == kTpFillRuleEvenOdd)
         {
@@ -3718,7 +3718,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
 
             if (_bIsClipPath) return tpFalse;
 
-            _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpGLFillRasterStencilPlane));
+            _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_NOTEQUAL, 0, _kTpGLFillRasterStencilPlane));
         }
         else if (_style->fillRule == kTpFillRuleNonZero)
         {
@@ -3728,7 +3728,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
             the results to the clipping mask stencil plane afterwards
             */
             _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLFillRasterStencilPlane));
-            _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_DECR_WRAP));
+            _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INCR_WRAP));
             _TARP_ASSERT_NO_GL_ERROR(glEnable(GL_CULL_FACE));
             _TARP_ASSERT_NO_GL_ERROR(glCullFace(GL_BACK));
             _TARP_ASSERT_NO_GL_ERROR(glFrontFace(GL_CCW));
@@ -3740,7 +3740,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
             }
 
             _TARP_ASSERT_NO_GL_ERROR(glFrontFace(GL_CW));
-            _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INCR_WRAP));
+            _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_DECR_WRAP));
 
             for (i = 0; i < p->contours.count; ++i)
             {
@@ -3770,12 +3770,12 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
             }
             else
             {
-                _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_NOTEQUAL, 0xFFF, _kTpGLFillRasterStencilPlane));
+                _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_NOTEQUAL, 0, _kTpGLFillRasterStencilPlane));
             }
         }
 
         _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLFillRasterStencilPlane));
-        _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
+        _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO));
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
         _tpGLDrawPaint(_ctx, p, &_style->fill, &p->fillGradientData, _style->scaleStroke);
     }
@@ -3788,14 +3788,14 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
     {
         _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLStrokeRasterStencilPlane));
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
-        _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0, stencilPlaneToTestAgainst));
+        _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0xFFFFFF, stencilPlaneToTestAgainst));
         _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 
         /* Draw all stroke triangles of all contours at once */
         _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLES, p->strokeVertexOffset, p->strokeVertexCount));
 
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
-        _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_EQUAL, 0, _kTpGLStrokeRasterStencilPlane));
+        _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(GL_NOTEQUAL, 0, _kTpGLStrokeRasterStencilPlane));
         _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
 
         _tpGLDrawPaint(_ctx, p, &_style->stroke, &p->strokeGradientData, _style->scaleStroke);
@@ -3823,7 +3823,7 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx, _tpGLPath * _pa
     drawing the bounds of the last clip path? could be a potential speed up
     */
     _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_ctx->currentClipStencilPlane));
-    _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));
+    _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0xFFFFFF));
     _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
     /* draw path */
@@ -3862,7 +3862,7 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
         {
             /* ...otherwise rebuild it */
             _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
-            _TARP_ASSERT_NO_GL_ERROR(glClearStencil(255));
+            _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0xFFFFFF));
             _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
             for (i = 0; i < ctx->clippingStackDepth; ++i)
@@ -3881,7 +3881,7 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
         reset the stencil? Might scale better for a lot of paths :)
         */
         _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
-        _TARP_ASSERT_NO_GL_ERROR(glClearStencil(255));
+        _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));
         _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
     }
 
