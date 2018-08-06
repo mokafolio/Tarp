@@ -3788,7 +3788,8 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx, _tpGLPath * _path, cons
     {
         _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLStrokeRasterStencilPlane));
         _TARP_ASSERT_NO_GL_ERROR(glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE));
-        _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0xFFFFFF, stencilPlaneToTestAgainst));
+        /* @TODO: Not sure if this test will work with non 8 bit stencil buffers, but is there such a thing oO? */
+        _TARP_ASSERT_NO_GL_ERROR(glStencilFunc(_ctx->clippingStackDepth ? GL_NOTEQUAL : GL_ALWAYS, 0xff, stencilPlaneToTestAgainst));
         _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 
         /* Draw all stroke triangles of all contours at once */
@@ -3823,7 +3824,7 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx, _tpGLPath * _pa
     drawing the bounds of the last clip path? could be a potential speed up
     */
     _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_ctx->currentClipStencilPlane));
-    _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0xFFFFFF));
+    _TARP_ASSERT_NO_GL_ERROR(glClearStencil(~0));
     _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
     /* draw path */
@@ -3862,7 +3863,7 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
         {
             /* ...otherwise rebuild it */
             _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
-            _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0xFFFFFF));
+            _TARP_ASSERT_NO_GL_ERROR(glClearStencil(~0));
             _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
             for (i = 0; i < ctx->clippingStackDepth; ++i)
