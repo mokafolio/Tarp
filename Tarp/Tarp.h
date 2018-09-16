@@ -3885,7 +3885,7 @@ extern "C"
                 _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INCR_WRAP));
                 _TARP_ASSERT_NO_GL_ERROR(glEnable(GL_CULL_FACE));
                 _TARP_ASSERT_NO_GL_ERROR(glCullFace(GL_BACK));
-                _TARP_ASSERT_NO_GL_ERROR(glFrontFace(GL_CCW));
+                _TARP_ASSERT_NO_GL_ERROR(glFrontFace(GL_CW));
 
                 for (i = 0; i < p->contours.count; ++i)
                 {
@@ -3894,7 +3894,7 @@ extern "C"
                         glDrawArrays(GL_TRIANGLE_FAN, c->fillVertexOffset, c->fillVertexCount));
                 }
 
-                _TARP_ASSERT_NO_GL_ERROR(glFrontFace(GL_CW));
+                _TARP_ASSERT_NO_GL_ERROR(glFrontFace(GL_CCW));
                 _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_DECR_WRAP));
 
                 for (i = 0; i < p->contours.count; ++i)
@@ -3912,7 +3912,7 @@ extern "C"
                     _TARP_ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
                     _TARP_ASSERT_NO_GL_ERROR(
                         glStencilFunc(GL_NOTEQUAL, 0, _kTpGLFillRasterStencilPlane));
-                    _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT));
+                    _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO));
 
                     _TARP_ASSERT_NO_GL_ERROR(
                         glDrawArrays(GL_TRIANGLE_STRIP, p->boundsVertexOffset, 4));
@@ -3921,7 +3921,7 @@ extern "C"
                     draw the bounds one last time to zero out the tmp data
                     created in the _kTpGLFillRasterStencilPlane
                     */
-                    _TARP_ASSERT_NO_GL_ERROR(glStencilMask(stencilPlaneToWriteTo));
+                    _TARP_ASSERT_NO_GL_ERROR(glStencilMask(_kTpGLFillRasterStencilPlane));
                     _TARP_ASSERT_NO_GL_ERROR(glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO));
                     _TARP_ASSERT_NO_GL_ERROR(
                         glDrawArrays(GL_TRIANGLE_STRIP, p->boundsVertexOffset, 4));
@@ -4032,7 +4032,7 @@ extern "C"
         assert(ctx->clippingStackDepth);
 
         --ctx->clippingStackDepth;
-        
+
         if (ctx->clippingStackDepth)
         {
             /* check if the last clip mask is still in one of the clipping
