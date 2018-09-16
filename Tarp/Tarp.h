@@ -4020,7 +4020,8 @@ extern "C"
 
     TARP_API tpBool tpBeginClippingWithFillRule(tpContext _ctx, tpPath _path, tpFillRule _rule)
     {
-        return _tpGLGenerateClippingMask((_tpGLContext *)_ctx.pointer, (_tpGLPath *)_path.pointer, tpFalse, _rule);
+        return _tpGLGenerateClippingMask((_tpGLContext *)_ctx.pointer, (_tpGLPath *)_path.pointer,
+                                         tpFalse, _rule);
     }
 
     TARP_API tpBool tpEndClipping(tpContext _ctx)
@@ -4029,7 +4030,7 @@ extern "C"
         _tpGLClippingStackItem * ci;
         _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
         assert(ctx->clippingStackDepth);
-        
+
         --ctx->clippingStackDepth;
         // ci = &(ctx->clippingStack[--ctx->clippingStackDepth]);
 
