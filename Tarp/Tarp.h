@@ -4032,8 +4032,7 @@ extern "C"
         assert(ctx->clippingStackDepth);
 
         --ctx->clippingStackDepth;
-        // ci = &(ctx->clippingStack[--ctx->clippingStackDepth]);
-
+        
         if (ctx->clippingStackDepth)
         {
             /* check if the last clip mask is still in one of the clipping
