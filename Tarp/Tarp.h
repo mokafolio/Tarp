@@ -183,7 +183,10 @@ helper to generate a typesafe handle class.
     } _t
 
 #define TARP_HANDLE_FUNCTIONS(_t)                                                                  \
-    tpBool _t##IsValidHandle(_t _val) { return (tpBool)(_val.pointer != NULL); }                   \
+    tpBool _t##IsValidHandle(_t _val)                                                              \
+    {                                                                                              \
+        return (tpBool)(_val.pointer != NULL);                                                     \
+    }                                                                                              \
     _t _t##InvalidHandle()                                                                         \
     {                                                                                              \
         _t ret = {NULL};                                                                           \
@@ -750,9 +753,15 @@ extern "C"
         return (tpBool)(_a.x == _b.x && _a.y == _b.y);
     }
 
-    TARP_API tpFloat tpVec2Length(tpVec2 _vec) { return sqrt(_vec.x * _vec.x + _vec.y * _vec.y); }
+    TARP_API tpFloat tpVec2Length(tpVec2 _vec)
+    {
+        return sqrt(_vec.x * _vec.x + _vec.y * _vec.y);
+    }
 
-    TARP_API tpFloat tpVec2LengthSquared(tpVec2 _vec) { return _vec.x * _vec.x + _vec.y * _vec.y; }
+    TARP_API tpFloat tpVec2LengthSquared(tpVec2 _vec)
+    {
+        return _vec.x * _vec.x + _vec.y * _vec.y;
+    }
 
     TARP_API void tpVec2NormalizeSelf(tpVec2 * _vec)
     {
@@ -778,9 +787,15 @@ extern "C"
         return ret;
     }
 
-    TARP_API tpFloat tpVec2Dot(tpVec2 _a, tpVec2 _b) { return _a.x * _b.x + _a.y * _b.y; }
+    TARP_API tpFloat tpVec2Dot(tpVec2 _a, tpVec2 _b)
+    {
+        return _a.x * _b.x + _a.y * _b.y;
+    }
 
-    TARP_API tpFloat tpVec2Cross(tpVec2 _a, tpVec2 _b) { return _a.x * _b.y - _a.y * _b.x; }
+    TARP_API tpFloat tpVec2Cross(tpVec2 _a, tpVec2 _b)
+    {
+        return _a.x * _b.y - _a.y * _b.x;
+    }
 
     TARP_API tpFloat tpVec2Distance(tpVec2 _a, tpVec2 _b)
     {
@@ -807,9 +822,15 @@ extern "C"
         return ret;
     }
 
-    TARP_API tpMat2 tpMat2MakeIdentity() { return tpMat2Make(1, 0, 0, 1); }
+    TARP_API tpMat2 tpMat2MakeIdentity()
+    {
+        return tpMat2Make(1, 0, 0, 1);
+    }
 
-    TARP_API tpMat2 tpMat2MakeScale(tpFloat _x, tpFloat _y) { return tpMat2Make(_x, 0, 0, _y); }
+    TARP_API tpMat2 tpMat2MakeScale(tpFloat _x, tpFloat _y)
+    {
+        return tpMat2Make(_x, 0, 0, _y);
+    }
 
     TARP_API tpMat2 tpMat2MakeSkew(tpFloat _x, tpFloat _y)
     {
@@ -1136,7 +1157,10 @@ extern "C"
     /* global to hold the last error message */
     TARP_LOCAL TARP_TLS char __g_error[TARP_MAX_ERROR_MESSAGE];
 
-    TARP_LOCAL void _tpGLSetErrorMessage(const char * _message) { strcpy(__g_error, _message); }
+    TARP_LOCAL void _tpGLSetErrorMessage(const char * _message)
+    {
+        strcpy(__g_error, _message);
+    }
 
     /* The shader programs used by the renderer */
     static const char * _vertexShaderCode =
@@ -1601,9 +1625,15 @@ extern "C"
         return ret;
     }
 
-    TARP_API const char * tpErrorMessage() { return __g_error; }
+    TARP_API const char * tpErrorMessage()
+    {
+        return __g_error;
+    }
 
-    TARP_API const char * tpImplementationName() { return "OpenGL"; }
+    TARP_API const char * tpImplementationName()
+    {
+        return "OpenGL";
+    }
 
     TARP_API void tpContextDestroy(tpContext _ctx)
     {
