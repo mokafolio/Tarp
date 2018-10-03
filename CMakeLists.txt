@@ -18,6 +18,11 @@ SET(TARPDEPS
 ${OPENGL_LIBRARIES}
 )
 
+#avoid opengl deprecation warnings on mojave +
+if (APPLE)
+add_compile_options(-D GL_SILENCE_DEPRECATION)
+endif()
+
 foreach ( file ${TARPINC} )
     get_filename_component( dir ${file} DIRECTORY )
     install( FILES ${file} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/${dir} )
