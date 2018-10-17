@@ -3002,7 +3002,7 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
     {
         _tpGLContinousStrokeGeometry(_path, _style, _vertices, _joints);
     }
-
+    
     _path->strokeVertexOffset = _tpGLContourArrayAtPtr(&_path->contours, 0)->strokeVertexOffset;
 
     /* cache with what settings the stroke geometry was generated */
