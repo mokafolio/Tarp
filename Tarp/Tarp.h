@@ -189,7 +189,7 @@ helper to generate a typesafe handle class.
     }                                                                                              \
     _t _t##InvalidHandle()                                                                         \
     {                                                                                              \
-        _t ret = {NULL};                                                                           \
+        _t ret = { NULL };                                                                         \
         return ret;                                                                                \
     }
 
@@ -1383,6 +1383,8 @@ typedef struct TARP_LOCAL
 {
     _tpGLPath * path;
     tpFillRule fillRule;
+    tpTransform transform; /* we need to cache the transform that was used while drawing the initial
+                              clipping path so we can correctly restore it */
 } _tpGLClippingStackItem;
 
 struct TARP_LOCAL _tpGLContext
@@ -2055,18 +2057,10 @@ TARP_API tpBool tpPathAddCircle(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _r
 TARP_API tpBool
 tpPathAddEllipse(tpPath _path, tpFloat _x, tpFloat _y, tpFloat _width, tpFloat _height)
 {
-    static tpVec2 s_unitSegments[12] = {{1, 0},
-                                        {0, -TARP_KAPPA},
-                                        {0, TARP_KAPPA},
-                                        {0, 1},
-                                        {TARP_KAPPA, 0},
-                                        {-TARP_KAPPA, 0},
-                                        {-1, 0},
-                                        {0, TARP_KAPPA},
-                                        {0, -TARP_KAPPA},
-                                        {0, -1},
-                                        {-TARP_KAPPA, 0},
-                                        {TARP_KAPPA, 0}};
+    static tpVec2 s_unitSegments[12] = { { 1, 0 },  { 0, -TARP_KAPPA }, { 0, TARP_KAPPA },
+                                         { 0, 1 },  { TARP_KAPPA, 0 },  { -TARP_KAPPA, 0 },
+                                         { -1, 0 }, { 0, TARP_KAPPA },  { 0, -TARP_KAPPA },
+                                         { 0, -1 }, { -TARP_KAPPA, 0 }, { TARP_KAPPA, 0 } };
 
     int i;
     tpFloat rw, rh, px, py;
@@ -3308,7 +3302,7 @@ TARP_LOCAL void _tpGLFinalizeColorStops(_tpGLContext * _ctx, _tpGLGradient * _gr
 
 TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 {
-    tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = {0};
+    tpColor pixels[TARP_GL_RAMP_TEXTURE_SIZE] = { 0 };
     int xStart, xEnd, diff, i, j;
     tpFloat mixFact;
     tpColor mixColor;
@@ -4233,6 +4227,7 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx,
         _tpGLClippingStackItem * item = &_ctx->clippingStack[_ctx->clippingStackDepth++];
         item->path = _path;
         item->fillRule = _fillRule;
+        item->transform = _ctx->transform;
     }
 
     /*
@@ -4300,6 +4295,10 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
             {
                 /* draw clip path */
                 ci = &ctx->clippingStack[i];
+                /* this is kinda whack for now, we check if the transform changed since the maks was last drawn and restore
+                it if necessary */
+                if(ci->path->lastTransformID != ctx->transformID)
+                    tpSetTransform(_ctx, &ci->transform);
                 _tpGLGenerateClippingMask(ctx, ci->path, tpTrue, ci->fillRule);
             }
 
