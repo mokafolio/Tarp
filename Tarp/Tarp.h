@@ -3002,7 +3002,7 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
     {
         _tpGLContinousStrokeGeometry(_path, _style, _vertices, _joints);
     }
-    
+
     _path->strokeVertexOffset = _tpGLContourArrayAtPtr(&_path->contours, 0)->strokeVertexOffset;
 
     /* cache with what settings the stroke geometry was generated */
@@ -4293,7 +4293,7 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
             /* ...otherwise rebuild it */
             _TARP_ASSERT_NO_GL_ERROR(
                 glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
-            _TARP_ASSERT_NO_GL_ERROR(glClearStencil(~0));
+            _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));
             _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
             for (i = 0; i < ctx->clippingStackDepth; ++i)
