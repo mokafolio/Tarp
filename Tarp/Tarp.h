@@ -246,6 +246,7 @@ typedef enum TARP_API
 } tpBool;
 
 TARP_HANDLE(tpPath);
+TARP_HANDLE(tpRenderCache);
 TARP_HANDLE(tpGradient);
 
 /*
@@ -320,6 +321,14 @@ typedef struct TARP_API
 } tpStyle;
 
 TARP_HANDLE(tpContext);
+
+typedef struct TARP_API
+{
+    tpVec2 * points;
+    tpBool * joints;
+    int count;
+} tpFlattened;
+
 
 /*
 NOTE: All the color, matrix and vector functions are mainly for internal use
@@ -642,6 +651,12 @@ TARP_API tpBool tpResetTransform(tpContext _ctx);
 /* Draw a path with the provided style */
 TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle * _style);
 
+TARP_API tpRenderCache tpCachePath(tpContext _ctx, tpPath _path, const tpStyle * _style);
+
+TARP_API void tpRenderCacheDestroy(tpRenderCache _cache);
+
+TARP_API tpBool tpDrawRenderCache(tpContext _ctx, tpRenderCache _cache);
+
 /*
 Define a clipping path. You can nest these calls. All following draw
 calls will be clippied by the provided path.
@@ -649,6 +664,10 @@ calls will be clippied by the provided path.
 TARP_API tpBool tpBeginClipping(tpContext _ctx, tpPath _path);
 
 TARP_API tpBool tpBeginClippingWithFillRule(tpContext _ctx, tpPath _path, tpFillRule _rule);
+
+TARP_API tpBool tpBeginClippingFromRenderCache(tpContext _ctx, tpRenderCache _cache);
+
+TARP_API tpBool tpBeginClippingFromRenderCacheWithFillRule(tpContext _ctx, tpRenderCache _cache, tpFillRule _rule);
 
 /* End the most recent clipping path */
 TARP_API tpBool tpEndClipping(tpContext _ctx);
@@ -3106,7 +3125,6 @@ TARP_LOCAL int _tpGLFlattenPath(_tpGLPath * _path,
     int off = 0;
     _tpGLContour * c = NULL;
     tpSegment *last = NULL, *current = NULL;
-    /* int recursionDepth = 0; */
     _tpGLCurve curve;
     tpVec2 lastTransformedPos;
 
@@ -4212,6 +4230,12 @@ TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle * _style)
 {
     return _tpGLDrawPathImpl(
         (_tpGLContext *)_ctx.pointer, (_tpGLPath *)_path.pointer, _style, tpFalse);
+}
+
+TARP_API tpBool tpDrawRenderCache(tpContext _ctx, tpRenderCache _cache)
+{
+    return _tpGLDrawRenderCache(
+        (_tpGLContext *)_ctx.pointer, (_tpGLRenderCache *)_path.pointer, tpFalse);
 }
 
 TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx,
