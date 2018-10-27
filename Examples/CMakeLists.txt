@@ -2,9 +2,11 @@ find_package(glfw3 REQUIRED)
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 
+link_libraries("-fsanitize=address")
 add_executable(HelloWorld HelloWorld.c ../ExampleAndTestDeps/GL/gl3w.c)
-set_target_properties(HelloWorld PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic")
+set_target_properties(HelloWorld PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic -fsanitize=address")
 target_link_libraries(HelloWorld ${TARPDEPS} glfw)
 
 add_executable(Playground Playground.c ../ExampleAndTestDeps/GL/gl3w.c)
+set_target_properties(Playground PROPERTIES COMPILE_FLAGS "-fsanitize=address")
 target_link_libraries(Playground ${TARPDEPS} glfw)

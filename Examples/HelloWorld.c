@@ -70,6 +70,8 @@ int main(int argc, char * argv[])
 
     /* create a path and add one circle contour */
     path = tpPathCreate();
+
+    tpPathClear(path);
     tpPathAddCircle(path, 400, 300, 100);
 
     /* add another custom contour to the path */
@@ -87,7 +89,9 @@ int main(int argc, char * argv[])
     /* create a style that we can draw the path with */
     style = tpStyleMake();
     style.fill = tpPaintMakeGradient(grad);
+    // style.fill = tpPaintMakeColor(1.0, 1.0, 0.0, 1.0);
     style.stroke = tpPaintMakeColor(1.0, 0.6, 0.1, 1.0);
+    // style.stroke.type = kTpPaintTypeNone;
     style.strokeWidth = 10.0;
     style.strokeJoin = kTpStrokeJoinRound;
 
@@ -104,6 +108,15 @@ int main(int argc, char * argv[])
         /* set the viewport based on the pixel dimensions of the window */
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
+
+        tpPathClear(path);
+        tpPathAddCircle(path, 400, 300, 100);
+
+        /* add another custom contour to the path */
+        tpPathMoveTo(path, 400, 320);
+        tpPathLineTo(path, 420, 280);
+        tpPathQuadraticCurveTo(path, 400, 260, 380, 280);
+        tpPathClose(path); /* close the contour */
 
         /* animate the gradient */
         tpGradientSetFocalPointOffset(grad, sin(animationTimer) * 60.0, cos(animationTimer * 2) * 40.0);
