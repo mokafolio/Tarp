@@ -71,7 +71,6 @@ int main(int argc, char * argv[])
     /* create a path and add one circle contour */
     path = tpPathCreate();
 
-    tpPathClear(path);
     tpPathAddCircle(path, 400, 300, 100);
 
     /* add another custom contour to the path */
@@ -101,6 +100,7 @@ int main(int argc, char * argv[])
     while (!glfwWindowShouldClose(window))
     {
         int width, height;
+        tpTransform trans, rot;
 
         glClearColor(0.0, 0.0, 0.0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -109,17 +109,16 @@ int main(int argc, char * argv[])
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
 
-        tpPathClear(path);
-        tpPathAddCircle(path, 400, 300, 100);
-
-        /* add another custom contour to the path */
-        tpPathMoveTo(path, 400, 320);
-        tpPathLineTo(path, 420, 280);
-        tpPathQuadraticCurveTo(path, 400, 260, 380, 280);
-        tpPathClose(path); /* close the contour */
-
         /* animate the gradient */
         tpGradientSetFocalPointOffset(grad, sin(animationTimer) * 60.0, cos(animationTimer * 2) * 40.0);
+
+        /* rotate the path */
+        trans = tpTransformMakeTranslation(-400, -300);
+        rot = tpTransformMakeRotation(animationTimer);
+        rot = tpTransformCombine(&rot, &trans);
+        trans = tpTransformMakeTranslation(400, 300);
+        rot = tpTransformCombine(&trans, &rot);
+        tpSetTransform(ctx, &rot);
 
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);

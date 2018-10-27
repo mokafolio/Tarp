@@ -4039,7 +4039,8 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
          * stroke bounds) */
         _tpGLCacheBoundsGeometry(_cache, _style);
 
-        /* we are done with everything, so we set the stroke dirty flag to false to prevent further work */
+        /* we are done with everything, so we set the stroke dirty flag to false to prevent further
+         * work */
         _bStrokeDirty = tpFalse;
     }
 
@@ -4048,7 +4049,7 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
         /* remove all the old stroke vertices from the cache */
         _tpVec2ArrayRemoveRange(
             &_cache->geometryCache, _cache->strokeVertexOffset, _cache->geometryCache.count);
-        
+
         /* @TODO: Should we remove the old bounds vertices, too? */
 
         if (_style->stroke.type != kTpPaintTypeNone && _style->strokeWidth > 0)
@@ -4284,7 +4285,8 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
                                     const tpStyle * _style,
                                     tpBool _bIsClipPath)
 {
-    tpBool bGeometryDirty, bStrokeDirty, bGradientsDirty, bMarkAllContoursDirty, bVirgin;
+    tpBool bGeometryDirty, bStrokeDirty, bGradientsDirty, bMarkAllContoursDirty, bVirgin,
+        bTransformDirty;
     _tpGLRenderCache * cache;
 
     /* early out if the path has no contours */
@@ -4300,14 +4302,20 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
         bStrokeDirty = tpFalse;
         bGradientsDirty = tpFalse;
         bMarkAllContoursDirty = tpFalse;
+        bTransformDirty = tpFalse;
 
         /* check if the transform projection is dirty */
         if (_path->lastDrawContext != _ctx || _path->lastTransformID != _ctx->transformID)
         {
+            bTransformDirty = tpTrue;
+
             /* @TODO: we should also take skew into account here, not only scale
+             * @TODO: Proper epsilon
              */
-            if (_ctx->transformScale > _path->lastTransformScale || !_style->scaleStroke)
+            if (_ctx->transformScale - _path->lastTransformScale > 0.001f || !_style->scaleStroke)
+            {
                 bMarkAllContoursDirty = tpTrue;
+            }
 
             _path->lastTransformID = _ctx->transformID;
             _path->lastDrawContext = _ctx;
@@ -4342,6 +4350,8 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
             bStrokeDirty = tpTrue;
         }
 
+        /* TODO: Make this less ugly. We are basically just checking if anything changed that
+        would result in a regeneration of the gradient geometry */
         if (!_bIsClipPath &&
             ((_style->fill.type == kTpPaintTypeGradient &&
               (cache->fillGradientData.lastGradientID !=
@@ -4364,7 +4374,7 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
     }
 
     /* build the cache */
-    if (bGeometryDirty || bStrokeDirty || bGradientsDirty)
+    if (bGeometryDirty || bStrokeDirty || bGradientsDirty || bTransformDirty)
     {
         if (_tpGLCachePathImpl(
                 _ctx, _path, _style, cache, bGeometryDirty, bStrokeDirty, bGradientsDirty))

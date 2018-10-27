@@ -158,7 +158,6 @@ static void updateRotatingDrawing(tpContext _context, void * _userData, tpBool _
     tpTransform transform = tpTransformMakeTranslation(100, 250);
     tpTransform rot = tpTransformMakeRotation(angle);
     transform = tpTransformCombine(&transform, &rot);
-    // tpPathSetTransform(drawing->path, &transform);
     tpSetTransform(_context, &transform);
     tpDrawPath(_context, drawing->path, &drawing->style);
     tpResetTransform(_context);
