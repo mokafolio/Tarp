@@ -183,11 +183,11 @@ helper to generate a typesafe handle class.
     } _t
 
 #define TARP_HANDLE_FUNCTIONS(_t)                                                                  \
-    tpBool _t##IsValidHandle(_t _val)                                                              \
+    static tpBool _t##IsValidHandle(_t _val)                                                              \
     {                                                                                              \
         return (tpBool)(_val.pointer != NULL);                                                     \
     }                                                                                              \
-    _t _t##InvalidHandle()                                                                         \
+    static _t _t##InvalidHandle()                                                                         \
     {                                                                                              \
         _t ret = { NULL };                                                                         \
         return ret;                                                                                \
