@@ -25,6 +25,8 @@
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg.h"
 
+#include <time.h>
+
 typedef void(*DrawFn)(tpContext, void *, tpBool);
 
 typedef struct

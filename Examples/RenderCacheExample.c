@@ -8,10 +8,11 @@
 #define TARP_IMPLEMENTATION_OPENGL
 #include <Tarp/Tarp.h>
 
+#include <time.h>
 
 int i;
 tpBool err;
-const int rcCount = 128;
+const int rcCount = 256;
 tpRenderCache caches[rcCount];
 
 static float randomFloat(float _a, float _b)
@@ -22,9 +23,9 @@ static float randomFloat(float _a, float _b)
 
 int main(int argc, char * argv[])
 {
-    //randomize the random seed
-    //NOTE: Screw rand, we just use it for the simplicity/portability of this example
-    srand (time(NULL));
+    // randomize the random seed
+    // NOTE: Screw rand, we just use it for the simplicity/portability of this example
+    srand(time(NULL));
 
     /* this example is compile in pedantic c89, so we declare the variables up here */
     tpContext ctx;
@@ -35,7 +36,6 @@ int main(int argc, char * argv[])
     tpMat4 proj;
     tpGradient grad;
     int wwidth, wheight;
-    tpFloat animationTimer;
 
     /* initialize glfw */
     if (!glfwInit())
@@ -90,7 +90,7 @@ int main(int argc, char * argv[])
     /* add another custom contour to the path */
     tpPathMoveTo(path, 0, 20);
     tpPathLineTo(path, 20, -20);
-    tpPathQuadraticCurveTo(path, 0, -40, 80, -20);
+    tpPathQuadraticCurveTo(path, 0, -40, -20, -20);
     tpPathClose(path); /* close the contour */
 
     /* create a gradient */
@@ -109,12 +109,11 @@ int main(int argc, char * argv[])
     style.strokeJoin = kTpStrokeJoinRound;
 
     /* now create many cached veriations of the path in question so we can render it efficiently */
-    for(i = 0; i < rcCount; ++i)
+    for (i = 0; i < rcCount; ++i)
     {
         tpTransform transform, scale, rot;
         tpFloat s = randomFloat(0.1, 0.6);
 
-        caches[i] = tpRenderCacheCreate();
         scale = tpTransformMakeScale(s, s);
         rot = tpTransformMakeRotation(randomFloat(0, 3.14));
         transform = tpTransformMakeTranslation(randomFloat(0, 800), randomFloat(0, 600));
@@ -122,14 +121,17 @@ int main(int argc, char * argv[])
         scale = tpTransformCombine(&transform, &scale);
         transform = tpTransformCombine(&scale, &rot);
 
+        caches[i] = tpRenderCacheCreate();
+
         /* change the focal point for each cached path*/
-        if(randomFloat(0, 1) >= 0.5)
+        if (randomFloat(0, 1) >= 0.5)
         {
             style.fill = tpPaintMakeGradient(grad);
             tpGradientSetFocalPointOffset(grad, randomFloat(-60, 60), randomFloat(-40, 40));
         }
         else
-            style.fill= tpPaintMakeColor(randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1);
+            style.fill =
+                tpPaintMakeColor(randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1);
 
         /* randomize the style a lil for each one */
         style.stroke = tpPaintMakeColor(randomFloat(0, 1), randomFloat(0, 1), randomFloat(0, 1), 1);
@@ -137,7 +139,7 @@ int main(int argc, char * argv[])
 
         tpSetTransform(ctx, &transform);
         err = tpCachePath(ctx, path, &style, caches[i]);
-        if(err)
+        if (err)
         {
             fprintf(stderr, "Failed to create render cache\n");
             return EXIT_FAILURE;
@@ -147,7 +149,6 @@ int main(int argc, char * argv[])
     /* the main loop */
     while (!glfwWindowShouldClose(window))
     {
-        printf("DRAW\n");
         int width, height;
         tpTransform trans, rot;
 
@@ -161,10 +162,8 @@ int main(int argc, char * argv[])
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);
 
-        //  draw the path with our style 
-        // tpDrawPath(ctx, path, &style);
-
-        for(i = 0; i < rcCount; ++i)
+        /* draw the path in all its cached variations */
+        for (i = 0; i < rcCount; ++i)
         {
             tpDrawRenderCache(ctx, caches[i]);
         }
@@ -174,11 +173,12 @@ int main(int argc, char * argv[])
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-
-        animationTimer += 0.1;
     }
 
     /* clean up tarp */
+
+    for(i=0; i < rcCount; ++i)
+        tpRenderCacheDestroy(caches[i]);
     tpGradientDestroy(grad);
     tpPathDestroy(path);
     tpContextDestroy(ctx);
