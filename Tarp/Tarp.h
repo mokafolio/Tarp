@@ -18,12 +18,15 @@ compile in one c/c++ file to create the implementation, i.e.:
 Contributors <3
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Tilmann Rübbelke: Radial Gradients, bug fixes, ideas
+ChengCat (Github): Bug fixes, ideas
 
 Change History
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-v0.1.3 (10/27/2018): Many Bug Fixes mainly related to clipping, Added tpRenderCache API to allow
-manual control for caching. (Useful if you want to draw the same path multiple times using different
+v0.1.3 (10/31/2018): 
+- Many Bug Fixes mainly related to clipping
+- Added tpRenderCache API to allow manual control for caching. (Useful if you want to draw the same path multiple times using different
 styles / transforms).
+- Fixed issues with TARP_HANDLE_FUNCTIONS* macros generating multiple symbols (they were not hidden behind TARP_IMPLEMENTATION_*)
 
 v0.1.2 (05/30/2018): Radial Gradients, bug fixes, removed tpStyle API in favor
 of a purely data based approach (see tpStyle struct). v0.1.1 (05/18/2018):
