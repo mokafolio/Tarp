@@ -103,9 +103,27 @@ static void updateStrokeOffsetDrawing(tpContext _context, void * _userData, tpBo
 
 static void updateStarFillRuleDrawing(tpContext _context, void * _userData, tpBool _bTimeElapsed)
 {
+    static const int dashCount = 2;
+    static tpFloat dashArray[dashCount];
     PathWithStyle * starDrawing = (PathWithStyle *) _userData;
     if (_bTimeElapsed)
     {
+        starDrawing->style.strokeWidth = randomFloat(1.0, 10.0);
+
+        if(randomFloat(0.0, 1.0) >= 0.5)
+        {
+            for(int i=0; i < dashCount; ++i)
+            {
+                dashArray[i] = randomFloat(10, 40);
+            }
+            starDrawing->style.dashArray = dashArray;
+            starDrawing->style.dashCount = dashCount;
+        }
+        else
+        {
+            starDrawing->style.dashCount = 0;
+        }
+
         starDrawing->style.fillRule = starDrawing->style.fillRule == kTpFillRuleEvenOdd ? kTpFillRuleNonZero : kTpFillRuleEvenOdd;
     }
     tpDrawPath(_context, starDrawing->path, &starDrawing->style);

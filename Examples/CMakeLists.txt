@@ -10,9 +10,9 @@ add_executable(RenderCacheExample RenderCacheExample.c ../ExampleAndTestDeps/GL/
 add_executable(Playground Playground.c ../ExampleAndTestDeps/GL/gl3w.c)
 
 if(AddressSanitizer)
-    set_target_properties(HelloWorld PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic -fsanitize=address")
-    set_target_properties(RenderCacheExample PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic -fsanitize=address")
-    set_target_properties(Playground PROPERTIES COMPILE_FLAGS "-fsanitize=address")
+    set_target_properties(HelloWorld PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic -fsanitize=address -Wunused")
+    set_target_properties(RenderCacheExample PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic -fsanitize=address -Wunused")
+    set_target_properties(Playground PROPERTIES COMPILE_FLAGS "-fsanitize=address -Wunused")
 else()
     set_target_properties(HelloWorld PROPERTIES COMPILE_FLAGS "-std=c89 -pedantic")
 endif()
