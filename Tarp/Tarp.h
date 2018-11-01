@@ -1434,7 +1434,7 @@ typedef struct TARP_LOCAL
                               clipping path so we can correctly restore it */
 } _tpGLClippingStackItem;
 
-struct TARP_LOCAL _tpGLContext
+struct _tpGLContext
 {
     GLuint program;
     GLuint textureProgram;
