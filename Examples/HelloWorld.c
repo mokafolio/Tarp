@@ -89,14 +89,9 @@ int main(int argc, char * argv[])
     style = tpStyleMake();
     style.fill = tpPaintMakeGradient(grad);
     style.stroke = tpPaintMakeColor(1.0, 0.6, 0.1, 1.0);
-    // style.stroke.type = kTpPaintTypeNone;
     style.strokeWidth = 10.0;
     style.strokeJoin = kTpStrokeJoinRound;
     style.strokeCap = kTpStrokeCapRound;
-
-    tpFloat dashArray[2] = {10, 20};
-    style.dashArray = dashArray;
-    style.dashCount = 2;
 
     animationTimer = 0.0f;
 
@@ -104,7 +99,6 @@ int main(int argc, char * argv[])
     while (!glfwWindowShouldClose(window))
     {
         int width, height;
-        tpTransform trans, rot;
 
         glClearColor(0.0, 0.0, 0.0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -115,9 +109,6 @@ int main(int argc, char * argv[])
 
         /* animate the gradient */
         tpGradientSetFocalPointOffset(grad, sin(animationTimer) * 60.0, cos(animationTimer * 2) * 40.0);
-
-        if(animationTimer > 10.0 && tpPathContourCount(path) > 1)
-            tpPathRemoveContour(path, 1);
 
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);

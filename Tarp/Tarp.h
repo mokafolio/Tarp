@@ -167,13 +167,6 @@ memory allocation!
 #define TARP_MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define TARP_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define TARP_CLAMP(a, l, h) TARP_MAX(TARP_MIN(a, h), l)
-#define TARP_SWAP(x, y, T)                                                                         \
-    do                                                                                             \
-    {                                                                                              \
-        T SWAP = x;                                                                                \
-        x = y;                                                                                     \
-        y = SWAP;                                                                                  \
-    } while (0)
 
 /* some constants */
 #define TARP_KAPPA 0.55228474983f
@@ -1478,8 +1471,6 @@ struct TARP_LOCAL _tpGLContext
     _tpColorStopArray tmpColorStops;
     _tpGLRenderCacheContourArray tmpRcContours;
 
-    _tpGLRenderCache * tmpCache;
-
     _tpGLStateBackup stateBackup;
 };
 
@@ -1628,40 +1619,6 @@ TARP_API tpRenderCache tpRenderCacheCreate()
     return ret;
 }
 
-TARP_LOCAL void _tpGLRenderCacheClear(_tpGLRenderCache * _cache)
-{
-    _tpGLRenderCacheContourArrayClear(&_cache->contours);
-    _tpVec2ArrayClear(&_cache->geometryCache);
-    _tpGLTextureVertexArrayClear(&_cache->textureGeometryCache);
-    _tpBoolArrayClear(&_cache->jointCache);
-    _tpFloatArrayClear(&_cache->dashArrayStorage);
-
-    _cache->strokeVertexOffset = 0;
-    _cache->strokeVertexCount = 0;
-    _cache->boundsVertexOffset = 0;
-}
-
-// TARP_LOCAL void _tpGLRenderCacheSwap(_tpGLRenderCache * _a, _tpGLRenderCache * _b)
-// {
-//     _tpGLRenderCacheContourArraySwap(&_a->contours, &_b->contours);
-//     _tpVec2ArraySwap(&_a->geometryCache, &_b->geometryCache);
-//     _tpGLTextureVertexArraySwap(&_a->textureGeometryCache, &_b->textureGeometryCache);
-//     _tpBoolArraySwap(&_a->jointCache, &_b->jointCache);
-//     _tpFloatArraySwap(&_a->dashArrayStorage, &_b->dashArrayStorage);
-
-//     TARP_SWAP(_a->strokeVertexOffset, _b->strokeVertexOffset, int);
-//     TARP_SWAP(_a->strokeVertexCount, _b->strokeVertexCount, int);
-//     TARP_SWAP(_a->boundsVertexOffset, _b->boundsVertexOffset, int);
-//     TARP_SWAP(_a->boundsCache, _b->boundsCache, _tpGLRect);
-//     TARP_SWAP(_a->strokeBoundsCache, _b->strokeBoundsCache, _tpGLRect);
-//     TARP_SWAP(_a->renderMatrix, _b->renderMatrix, tpMat4);
-//     TARP_SWAP(_a->fillGradientData.vertexOffset, _b->fillGradientData.vertexOffset, int);
-//     TARP_SWAP(_a->fillGradientData.vertexCount, _b->fillGradientData.vertexCount, int);
-//     TARP_SWAP(_a->strokeGradientData.vertexOffset, _b->strokeGradientData.vertexOffset, int);
-//     TARP_SWAP(_a->strokeGradientData.vertexCount, _b->strokeGradientData.vertexCount, int);
-//     TARP_SWAP(_a->style, _b->style, tpStyle);
-// }
-
 TARP_LOCAL void _tpGLRenderCacheCopyStyle(const tpStyle * _style, _tpGLRenderCache * _to)
 {
     _to->style = *_style;
@@ -1673,32 +1630,6 @@ TARP_LOCAL void _tpGLRenderCacheCopyStyle(const tpStyle * _style, _tpGLRenderCac
         _to->style.dashArray = _to->dashArrayStorage.array;
     }
 }
-
-// TARP_LOCAL void _tpGLRenderCacheCopyTo(const _tpGLRenderCache * _from, _tpGLRenderCache * _to)
-// {
-//     _tpGLRenderCacheContourArrayClear(&_to->contours);
-//     _tpGLRenderCacheContourArrayAppendArray(&_to->contours, &_from->contours);
-//     _tpVec2ArrayClear(&_to->geometryCache);
-//     _tpVec2ArrayAppendArray(&_to->geometryCache, &_from->geometryCache);
-//     _tpGLTextureVertexArrayClear(&_to->textureGeometryCache);
-//     _tpGLTextureVertexArrayAppendArray(&_to->textureGeometryCache, &_from->textureGeometryCache);
-//     _tpBoolArrayClear(&_to->jointCache);
-//     _tpBoolArrayAppendArray(&_to->jointCache, &_from->jointCache);
-
-//     _to->boundsCache = _from->boundsCache;
-//     _to->strokeBoundsCache = _from->strokeBoundsCache;
-//     _to->fillGradientData.vertexOffset = _from->fillGradientData.vertexOffset;
-//     _to->fillGradientData.vertexCount = _from->fillGradientData.vertexCount;
-//     _to->strokeGradientData.vertexOffset = _from->strokeGradientData.vertexOffset;
-//     _to->strokeGradientData.vertexCount = _from->strokeGradientData.vertexCount;
-
-//     _to->strokeVertexOffset = _from->strokeVertexCount;
-//     _to->strokeVertexCount = _from->strokeVertexCount;
-//     _to->boundsVertexOffset = _from->boundsVertexOffset;
-//     _to->renderMatrix = _from->renderMatrix;
-
-//     _tpGLRenderCacheCopyStyle(&_from->style, _to);
-// }
 
 TARP_LOCAL void _tpGLRenderCacheDestroyImpl(_tpGLRenderCache * _cache)
 {
@@ -1779,8 +1710,6 @@ TARP_API tpContext tpContextCreate()
     _tpColorStopArrayInit(&ctx->tmpColorStops, 16);
     _tpGLRenderCacheContourArrayInit(&ctx->tmpRcContours, 16);
 
-    ctx->tmpCache = (_tpGLRenderCache *)tpRenderCacheCreate().pointer;
-
     ctx->clippingStyle = tpStyleMake();
     ctx->clippingStyle.stroke.type = kTpPaintTypeNone;
 
@@ -1804,7 +1733,6 @@ TARP_API void tpContextDestroy(tpContext _ctx)
     _tpVec2ArrayDeallocate(&ctx->tmpVertices);
     _tpGLTextureVertexArrayDeallocate(&ctx->tmpTexVertices);
     _tpColorStopArrayDeallocate(&ctx->tmpColorStops);
-    _tpGLRenderCacheDestroyImpl(ctx->tmpCache);
     _tpGLRenderCacheContourArrayDeallocate(&ctx->tmpRcContours);
 
     TARP_FREE(ctx);
@@ -1872,9 +1800,8 @@ TARP_API tpPath tpPathClone(tpPath _path)
         {
             _tpGLContour contour;
             _tpGLContour * fromCont = _tpGLContourArrayAtPtr(&from->contours, i);
-            // _tpSegmentArrayInit(&contour.segments, fromCont->segments.count);
-            // _tpSegmentArrayAppendArray(&contour.segments, fromCont->segments.array,
-            // fromCont->segments.count);
+            _tpSegmentArrayInit(&contour.segments, fromCont->segments.count);
+            _tpSegmentArrayAppendArray(&contour.segments, &fromCont->segments);
             contour.segments = _tpSegmentArrayCopy(&fromCont->segments);
             contour.bDirty = fromCont->bDirty;
             contour.bIsClosed = fromCont->bIsClosed;
@@ -2899,17 +2826,10 @@ TARP_LOCAL void _tpGLRenderCacheContourDashedStrokeGeometry(
     bBarelyJoined = tpFalse;
     halfSw = _style->strokeWidth * 0.5f;
 
-    printf("DASH STAT %i %f %i\n",
-           _startDashState->startDashIndex,
-           _startDashState->startDashLen,
-           _startDashState->bStartDashOn);
-
-    printf("%i %i\n", _contour->fillVertexOffset, _contour->fillVertexCount);
     for (j = _contour->fillVertexOffset;
          j < _contour->fillVertexOffset + _contour->fillVertexCount - 1;
          ++j)
     {
-        printf("DA J %i\n", j);
         bLastSegment = (tpBool)(j == _contour->fillVertexOffset + _contour->fillVertexCount - 2);
 
         p0 = _tpVec2ArrayAt(_vertices, j);
@@ -2923,12 +2843,10 @@ TARP_LOCAL void _tpGLRenderCacheContourDashedStrokeGeometry(
         perp.x = dir.y * halfSw;
         perp.y = -dir.x * halfSw;
         cross = tpVec2Cross(perp, perpPrev);
-        printf("WUDUU\n");
 
         /* check if this is a joint */
         if (bOnDash && _tpBoolArrayAt(_joints, j))
         {
-            printf("MAKING JOIN\n");
             le0 = tpVec2Add(p0, perp);
             re0 = tpVec2Sub(p0, perp);
             _tpGLMakeJoin(_style->strokeJoin,
@@ -2944,10 +2862,8 @@ TARP_LOCAL void _tpGLRenderCacheContourDashedStrokeGeometry(
                           cross,
                           _style->miterLimit,
                           _vertices);
-            printf("DONE WITH JOIN\n");
         }
 
-        printf("PREV\n");
         do
         {
             tpFloat left = TARP_MIN((segmentLen - segmentOff), dashLen - dashOffset);
@@ -3033,10 +2949,8 @@ TARP_LOCAL void _tpGLRenderCacheContourDashedStrokeGeometry(
                 bOnDash = (tpBool)!bOnDash;
             }
 
-            printf("SEG LEN %f %f\n", segmentLen, segmentOff);
         } while ((segmentLen - segmentOff) > 0);
 
-        printf("PAST\n");
         if (bLastSegment)
         {
             /* if the first and last dash of the contour touch, we
@@ -3094,417 +3008,11 @@ TARP_LOCAL void _tpGLRenderCacheContourDashedStrokeGeometry(
     }
 
     _contour->strokeVertexCount = _vertices->count - voff;
-    printf("END\n");
 }
-
-// TARP_LOCAL void _tpGLContinousStrokeGeometry(_tpGLRenderCache * _cache,
-//                                              const tpStyle * _style,
-//                                              _tpVec2Array * _vertices,
-//                                              _tpBoolArray * _joints)
-// {
-//     int i, j, voff;
-//     _tpGLRenderCacheContour * c;
-//     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
-//     tpVec2 le0, le1, re0, re1, lePrev, rePrev;
-//     tpVec2 firstDir, firstPerp, firstLe, firstRe;
-//     tpFloat cross, halfSw;
-
-//     assert(_vertices->count == _joints->count);
-
-//     halfSw = _style->strokeWidth * 0.5;
-
-//     /* generate the stroke geometry for each contour */
-//     for (i = 0; i < _cache->contours.count; ++i)
-//     {
-//         voff = _vertices->count;
-//         c = _tpGLRenderCacheContourArrayAtPtr(&_cache->contours, i);
-//         c->strokeVertexOffset = voff;
-//         if (c->fillVertexCount <= 1)
-//         {
-//             c->strokeVertexCount = 0;
-//             continue;
-//         }
-
-//         for (j = c->fillVertexOffset; j < c->fillVertexOffset + c->fillVertexCount - 1; ++j)
-//         {
-//             p0 = _tpVec2ArrayAt(_vertices, j);
-//             p1 = _tpVec2ArrayAt(_vertices, j + 1);
-//             dir = tpVec2Sub(p1, p0);
-//             tpVec2NormalizeSelf(&dir);
-//             perp.x = dir.y * halfSw;
-//             perp.y = -dir.x * halfSw;
-
-//             le0 = tpVec2Add(p0, perp);
-//             re0 = tpVec2Sub(p0, perp);
-//             le1 = tpVec2Add(p1, perp);
-//             re1 = tpVec2Sub(p1, perp);
-
-//             /* check if this is the first segment / dash start */
-//             if (j == c->fillVertexOffset)
-//             {
-//                 if (!c->bIsClosed)
-//                 {
-//                     /* start cap? */
-//                     firstDir = tpVec2MultScalar(dir, -1 * halfSw);
-//                     firstPerp.x = firstDir.y;
-//                     firstPerp.y = -firstDir.x;
-//                     _tpGLMakeCap(
-//                         _style->strokeCap, p0, firstDir, firstPerp, le0, re0, tpTrue, _vertices);
-//                 }
-//                 else if (j == c->fillVertexOffset)
-//                 {
-//                     /*
-//                     if the contour is closed, we cache the directions and
-//                     edges to be used for the last segments stroke
-//                     calculations
-//                     */
-//                     firstDir = dir;
-//                     firstPerp = perp;
-//                     firstLe = le0;
-//                     firstRe = re0;
-//                 }
-//             }
-//             else
-//             {
-//                 cross = tpVec2Cross(perp, perpPrev);
-//                 /* check if this is a joint */
-//                 if (_tpBoolArrayAt(_joints, j))
-//                 {
-//                     _tpGLMakeJoin(_style->strokeJoin,
-//                                   p0,
-//                                   dirPrev,
-//                                   dir,
-//                                   perpPrev,
-//                                   perp,
-//                                   lePrev,
-//                                   rePrev,
-//                                   le0,
-//                                   re0,
-//                                   cross,
-//                                   _style->miterLimit,
-//                                   _vertices);
-//                 }
-//                 else
-//                 {
-//                     /* by default we join consecutive segment quads with a
-//                      * bevel */
-//                     _tpGLMakeJoinBevel(lePrev, rePrev, le0, re0, cross, _vertices);
-//                 }
-//             }
-
-//             /* add the quad for the current segment */
-//             _tpGLPushQuad(_vertices, le1, le0, re0, re1);
-
-//             /* check if we need to do the end cap / join */
-//             if (j == c->fillVertexOffset + c->fillVertexCount - 2 || c->fillVertexCount == 2)
-//             {
-//                 if (_tpBoolArrayAt(_joints, j + 1) && c->bIsClosed)
-//                 {
-//                     /* last join */
-//                     cross = tpVec2Cross(firstPerp, perp);
-//                     _tpGLMakeJoin(_style->strokeJoin,
-//                                   p1,
-//                                   dir,
-//                                   firstDir,
-//                                   perp,
-//                                   firstPerp,
-//                                   le1,
-//                                   re1,
-//                                   firstLe,
-//                                   firstRe,
-//                                   cross,
-//                                   _style->miterLimit,
-//                                   _vertices);
-//                 }
-//                 else
-//                 {
-//                     /* end cap */
-//                     firstDir = tpVec2MultScalar(dir, halfSw);
-//                     _tpGLMakeCap(
-//                         _style->strokeCap, p1, firstDir, perp, le1, re1, tpFalse, _vertices);
-//                 }
-//             }
-
-//             perpPrev = perp;
-//             dirPrev = dir;
-//             lePrev = le1;
-//             rePrev = re1;
-//         }
-
-//         c->strokeVertexCount = _vertices->count - voff;
-//         _cache->strokeVertexCount += c->strokeVertexCount;
-//     }
-// }
-
-// TARP_LOCAL void _tpGLDashedStrokeGeometry(_tpGLRenderCache * _cache,
-//                                           const tpStyle * _style,
-//                                           _tpVec2Array * _vertices,
-//                                           _tpBoolArray * _joints)
-// {
-//     int j, i, dashIndex, voff, startDashIndex;
-//     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
-//     tpVec2 le0, le1, re0, re1, lePrev, rePrev;
-//     tpVec2 firstDir, firstPerp, firstLe, firstRe;
-//     tpVec2 dirr;
-//     tpFloat cross, halfSw, dashOffset, dashLen, segmentOff, segmentLen;
-//     tpFloat patternLen, offsetIntoPattern;
-//     tpBool bOnDash, bDashStart, bFirstDashMightNeedJoin, bLastSegment;
-//     tpBool bStartDashOn, bBarelyJoined;
-//     tpFloat startDashLen;
-//     _tpGLRenderCacheContour * c;
-
-//     halfSw = _style->strokeWidth * 0.5;
-
-//     /* no dash offset */
-//     if (_style->dashOffset == 0)
-//     {
-//         startDashIndex = 0;
-//         bStartDashOn = tpTrue;
-//         startDashLen = _style->dashArray[startDashIndex];
-//     }
-//     else
-//     {
-//         /* compute offset into dash pattern */
-//         patternLen = 0;
-//         for (i = 0; i < _style->dashCount; ++i)
-//         {
-//             patternLen += _style->dashArray[i];
-//         }
-
-//         offsetIntoPattern = _style->dashOffset;
-//         if (fabsf(offsetIntoPattern) >= patternLen)
-//         {
-//             offsetIntoPattern = fmodf(offsetIntoPattern, patternLen);
-//         }
-
-//         startDashLen = -offsetIntoPattern;
-//         if (_style->dashOffset > 0)
-//         {
-//             startDashIndex = 0;
-//             while (startDashLen <= 0.0)
-//             {
-//                 startDashLen += _style->dashArray[startDashIndex];
-//                 startDashIndex++;
-//             }
-//             startDashIndex = TARP_MAX(0, startDashIndex - 1);
-//             bStartDashOn = (tpBool) !(startDashIndex % 2);
-//         }
-//         else
-//         {
-//             startDashIndex = _style->dashCount;
-//             while (startDashLen > 0.0f)
-//             {
-//                 startDashIndex--;
-//                 startDashLen -= _style->dashArray[startDashIndex];
-//             }
-//             startDashIndex = TARP_MAX(0, startDashIndex);
-//             bStartDashOn = (tpBool) !(startDashIndex % 2);
-//             startDashLen = _style->dashArray[startDashIndex] + startDashLen;
-//         }
-//     }
-
-//     /* generate the stroke geometry for each contour */
-//     for (i = 0; i < _cache->contours.count; ++i)
-//     {
-//         voff = _vertices->count;
-//         c = _tpGLRenderCacheContourArrayAtPtr(&_cache->contours, i);
-//         c->strokeVertexOffset = voff;
-
-//         dashIndex = startDashIndex;
-//         dashOffset = 0;
-//         j = 0;
-//         dashLen = startDashLen;
-//         bOnDash = bStartDashOn;
-//         bDashStart = tpTrue;
-//         bFirstDashMightNeedJoin = tpFalse;
-//         bBarelyJoined = tpFalse;
-
-//         for (j = c->fillVertexOffset; j < c->fillVertexOffset + c->fillVertexCount - 1; ++j)
-//         {
-//             bLastSegment = (tpBool)(j == c->fillVertexOffset + c->fillVertexCount - 2);
-
-//             p0 = _tpVec2ArrayAt(_vertices, j);
-//             p1 = _tpVec2ArrayAt(_vertices, j + 1);
-//             dir = tpVec2Sub(p1, p0);
-//             segmentLen = tpVec2Length(dir);
-//             segmentOff = 0;
-//             dir.x /= segmentLen;
-//             dir.y /= segmentLen;
-
-//             perp.x = dir.y * halfSw;
-//             perp.y = -dir.x * halfSw;
-//             cross = tpVec2Cross(perp, perpPrev);
-
-//             /* check if this is a joint */
-//             if (bOnDash && _tpBoolArrayAt(_joints, j))
-//             {
-//                 le0 = tpVec2Add(p0, perp);
-//                 re0 = tpVec2Sub(p0, perp);
-//                 _tpGLMakeJoin(_style->strokeJoin,
-//                               p0,
-//                               dirPrev,
-//                               dir,
-//                               perpPrev,
-//                               perp,
-//                               lePrev,
-//                               rePrev,
-//                               le0,
-//                               re0,
-//                               cross,
-//                               _style->miterLimit,
-//                               _vertices);
-//             }
-
-//             do
-//             {
-//                 tpFloat left = TARP_MIN((segmentLen - segmentOff), dashLen - dashOffset);
-//                 dirr = tpVec2MultScalar(dir, left);
-//                 p1 = tpVec2Add(p0, dirr);
-
-//                 le0 = tpVec2Add(p0, perp);
-//                 re0 = tpVec2Sub(p0, perp);
-//                 le1 = tpVec2Add(p1, perp);
-//                 re1 = tpVec2Sub(p1, perp);
-
-//                 if (bDashStart && bOnDash)
-//                 {
-//                     bDashStart = tpFalse;
-
-//                     /*
-//                     if the current contour is not closed, or we are not at
-//                     the beginning of the first segment of the contour, add a
-//                     starting cap to the dash...
-//                     */
-//                     if (!c->bIsClosed || j != c->fillVertexOffset || segmentOff > 0)
-//                     {
-//                         tpVec2 tmpDir, tmpPerp;
-//                         tmpDir = tpVec2MultScalar(dir, -1 * halfSw);
-//                         tmpPerp.x = tmpDir.y;
-//                         tmpPerp.y = -tmpDir.x;
-//                         _tpGLMakeCap(
-//                             _style->strokeCap, p0, tmpDir, tmpPerp, le0, re0, tpTrue, _vertices);
-//                     }
-//                     /*
-//                     ...otherwise cache the initial values for the cap
-//                     computation and mark that the contour might need a
-//                     closing join in case the first and last dash of the
-//                     contour touch.
-//                     */
-//                     else if (j == c->fillVertexOffset)
-//                     {
-//                         bFirstDashMightNeedJoin = tpTrue;
-//                         firstDir = dir;
-//                         firstPerp = perp;
-//                         firstLe = le0;
-//                         firstRe = re0;
-//                     }
-//                 }
-//                 else if (!bDashStart && bOnDash)
-//                 {
-//                     _tpGLMakeJoinBevel(lePrev, rePrev, le0, re0, cross, _vertices);
-//                 }
-
-//                 if (bOnDash)
-//                 {
-//                     /* add the quad for the current dash on the current
-//                      * segment */
-//                     _tpGLPushQuad(_vertices, le1, le0, re0, re1);
-//                 }
-
-//                 dashOffset += left;
-//                 segmentOff += left;
-//                 p0 = p1;
-
-//                 if (dashOffset >= dashLen)
-//                 {
-//                     if (bOnDash)
-//                     {
-//                         /* dont make cap if the first and last dash of the
-//                          * contour touch and the last dash is not finished.
-//                          */
-//                         if (!bFirstDashMightNeedJoin || !bLastSegment ||
-//                             segmentLen - segmentOff > 0)
-//                         {
-//                             _tpGLMakeCap(
-//                                 _style->strokeCap, p1, dir, perp, le1, re1, tpFalse, _vertices);
-//                         }
-//                         else
-//                         {
-//                             bBarelyJoined = tpTrue;
-//                         }
-//                     }
-
-//                     dashOffset = 0;
-//                     dashIndex = (dashIndex + 1) % _style->dashCount;
-//                     dashLen = _style->dashArray[dashIndex];
-//                     bDashStart = tpTrue;
-//                     bOnDash = (tpBool)!bOnDash;
-//                 }
-//             } while ((segmentLen - segmentOff) > 0);
-
-//             if (bLastSegment)
-//             {
-//                 /* if the first and last dash of the contour touch, we
-//                  * connect them with a join */
-//                 if (bFirstDashMightNeedJoin)
-//                 {
-//                     if ((bBarelyJoined || (dashOffset > 0 && bOnDash)))
-//                     {
-//                         cross = tpVec2Cross(firstPerp, perp);
-//                         _tpGLMakeJoin(_style->strokeJoin,
-//                                       p1,
-//                                       dir,
-//                                       firstDir,
-//                                       perp,
-//                                       firstPerp,
-//                                       le1,
-//                                       re1,
-//                                       firstLe,
-//                                       firstRe,
-//                                       cross,
-//                                       _style->miterLimit,
-//                                       _vertices);
-//                     }
-//                     else
-//                     {
-//                         /* otherwise we simply add a starting cap to the
-//                          * first dash of the contour... */
-//                         tpVec2 tmpDir, tmpPerp;
-//                         tmpDir = tpVec2MultScalar(firstDir, -1 * halfSw);
-//                         tmpPerp.x = tmpDir.y;
-//                         tmpPerp.y = -tmpDir.x;
-//                         _tpGLMakeCap(_style->strokeCap,
-//                                      p1,
-//                                      tmpDir,
-//                                      tmpPerp,
-//                                      firstRe,
-//                                      firstLe,
-//                                      tpFalse,
-//                                      _vertices);
-//                     }
-//                 }
-//                 else if (dashOffset > 0 && bOnDash)
-//                 {
-//                     _tpGLMakeCap(_style->strokeCap, p1, dir, perp, le1, re1, tpFalse, _vertices);
-//                 }
-//             }
-
-//             dashLen -= dashOffset;
-//             dashOffset = 0.0;
-
-//             perpPrev = perp;
-//             dirPrev = dir;
-//             lePrev = le1;
-//             rePrev = re1;
-//         }
-
-//         c->strokeVertexCount = _vertices->count - voff;
-//         _cache->strokeVertexCount += c->strokeVertexCount;
-//     }
-// }
 
 TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
                             _tpGLRenderCacheContourArray * _contours,
+                            tpBool _bIsRebuildingInternalCache,
                             _tpGLRenderCache * _oldCache,
                             const tpStyle * _style,
                             _tpVec2Array * _vertices,
@@ -3521,7 +3029,6 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
     /* compute the start of the dash pattern if needed */
     if (_style->dashCount)
     {
-        printf("PREPPING DASH START\n");
         tpFloat patternLen, offsetIntoPattern;
 
         /* no dash offset */
@@ -3572,25 +3079,24 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
                     _style->dashArray[dashStartState.startDashIndex] + dashStartState.startDashLen;
             }
         }
-        printf("PREPPING DASH END\n");
     }
 
     *_outStrokeVertexCount = 0;
     for (i = 0; i < _contours->count; ++i)
     {
-        // printf("CONT %i %i %i\n", i, _cache->contours.count, _path->contours.count);
         rc = _tpGLRenderCacheContourArrayAtPtr(_contours, i);
         c = _tpGLContourArrayAtPtr(&_path->contours, i);
 
         if (c->bDirty || !_oldCache)
         {
-            c->bDirty = tpFalse;
+            /* only undo the dirty flag if the internal path cache is currently being rebuild! */
+            if(_bIsRebuildingInternalCache)
+                c->bDirty = tpFalse;
+
             if (_style->dashCount)
             {
-                printf("DASHED STROKE\n");
                 _tpGLRenderCacheContourDashedStrokeGeometry(
                     rc, _style, &dashStartState, _vertices, _joints);
-                printf("DASHED END\n");
             }
             else
             {
@@ -3599,19 +3105,15 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
         }
         else
         {
-            printf("OLD C COUNT %i %i\n", _oldCache->contours.count, i);
             /* grab the contour from the old cache and copy the old stroke data for the contour */
             rc = _tpGLRenderCacheContourArrayAtPtr(&_oldCache->contours, i);
-            printf("FOOCK %i %i\n", rc->strokeVertexOffset, rc->strokeVertexCount);
             _tpVec2ArrayAppendCArray(
                 _vertices,
                 _tpVec2ArrayAtPtr(&_oldCache->geometryCache, rc->strokeVertexOffset),
                 rc->strokeVertexCount);
         }
 
-        printf("DA RC VERT COUNT %i\n", rc->strokeVertexCount);
         *_outStrokeVertexCount += rc->strokeVertexCount;
-        // printf("CACHE STROKR %i %i\n", _cache->strokeVertexOffset, _cache->strokeVertexCount);
     }
 }
 
@@ -3790,145 +3292,6 @@ TARP_LOCAL tpBool _tpGLFlattenContour(_tpGLContour * _contour,
     _tpGLMergeBounds(_mergeBounds, &contourBounds);
     return tpFalse;
 }
-
-// TARP_LOCAL tpBool _tpGLFlattenPath(_tpGLPath * _path,
-//                                    _tpGLRenderCache * _cache,
-//                                    tpFloat _angleTolerance,
-//                                    const tpTransform * _transform,
-//                                    _tpVec2Array * _outVertices,
-//                                    _tpBoolArray * _outJoints,
-//                                    _tpGLRect * _outBounds)
-// {
-//     /* @TODO: clean up dis mess */
-//     _tpGLRect contourBounds;
-//     int i = 0;
-//     int j = 0;
-//     int vcount;
-//     int off = 0;
-//     _tpGLContour * c = NULL;
-//     tpSegment *last = NULL, *current = NULL;
-//     _tpGLCurve curve;
-//     _tpGLRenderCacheContour renderContour;
-//     tpVec2 lastTransformedPos;
-
-//     _tpGLInitBounds(_outBounds);
-//     /* clear the cached contours */
-//     _tpGLRenderCacheContourArrayClear(&_cache->contours);
-
-//     for (i = 0; i < _path->contours.count; ++i)
-//     {
-//         c = _tpGLContourArrayAtPtr(&_path->contours, i);
-//         _tpGLInitBounds(&contourBounds);
-
-//         /* force re-flattening of the contour if it is either dirty, or the path rendercache
-//             does not yet have a cached version for this contour */
-//         if (c->bDirty || !_path->renderCache || _path->renderCache->contours.count <= i)
-//         {
-//             c->bDirty = tpFalse;
-//             last = _tpSegmentArrayAtPtr(&c->segments, 0);
-
-//             vcount = 0;
-//             for (j = 1; j < c->segments.count; ++j)
-//             {
-//                 current = _tpSegmentArrayAtPtr(&c->segments, j);
-
-//                 curve.p0 = tpVec2Make(last->position.x, last->position.y);
-//                 curve.h0 = tpVec2Make(last->handleOut.x, last->handleOut.y);
-//                 curve.h1 = tpVec2Make(current->handleIn.x, current->handleIn.y);
-//                 curve.p1 = tpVec2Make(current->position.x, current->position.y);
-
-//                 if (_transform)
-//                 {
-//                     curve.p0 = j > 1 ? lastTransformedPos : tpTransformApply(_transform,
-//                     curve.p0); curve.h0 = tpTransformApply(_transform, curve.h0); curve.h1 =
-//                     tpTransformApply(_transform, curve.h1); curve.p1 =
-//                     tpTransformApply(_transform, curve.p1); lastTransformedPos = curve.p1;
-//                 }
-
-//                 _tpGLFlattenCurve(&curve,
-//                                   _angleTolerance,
-//                                   c->bIsClosed,
-//                                   j == 1,
-//                                   tpFalse,
-//                                   _outVertices,
-//                                   _outJoints,
-//                                   &contourBounds,
-//                                   &vcount);
-
-//                 last = current;
-//             }
-
-//             /* if the contour is closed, flatten the last closing curve */
-//             if (c->bIsClosed && c->segments.count &&
-//                 tpVec2Distance(
-//                     _tpSegmentArrayAtPtr(&c->segments, 0)->position,
-//                     _tpSegmentArrayAtPtr(&c->segments, c->segments.count - 1)->position) >
-//                     FLT_EPSILON)
-//             {
-//                 tpSegment * fs = _tpSegmentArrayAtPtr(&c->segments, 0);
-
-//                 curve.p0 = tpVec2Make(last->position.x, last->position.y);
-//                 curve.h0 = tpVec2Make(last->handleOut.x, last->handleOut.y);
-//                 curve.h1 = tpVec2Make(fs->handleIn.x, fs->handleIn.y);
-//                 curve.p1 = tpVec2Make(fs->position.x, fs->position.y);
-
-//                 if (_transform)
-//                 {
-//                     /* @TODO: are there cases were lastTransformedPos can
-//                      * still be uninitialized?!?! */
-//                     curve.p0 = lastTransformedPos;
-//                     curve.h0 = tpTransformApply(_transform, curve.h0);
-//                     curve.h1 = tpTransformApply(_transform, curve.h1);
-//                     curve.p1 = tpTransformApply(_transform, curve.p1);
-//                 }
-
-//                 _tpGLFlattenCurve(&curve,
-//                                   _angleTolerance,
-//                                   c->bIsClosed,
-//                                   tpFalse,
-//                                   tpTrue,
-//                                   _outVertices,
-//                                   _outJoints,
-//                                   &contourBounds,
-//                                   &vcount);
-//             }
-
-//             renderContour.fillVertexOffset = off;
-//             renderContour.fillVertexCount = vcount;
-//             renderContour.bIsClosed = c->bIsClosed;
-//             c->bounds = contourBounds;
-//             off += vcount;
-
-//             _tpGLMergeBounds(_outBounds, &contourBounds);
-//         }
-//         else
-//         {
-//             _tpGLRenderCacheContour * rcc =
-//                 _tpGLRenderCacheContourArrayAtPtr(&_path->renderCache->contours, i);
-//             renderContour.fillVertexOffset = off;
-//             renderContour.fillVertexCount = rcc->fillVertexCount;
-//             renderContour.bIsClosed = c->bIsClosed;
-
-//             /* otherwise we just copy the contour to the tmpbuffer... */
-//             _tpVec2ArrayAppendCArray(
-//                 _outVertices,
-//                 _tpVec2ArrayAtPtr(&_path->renderCache->geometryCache, rcc->fillVertexOffset),
-//                 rcc->fillVertexCount);
-//             _tpBoolArrayAppendCArray(
-//                 _outJoints,
-//                 _tpBoolArrayAtPtr(&_path->renderCache->jointCache, rcc->fillVertexOffset),
-//                 rcc->fillVertexCount);
-
-//             /* ...and merge the cached contour bounds with the path bounds
-//              */
-//             _tpGLMergeBounds(_outBounds, &c->bounds);
-//             off += renderContour.fillVertexCount;
-//         }
-//         _tpGLRenderCacheContourArrayAppendPtr(&_cache->contours, &renderContour);
-//     }
-
-//     return 0;
-// }
 
 TARP_LOCAL int _tpGLColorStopComp(const void * _a, const void * _b)
 {
@@ -4435,11 +3798,10 @@ TARP_LOCAL void _tpGLGradientRadialGeometry(_tpGLContext * _ctx,
 
 TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx,
                                            _tpGLGradient * _grad,
-                                           _tpGLTextureVertexArray * _vertices,
+                                           _tpGLTextureVertexArray * _oldVertices,
                                            _tpGLGradientCacheData * _gradCache,
                                            _tpGLTextureVertexArray * _outVertices,
                                            const tpTransform * _paintTransform,
-                                           tpBool _bDifferentGradient,
                                            tpBool _bIsScalingStroke)
 {
     _tpGLGradient * grad = _grad;
@@ -4454,12 +3816,12 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx,
         /* TODO: update the ramp texture separately just before drawing to
          * avoid multiple texture binds */
         _tpGLUpdateRampTexture(grad);
-        _bDifferentGradient = tpTrue;
+        _oldVertices = NULL;
     }
 
     /* rebuild the gradient geometry if the gradient is dirty, different to the last one
         the path used, or there are no pre cached _vertices */
-    if (_bDifferentGradient || !_vertices)
+    if (!_oldVertices)
     {
         /* rebuild the gradient */
         if (grad->type == kTpGradientTypeLinear)
@@ -4490,7 +3852,7 @@ TARP_LOCAL void _tpGLCacheGradientGeometry(_tpGLContext * _ctx,
         /* copy cached gradient data */
         _tpGLTextureVertexArrayAppendCArray(
             _outVertices,
-            _tpGLTextureVertexArrayAtPtr(_vertices, _gradCache->vertexOffset),
+            _tpGLTextureVertexArrayAtPtr(_oldVertices, _gradCache->vertexOffset),
             _gradCache->vertexCount);
     }
 }
@@ -4603,14 +3965,13 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
                                    _tpGLRenderCache * _cache,
                                    tpBool _bGeometryDirty,
                                    tpBool _bStrokeDirty,
-                                   tpBool _bGradientsDirty)
+                                   tpBool _bFillGradientDirty,
+                                   tpBool _bStrokeGradientDirty)
 {
     _tpGLRect bounds;
-    tpBool bStyleHasStroke;
+    tpBool bStyleHasStroke, bIsPathRenderCache;
 
     assert(_ctx && _path && _cache);
-
-    // printf("CACHING PATH!!!!\n");
 
     /* simpliy reset the cache if the path is empty */
     if (!_path->contours.count)
@@ -4623,6 +3984,7 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
     }
 
     bStyleHasStroke = _style->stroke.type != kTpPaintTypeNone && _style->strokeWidth > 0;
+    bIsPathRenderCache = _path->renderCache == _cache;
     _tpGLInitBounds(&bounds);
     _tpGLRenderCacheCopyStyle(_style, _cache);
 
@@ -4642,13 +4004,10 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
 
     if (_bGeometryDirty)
     {
-        printf("GEOM DIRTY\n");
         int i;
         _tpGLContour * c;
         _tpGLRenderCacheContour rc;
         tpFloat angleTolerance = !_style->scaleStroke ? 0.15f : 0.15f / _ctx->transformScale;
-
-        // _tpGLRenderCacheContourArrayClear(&_cache->contours);
 
         for (i = 0; i < _path->contours.count; ++i)
         {
@@ -4672,18 +4031,17 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
                                         &bounds,
                                         &rc);
 
-                printf("DA RC BROO1  %i %i\n", rc.fillVertexOffset, rc.fillVertexCount);
-
                 /* only clear the dirty flag here, if there is no stroke, otherwise this will be
-                 * done during stroking */
-                if (!bStyleHasStroke)
+                 * done during stroking. We also ignore the dirty flag if this is not the internal
+                 * path render cache */
+                if (!bStyleHasStroke && bIsPathRenderCache)
                     c->bDirty = tpFalse;
             }
             else
             {
-                printf("COPYING OLD %i\n", i);
                 _tpGLRenderCacheContour * rcc =
                     _tpGLRenderCacheContourArrayAtPtr(&_oldCache->contours, i);
+
                 rc.fillVertexOffset = _ctx->tmpVertices.count;
                 rc.fillVertexCount = rcc->fillVertexCount;
                 rc.bIsClosed = c->bIsClosed;
@@ -4704,7 +4062,6 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
                 _tpGLMergeBounds(&bounds, &c->bounds);
             }
 
-            printf("DA RC BROO %i %i\n", rc.fillVertexOffset, rc.fillVertexCount);
             _tpGLRenderCacheContourArrayAppendPtr(&_ctx->tmpRcContours, &rc);
         }
 
@@ -4715,12 +4072,12 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
             _cache->strokeVertexCount = 0;
             _tpGLStroke(_path,
                         &_ctx->tmpRcContours,
+                        bIsPathRenderCache,
                         _bStrokeDirty ? NULL : _oldCache,
                         _style,
                         &_ctx->tmpVertices,
                         &_ctx->tmpJoints,
                         &_cache->strokeVertexCount);
-            printf("DA VALS %i %i\n", _cache->strokeVertexOffset, _cache->strokeVertexCount);
         }
 
         /* save the path bounds */
@@ -4744,7 +4101,6 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
 
     if (_bStrokeDirty)
     {
-        printf("ONLY STROKE WAS DIRTYY\n");
         /* remove all the old stroke vertices from the cache if this is not a full geometry
         update*/
         /* @TODO: Should we remove the old bounds vertices, too? I guess they are overwritten?*/
@@ -4757,6 +4113,7 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
             _cache->strokeVertexCount = 0;
             _tpGLStroke(_path,
                         &_cache->contours,
+                        bIsPathRenderCache,
                         NULL,
                         _style,
                         &_cache->geometryCache,
@@ -4767,11 +4124,11 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
             _tpGLCacheBoundsGeometry(_cache, _style);
 
             /* force rebuilding of the stroke gradient geometry */
-            _bGradientsDirty = tpTrue;
+            _bStrokeGradientDirty = tpTrue;
         }
     }
 
-    if (_bGradientsDirty)
+    if (_bFillGradientDirty || _bStrokeGradientDirty)
     {
         _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
         if (_style->fill.type == kTpPaintTypeGradient)
@@ -4779,15 +4136,12 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
             _tpGLGradient * grad = (_tpGLGradient *)_style->fill.data.gradient.pointer;
             _tpGLCacheGradientGeometry(_ctx,
                                        grad,
-                                       _oldCache ? &_oldCache->textureGeometryCache : NULL,
+                                       _bFillGradientDirty ? NULL
+                                                           : &_oldCache->textureGeometryCache,
                                        &_cache->fillGradientData,
                                        &_ctx->tmpTexVertices,
                                        &_path->fillPaintTransform,
-                                       _path->bFillPaintTransformDirty ||
-                                           grad->gradientID != _path->lastFillGradientID,
                                        _style->scaleStroke);
-            _path->bFillPaintTransformDirty = tpFalse;
-            _path->lastFillGradientID = grad->gradientID;
         }
 
         if (_style->stroke.type == kTpPaintTypeGradient)
@@ -4795,15 +4149,12 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
             _tpGLGradient * grad = (_tpGLGradient *)_style->stroke.data.gradient.pointer;
             _tpGLCacheGradientGeometry(_ctx,
                                        grad,
-                                       _oldCache ? &_oldCache->textureGeometryCache : NULL,
+                                       _bStrokeGradientDirty ? NULL
+                                                             : &_oldCache->textureGeometryCache,
                                        &_cache->strokeGradientData,
                                        &_ctx->tmpTexVertices,
                                        &_path->strokePaintTransform,
-                                       _path->bStrokePaintTransformDirty ||
-                                           grad->gradientID != _path->lastStrokeGradientID,
                                        _style->scaleStroke);
-            _path->bStrokePaintTransformDirty = tpFalse;
-            _path->lastStrokeGradientID = grad->gradientID;
         }
 
         _tpGLTextureVertexArraySwap(&_cache->textureGeometryCache, &_ctx->tmpTexVertices);
@@ -4823,6 +4174,7 @@ TARP_API tpBool tpCachePath(tpContext _ctx,
                               _style,
                               path->renderCache,
                               (_tpGLRenderCache *)_cache.pointer,
+                              tpTrue,
                               tpTrue,
                               tpTrue,
                               tpTrue);
@@ -4994,8 +4346,8 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
                                     const tpStyle * _style,
                                     tpBool _bIsClipPath)
 {
-    tpBool bGeometryDirty, bStrokeDirty, bGradientsDirty, bMarkAllContoursDirty, bVirgin,
-        bTransformDirty;
+    tpBool bGeometryDirty, bStrokeDirty, bFillGradientDirty, bStrokeGradientDirty,
+        bMarkAllContoursDirty, bVirgin, bTransformDirty;
     _tpGLRenderCache * cache;
 
     /* early out if the path has no contours */
@@ -5007,9 +4359,13 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
 
     if (!bVirgin)
     {
+        /* this block of code checks what part of the geometry/path are dirty compared to its cached
+         * version */
+
         bGeometryDirty = _path->bPathGeometryDirty;
         bStrokeDirty = tpFalse;
-        bGradientsDirty = tpFalse;
+        bFillGradientDirty = tpFalse;
+        bStrokeGradientDirty = tpFalse;
         bMarkAllContoursDirty = tpFalse;
         bTransformDirty = tpFalse;
 
@@ -5066,24 +4422,31 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
               (_path->lastFillGradientID !=
                    ((_tpGLGradient *)_style->fill.data.gradient.pointer)->gradientID ||
                _path->bFillPaintTransformDirty ||
-               ((_tpGLGradient *)_style->fill.data.gradient.pointer)->bDirty)) ||
-             (_style->stroke.type == kTpPaintTypeGradient &&
+               ((_tpGLGradient *)_style->fill.data.gradient.pointer)->bDirty))))
+        {
+            bFillGradientDirty = tpTrue;
+        }
+        if (!_bIsClipPath &&
+            ((_style->stroke.type == kTpPaintTypeGradient &&
               (_path->lastStrokeGradientID !=
                    ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->gradientID ||
                _path->bStrokePaintTransformDirty ||
                ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->bDirty)) ||
              cache->style.scaleStroke != _style->scaleStroke))
         {
-            bGradientsDirty = tpTrue;
+            bStrokeGradientDirty = tpTrue;
         }
     }
     else
     {
-        bGeometryDirty = bStrokeDirty = bGradientsDirty = tpTrue;
+        bFillGradientDirty = _style->fill.type == kTpPaintTypeGradient;
+        bStrokeGradientDirty = _style->stroke.type == kTpPaintTypeGradient;
+        bStrokeDirty = bGeometryDirty = tpTrue;
     }
 
     /* build the cache */
-    if (bGeometryDirty || bStrokeDirty || bGradientsDirty || bTransformDirty)
+    if (bGeometryDirty || bStrokeDirty || bFillGradientDirty || bStrokeGradientDirty ||
+        bTransformDirty)
     {
         if (_tpGLCachePathImpl(_ctx,
                                _path,
@@ -5092,13 +4455,31 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
                                cache,
                                bGeometryDirty,
                                bStrokeDirty,
-                               bGradientsDirty))
+                               bFillGradientDirty,
+                               bStrokeGradientDirty))
         {
             _path->renderCache = cache;
             return tpTrue;
         }
 
         _path->bPathGeometryDirty = tpFalse;
+
+        /* this is a little ugly...if we recached any gradient, we need to reset the dirty flags and
+         * cache the gradient ID. We don't do that in _tpGLCachePathImpl because these things should
+         * not be set if a render cache is manually created (i.e. they are only for internal
+         * caching) */
+        if (bFillGradientDirty)
+        {
+            _path->bFillPaintTransformDirty = tpFalse;
+            _path->lastFillGradientID =
+                ((_tpGLGradient *)_style->fill.data.gradient.pointer)->gradientID;
+        }
+        if (bStrokeGradientDirty)
+        {
+            _path->bStrokePaintTransformDirty = tpFalse;
+            _path->lastStrokeGradientID =
+                ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->gradientID;
+        }
     }
 
     /* draw the cache */

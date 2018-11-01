@@ -10,10 +10,11 @@
 
 #include <time.h>
 
+#define CACHE_COUNT 256
+
 int i;
 tpBool err;
-const int rcCount = 256;
-tpRenderCache caches[rcCount];
+tpRenderCache caches[CACHE_COUNT];
 
 static float randomFloat(float _a, float _b)
 {
@@ -23,10 +24,6 @@ static float randomFloat(float _a, float _b)
 
 int main(int argc, char * argv[])
 {
-    // randomize the random seed
-    // NOTE: Screw rand, we just use it for the simplicity/portability of this example
-    srand(time(NULL));
-
     /* this example is compile in pedantic c89, so we declare the variables up here */
     tpContext ctx;
     GLFWwindow * window;
@@ -36,6 +33,11 @@ int main(int argc, char * argv[])
     tpMat4 proj;
     tpGradient grad;
     int wwidth, wheight;
+
+    /*randomize the random seed
+    NOTE: Screw rand, we just use it for the simplicity/portability of this example */
+    srand(time(NULL));
+
 
     /* initialize glfw */
     if (!glfwInit())
@@ -99,17 +101,15 @@ int main(int argc, char * argv[])
     tpGradientAddColorStop(grad, 1.0, 0.0, 1.0, 1.0, 0.75);
     tpGradientAddColorStop(grad, 0.0, 0.0, 1.0, 1.0, 1.0);
 
-    /* create a style that we can draw the path with */
+    /* create a base style*/
     style = tpStyleMake();
     style.fill = tpPaintMakeGradient(grad);
-    // style.fill = tpPaintMakeColor(1.0, 1.0, 0.0, 1.0);
     style.stroke = tpPaintMakeColor(1.0, 0.6, 0.1, 1.0);
-    // style.stroke.type = kTpPaintTypeNone;
     style.strokeWidth = 10.0;
     style.strokeJoin = kTpStrokeJoinRound;
 
     /* now create many cached veriations of the path in question so we can render it efficiently */
-    for (i = 0; i < rcCount; ++i)
+    for (i = 0; i < CACHE_COUNT; ++i)
     {
         tpTransform transform, scale, rot;
         tpFloat s = randomFloat(0.1, 0.6);
@@ -150,7 +150,6 @@ int main(int argc, char * argv[])
     while (!glfwWindowShouldClose(window))
     {
         int width, height;
-        tpTransform trans, rot;
 
         glClearColor(0.0, 0.0, 0.0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -163,7 +162,7 @@ int main(int argc, char * argv[])
         tpPrepareDrawing(ctx);
 
         /* draw the path in all its cached variations */
-        for (i = 0; i < rcCount; ++i)
+        for (i = 0; i < CACHE_COUNT; ++i)
         {
             tpDrawRenderCache(ctx, caches[i]);
         }
@@ -177,7 +176,7 @@ int main(int argc, char * argv[])
 
     /* clean up tarp */
 
-    for(i=0; i < rcCount; ++i)
+    for(i=0; i < CACHE_COUNT; ++i)
         tpRenderCacheDestroy(caches[i]);
     tpGradientDestroy(grad);
     tpPathDestroy(path);
