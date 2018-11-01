@@ -1,4 +1,4 @@
-Tarp (v0.1.2)
+Tarp (v0.1.3)
 ======
 
 Overview
@@ -18,6 +18,7 @@ What can Tarp do?
 - EvenOdd and NonZero fill rules.
 - Nested path clipping.
 - Non-scaling stroke.
+- Caching API to allow manual caching of a path with different styles, transforms, etc. 
 
 What does Tarp not want to provide?
 --------

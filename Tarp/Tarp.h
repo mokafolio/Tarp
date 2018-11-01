@@ -334,13 +334,6 @@ typedef struct TARP_API
 
 TARP_HANDLE(tpContext);
 
-typedef struct TARP_API
-{
-    tpVec2 * points;
-    tpBool * joints;
-    int count;
-} tpFlattened;
-
 /*
 NOTE: All the color, matrix and vector functions are mainly for internal use
 The rotation/scale/projection functionality are mainly provided to be used
