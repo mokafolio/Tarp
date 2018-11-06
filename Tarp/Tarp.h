@@ -4238,15 +4238,6 @@ TARP_API tpBool tpCachePath(tpContext _ctx,
                               tpTrue);
 }
 
-TARP_API tpBool tpCachePolyLine(tpContext _ctx,
-                                const tpVec2 * _points,
-                                int _count,
-                                const tpStyle * _style,
-                                tpRenderCache _cache)
-{
-    
-}
-
 TARP_LOCAL tpBool _tpGLDrawRenderCacheImpl(_tpGLContext * _ctx,
                                            _tpGLRenderCache * _cache,
                                            tpBool _bIsClipPath)
