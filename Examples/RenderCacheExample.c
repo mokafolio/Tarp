@@ -53,7 +53,7 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
     /* create the window */
-    window = glfwCreateWindow(800, 600, "Hello Tarp", NULL, NULL);
+    window = glfwCreateWindow(800, 600, "RenderCache Example", NULL, NULL);
 
     if (!window)
     {
