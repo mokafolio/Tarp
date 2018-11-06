@@ -1,5 +1,5 @@
 /*
-Tarp - v0.1.3
+Tarp - v0.1.4
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Tarp is an almost single header C library to raster vector graphics.
 It provides a lightweight and portable API purely focussed on decently
@@ -22,11 +22,17 @@ ChengCat (Github): Bug fixes, ideas
 
 Change History
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-v0.1.3 (10/31/2018): 
+v0.1.4 (11/06/2018):
+- Added tpBeginClippingFromRenderCache.
+- Made clipping stack in opengl implementation render cache based and fully immutable to guarantee
+correct clipping masks in all cases (fingers crossed).
+
+v0.1.3 (10/31/2018):
 - Many Bug Fixes mainly related to clipping
-- Added tpRenderCache API to allow manual control for caching. (Useful if you want to draw the same path multiple times using different
-styles / transforms).
-- Fixed issues with TARP_HANDLE_FUNCTIONS* macros generating multiple symbols (they were not hidden behind TARP_IMPLEMENTATION_*)
+- Added tpRenderCache API to allow manual control for caching. (Useful if you want to draw the same
+path multiple times using different styles / transforms).
+- Fixed issues with TARP_HANDLE_FUNCTIONS* macros generating multiple symbols (they were not hidden
+behind TARP_IMPLEMENTATION_*)
 
 v0.1.2 (05/30/2018): Radial Gradients, bug fixes, removed tpStyle API in favor
 of a purely data based approach (see tpStyle struct). v0.1.1 (05/18/2018):
@@ -680,10 +686,8 @@ TARP_API tpBool tpBeginClipping(tpContext _ctx, tpPath _path);
 TARP_API tpBool tpBeginClippingWithFillRule(tpContext _ctx, tpPath _path, tpFillRule _rule);
 
 TARP_API tpBool tpBeginClippingFromRenderCache(tpContext _ctx, tpRenderCache _cache);
-
-TARP_API tpBool tpBeginClippingFromRenderCacheWithFillRule(tpContext _ctx,
-                                                           tpRenderCache _cache,
-                                                           tpFillRule _rule);
+/* NOTE: There is no tpBeginClippingFromRenderCache that allows you to set the fillRule as a render
+ * cache is immutable and contains its style/fillRule */
 
 /* End the most recent clipping path */
 TARP_API tpBool tpEndClipping(tpContext _ctx);
@@ -1426,14 +1430,6 @@ typedef struct TARP_LOCAL
     GLuint program;
 } _tpGLStateBackup;
 
-typedef struct TARP_LOCAL
-{
-    _tpGLPath * path;
-    tpFillRule fillRule;
-    tpTransform transform; /* we need to cache the transform that was used while drawing the initial
-                              clipping path so we can correctly restore it */
-} _tpGLClippingStackItem;
-
 struct _tpGLContext
 {
     GLuint program;
@@ -1445,8 +1441,13 @@ struct _tpGLContext
     _tpGLVAO vao;
     _tpGLVAO textureVao;
 
-    _tpGLClippingStackItem clippingStack[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
+    /* this array allocates render caches that the context takes ownership over in cases where a
+     * render cache needs to be cloned */
+    _tpGLRenderCache * clippingRenderCaches[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
+    /* this render cache array is the actual active clipping stack */
+    _tpGLRenderCache * clippingStack[TARP_GL_MAX_CLIPPING_STACK_DEPTH];
     int clippingStackDepth;
+
     int currentClipStencilPlane;
     tpBool bCanSwapStencilPlanes;
     tpTransform transform;
@@ -1615,6 +1616,18 @@ TARP_API tpRenderCache tpRenderCacheCreate()
     return ret;
 }
 
+TARP_LOCAL void _tpGLRenderCacheClear(_tpGLRenderCache * _cache)
+{
+    _tpGLRenderCacheContourArrayClear(&_cache->contours);
+    _tpVec2ArrayClear(&_cache->geometryCache);
+    _tpGLTextureVertexArrayClear(&_cache->textureGeometryCache);
+    _tpBoolArrayClear(&_cache->jointCache);
+    _tpFloatArrayClear(&_cache->dashArrayStorage);
+    _cache->strokeVertexOffset = 0;
+    _cache->strokeVertexCount = 0;
+    _cache->boundsVertexOffset = 0;
+}
+
 TARP_LOCAL void _tpGLRenderCacheCopyStyle(const tpStyle * _style, _tpGLRenderCache * _to)
 {
     _to->style = *_style;
@@ -1625,6 +1638,29 @@ TARP_LOCAL void _tpGLRenderCacheCopyStyle(const tpStyle * _style, _tpGLRenderCac
         _tpFloatArrayAppendCArray(&_to->dashArrayStorage, _style->dashArray, _style->dashCount);
         _to->style.dashArray = _to->dashArrayStorage.array;
     }
+}
+
+TARP_LOCAL void _tpGLRenderCacheCopyTo(const _tpGLRenderCache * _from, _tpGLRenderCache * _to)
+{
+    _tpGLRenderCacheContourArrayClear(&_to->contours);
+    _tpGLRenderCacheContourArrayAppendArray(&_to->contours, &_from->contours);
+    _tpVec2ArrayClear(&_to->geometryCache);
+    _tpVec2ArrayAppendArray(&_to->geometryCache, &_from->geometryCache);
+    _tpGLTextureVertexArrayClear(&_to->textureGeometryCache);
+    _tpGLTextureVertexArrayAppendArray(&_to->textureGeometryCache, &_from->textureGeometryCache);
+    _tpBoolArrayClear(&_to->jointCache);
+    _tpBoolArrayAppendArray(&_to->jointCache, &_from->jointCache);
+    _to->boundsCache = _from->boundsCache;
+    _to->strokeBoundsCache = _from->strokeBoundsCache;
+    _to->fillGradientData.vertexOffset = _from->fillGradientData.vertexOffset;
+    _to->fillGradientData.vertexCount = _from->fillGradientData.vertexCount;
+    _to->strokeGradientData.vertexOffset = _from->strokeGradientData.vertexOffset;
+    _to->strokeGradientData.vertexCount = _from->strokeGradientData.vertexCount;
+    _to->strokeVertexOffset = _from->strokeVertexCount;
+    _to->strokeVertexCount = _from->strokeVertexCount;
+    _to->boundsVertexOffset = _from->boundsVertexOffset;
+    _to->renderMatrix = _from->renderMatrix;
+    _tpGLRenderCacheCopyStyle(&_from->style, _to);
 }
 
 TARP_LOCAL void _tpGLRenderCacheDestroyImpl(_tpGLRenderCache * _cache)
@@ -1645,6 +1681,7 @@ TARP_API tpContext tpContextCreate()
     _ErrorMessage msg;
     _tpGLContext * ctx;
     tpBool err;
+    int i;
     tpContext ret = tpContextInvalidHandle();
 
     ctx = (_tpGLContext *)TARP_MALLOC(sizeof(_tpGLContext));
@@ -1688,6 +1725,11 @@ TARP_API tpContext tpContextCreate()
         1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(tpFloat), ((char *)(2 * sizeof(float)))));
     _TARP_ASSERT_NO_GL_ERROR(glEnableVertexAttribArray(1));
 
+    for (i = 0; i < TARP_GL_MAX_CLIPPING_STACK_DEPTH; ++i)
+    {
+        ctx->clippingRenderCaches[i] = (_tpGLRenderCache *)tpRenderCacheCreate().pointer;
+    }
+
     ctx->clippingStackDepth = 0;
     ctx->currentClipStencilPlane = _kTpGLClippingStencilPlaneOne;
     ctx->bCanSwapStencilPlanes = tpTrue;
@@ -1715,6 +1757,7 @@ TARP_API tpContext tpContextCreate()
 
 TARP_API void tpContextDestroy(tpContext _ctx)
 {
+    int i;
     _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
 
     /* free all opengl resources */
@@ -1730,6 +1773,11 @@ TARP_API void tpContextDestroy(tpContext _ctx)
     _tpGLTextureVertexArrayDeallocate(&ctx->tmpTexVertices);
     _tpColorStopArrayDeallocate(&ctx->tmpColorStops);
     _tpGLRenderCacheContourArrayDeallocate(&ctx->tmpRcContours);
+
+    for (i = 0; i < TARP_GL_MAX_CLIPPING_STACK_DEPTH; ++i)
+    {
+        _tpGLRenderCacheDestroyImpl(ctx->clippingRenderCaches[i]);
+    }
 
     TARP_FREE(ctx);
 }
@@ -3086,7 +3134,7 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
         if (c->bDirty || !_oldCache)
         {
             /* only undo the dirty flag if the internal path cache is currently being rebuild! */
-            if(_bIsRebuildingInternalCache)
+            if (_bIsRebuildingInternalCache)
                 c->bDirty = tpFalse;
 
             if (_style->dashCount)
@@ -3966,8 +4014,22 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
 {
     _tpGLRect bounds;
     tpBool bStyleHasStroke, bIsPathRenderCache;
+    int i;
 
     assert(_ctx && _path && _cache);
+
+    /* if the rendercache is currently referenced in the clipping stack of the context, create a
+     * deep copy and replace it in the clipping stack. This ensures that the clipping masks will be
+     * identical in cases where the clipping stack needs to be rebuilt. */
+    for (i = 0; i < _ctx->clippingStackDepth; ++i)
+    {
+        if (_ctx->clippingStack[i] == _cache)
+        {
+            _tpGLRenderCache * c = _ctx->clippingRenderCaches[i];
+            _tpGLRenderCacheCopyTo(_cache, c);
+            _ctx->clippingStack[i] = c;
+        }
+    }
 
     /* simpliy reset the cache if the path is empty */
     if (!_path->contours.count)
@@ -4008,7 +4070,7 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
         for (i = 0; i < _path->contours.count; ++i)
         {
             c = _tpGLContourArrayAtPtr(&_path->contours, i);
-            if (c->bDirty || !_oldCache)
+            if (c->bDirty || !_oldCache->contours.count)
             {
                 if (_style->scaleStroke)
                     _tpGLFlattenContour(c,
@@ -4176,6 +4238,15 @@ TARP_API tpBool tpCachePath(tpContext _ctx,
                               tpTrue);
 }
 
+TARP_API tpBool tpCachePolyLine(tpContext _ctx,
+                                const tpVec2 * _points,
+                                int _count,
+                                const tpStyle * _style,
+                                tpRenderCache _cache)
+{
+    
+}
+
 TARP_LOCAL tpBool _tpGLDrawRenderCacheImpl(_tpGLContext * _ctx,
                                            _tpGLRenderCache * _cache,
                                            tpBool _bIsClipPath)
@@ -4337,10 +4408,10 @@ TARP_LOCAL tpBool _tpGLDrawRenderCacheImpl(_tpGLContext * _ctx,
     return tpFalse;
 }
 
-TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
-                                    _tpGLPath * _path,
-                                    const tpStyle * _style,
-                                    tpBool _bIsClipPath)
+TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
+                                               _tpGLPath * _path,
+                                               const tpStyle * _style,
+                                               tpBool _bIsClipPath)
 {
     tpBool bGeometryDirty, bStrokeDirty, bFillGradientDirty, bStrokeGradientDirty,
         bMarkAllContoursDirty, bVirgin, bTransformDirty;
@@ -4447,14 +4518,13 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
         if (_tpGLCachePathImpl(_ctx,
                                _path,
                                _style,
-                               _path->renderCache,
+                               cache,
                                cache,
                                bGeometryDirty,
                                bStrokeDirty,
                                bFillGradientDirty,
                                bStrokeGradientDirty))
         {
-            _path->renderCache = cache;
             return tpTrue;
         }
 
@@ -4478,8 +4548,18 @@ TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
         }
     }
 
+    return tpFalse;
+}
+
+TARP_LOCAL tpBool _tpGLDrawPathImpl(_tpGLContext * _ctx,
+                                    _tpGLPath * _path,
+                                    const tpStyle * _style,
+                                    tpBool _bIsClipPath)
+{
+    if (_tpGLUpdateInternalPathCache(_ctx, _path, _style, _bIsClipPath))
+        return tpTrue;
     /* draw the cache */
-    return _tpGLDrawRenderCacheImpl(_ctx, cache, _bIsClipPath);
+    return _tpGLDrawRenderCacheImpl(_ctx, _path->renderCache, _bIsClipPath);
 }
 
 TARP_API tpBool tpDrawPath(tpContext _ctx, tpPath _path, const tpStyle * _style)
@@ -4494,20 +4574,16 @@ TARP_API tpBool tpDrawRenderCache(tpContext _ctx, tpRenderCache _cache)
         (_tpGLContext *)_ctx.pointer, (_tpGLRenderCache *)_cache.pointer, tpFalse);
 }
 
-TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx,
-                                            _tpGLPath * _path,
-                                            tpBool _bIsRebuilding,
-                                            tpFillRule _fillRule)
+TARP_LOCAL tpBool _tpGLGenerateClippingMaskForRenderCache(_tpGLContext * _ctx,
+                                                          _tpGLRenderCache * _cache,
+                                                          tpBool _bIsRebuilding)
 {
     tpBool drawResult;
     assert(_ctx);
 
     if (!_bIsRebuilding)
     {
-        _tpGLClippingStackItem * item = &_ctx->clippingStack[_ctx->clippingStackDepth++];
-        item->path = _path;
-        item->fillRule = _fillRule;
-        item->transform = _ctx->transform;
+        _ctx->clippingStack[_ctx->clippingStackDepth++] = _cache;
     }
 
     /*
@@ -4519,8 +4595,7 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx,
     _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
 
     /* draw path */
-    _ctx->clippingStyle.fillRule = _fillRule;
-    drawResult = _tpGLDrawPathImpl(_ctx, _path, &_ctx->clippingStyle, tpTrue);
+    drawResult = _tpGLDrawRenderCacheImpl(_ctx, _cache, tpTrue);
     if (drawResult)
         return tpTrue;
 
@@ -4531,6 +4606,17 @@ TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx,
     return tpFalse;
 }
 
+TARP_LOCAL tpBool _tpGLGenerateClippingMask(_tpGLContext * _ctx,
+                                            _tpGLPath * _path,
+                                            tpFillRule _fillRule)
+{
+    _ctx->clippingStyle.fillRule = _fillRule;
+    if (_tpGLUpdateInternalPathCache(_ctx, _path, &_ctx->clippingStyle, tpTrue))
+        return tpTrue;
+
+    return _tpGLGenerateClippingMaskForRenderCache(_ctx, _path->renderCache, tpFalse);
+}
+
 TARP_API tpBool tpBeginClipping(tpContext _ctx, tpPath _path)
 {
     return tpBeginClippingWithFillRule(_ctx, _path, kTpFillRuleEvenOdd);
@@ -4539,13 +4625,18 @@ TARP_API tpBool tpBeginClipping(tpContext _ctx, tpPath _path)
 TARP_API tpBool tpBeginClippingWithFillRule(tpContext _ctx, tpPath _path, tpFillRule _rule)
 {
     return _tpGLGenerateClippingMask(
-        (_tpGLContext *)_ctx.pointer, (_tpGLPath *)_path.pointer, tpFalse, _rule);
+        (_tpGLContext *)_ctx.pointer, (_tpGLPath *)_path.pointer, _rule);
+}
+
+TARP_API tpBool tpBeginClippingFromRenderCache(tpContext _ctx, tpRenderCache _cache)
+{
+    return _tpGLGenerateClippingMaskForRenderCache(
+        (_tpGLContext *)_ctx.pointer, (_tpGLRenderCache *)_cache.pointer, tpFalse);
 }
 
 TARP_API tpBool tpEndClipping(tpContext _ctx)
 {
     int i;
-    _tpGLClippingStackItem * ci;
     _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
     assert(ctx->clippingStackDepth);
 
@@ -4574,12 +4665,7 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
             for (i = 0; i < ctx->clippingStackDepth; ++i)
             {
                 /* draw clip path */
-                ci = &ctx->clippingStack[i];
-                /* this is kinda whack for now, we check if the transform changed since the maks was
-                last drawn and restore it if necessary */
-                if (ci->path->lastTransformID != ctx->transformID)
-                    tpSetTransform(_ctx, &ci->transform);
-                _tpGLGenerateClippingMask(ctx, ci->path, tpTrue, ci->fillRule);
+                _tpGLGenerateClippingMaskForRenderCache(ctx, ctx->clippingStack[i], tpTrue);
             }
 
             ctx->bCanSwapStencilPlanes = tpTrue;

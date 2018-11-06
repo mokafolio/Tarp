@@ -15,6 +15,7 @@
 int i;
 tpBool err;
 tpRenderCache caches[CACHE_COUNT];
+tpRenderCache clippingRenderCache;
 
 static float randomFloat(float _a, float _b)
 {
@@ -27,6 +28,7 @@ int main(int argc, char * argv[])
     /* this example is compile in pedantic c89, so we declare the variables up here */
     tpContext ctx;
     GLFWwindow * window;
+    tpTransform transform, scale, rot;
 
     tpPath path;
     tpStyle style;
@@ -37,7 +39,6 @@ int main(int argc, char * argv[])
     /*randomize the random seed
     NOTE: Screw rand, we just use it for the simplicity/portability of this example */
     srand(time(NULL));
-
 
     /* initialize glfw */
     if (!glfwInit())
@@ -111,7 +112,6 @@ int main(int argc, char * argv[])
     /* now create many cached veriations of the path in question so we can render it efficiently */
     for (i = 0; i < CACHE_COUNT; ++i)
     {
-        tpTransform transform, scale, rot;
         tpFloat s = randomFloat(0.1, 0.6);
 
         scale = tpTransformMakeScale(s, s);
@@ -146,6 +146,18 @@ int main(int argc, char * argv[])
         }
     }
 
+    scale = tpTransformMakeScale(4, 4);
+    transform = tpTransformMakeTranslation(400, 300);
+    transform = tpTransformCombine(&transform, &scale);
+    tpSetTransform(ctx, &transform);
+    clippingRenderCache = tpRenderCacheCreate();
+    err = tpCachePath(ctx, path, &style, clippingRenderCache);
+    if (err)
+    {
+        fprintf(stderr, "Failed to create clipping render cache\n");
+        return EXIT_FAILURE;
+    }
+
     /* the main loop */
     while (!glfwWindowShouldClose(window))
     {
@@ -161,11 +173,17 @@ int main(int argc, char * argv[])
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);
 
+        /* clip from render cache */
+        tpBeginClippingFromRenderCache(ctx, clippingRenderCache);
+
         /* draw the path in all its cached variations */
         for (i = 0; i < CACHE_COUNT; ++i)
         {
             tpDrawRenderCache(ctx, caches[i]);
         }
+
+        /* reset the clipping */
+        tpResetClipping(ctx);
 
         /* call this when you are done with Tarp for the frame */
         tpFinishDrawing(ctx);
@@ -176,8 +194,10 @@ int main(int argc, char * argv[])
 
     /* clean up tarp */
 
-    for(i=0; i < CACHE_COUNT; ++i)
+    for (i = 0; i < CACHE_COUNT; ++i)
         tpRenderCacheDestroy(caches[i]);
+
+    tpRenderCacheDestroy(clippingRenderCache);
     tpGradientDestroy(grad);
     tpPathDestroy(path);
     tpContextDestroy(ctx);

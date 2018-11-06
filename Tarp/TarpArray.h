@@ -110,7 +110,8 @@ TARP_API int _TARP_FN(_TARP_ARRAY_T,
 {
     assert(_array);
     assert(_values);
-    assert(_count);
+    if(!_count)
+        return 0;
     if (_array->capacity - _array->count < _count)
     {
         int c = _count > _array->capacity ? _count * 2 : _array->capacity * 2;
