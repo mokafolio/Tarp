@@ -1,4 +1,4 @@
-Tarp (v0.1.3)
+Tarp (v0.1.4)
 ======
 
 Overview
