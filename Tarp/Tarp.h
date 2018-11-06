@@ -4041,8 +4041,8 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
         return tpFalse;
     }
 
-    bStyleHasStroke = _style->stroke.type != kTpPaintTypeNone && _style->strokeWidth > 0;
-    bIsPathRenderCache = _path->renderCache == _cache;
+    bStyleHasStroke = (tpBool)(_style->stroke.type != kTpPaintTypeNone && _style->strokeWidth > 0);
+    bIsPathRenderCache = (tpBool)(_path->renderCache == _cache);
     _tpGLInitBounds(&bounds);
     _tpGLRenderCacheCopyStyle(_style, _cache);
 
@@ -4412,7 +4412,7 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
     if (!_path->contours.count)
         return tpFalse;
 
-    bVirgin = _path->renderCache == NULL;
+    bVirgin = (tpBool)(_path->renderCache == NULL);
     cache = _tpGLPathEnsureRenderCache(_path);
 
     if (!bVirgin)
@@ -4497,8 +4497,8 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
     }
     else
     {
-        bFillGradientDirty = _style->fill.type == kTpPaintTypeGradient;
-        bStrokeGradientDirty = _style->stroke.type == kTpPaintTypeGradient;
+        bFillGradientDirty = (tpBool)(_style->fill.type == kTpPaintTypeGradient);
+        bStrokeGradientDirty = (tpBool)(_style->stroke.type == kTpPaintTypeGradient);
         bStrokeDirty = bGeometryDirty = tpTrue;
     }
 
