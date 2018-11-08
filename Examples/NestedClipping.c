@@ -15,13 +15,12 @@ int main(int argc, char * argv[])
     tpContext ctx;
     GLFWwindow * window;
 
-    tpPath clipPath, clipPath2, path;
+    tpPath clipPath, clipPath2, clipPath3, path;
     tpStyle style;
     tpTransform trans;
     tpMat4 proj;
     tpGradient grad;
     int wwidth, wheight;
-    tpFloat animationTimer;
 
     /* initialize glfw */
     if (!glfwInit())
@@ -82,6 +81,9 @@ int main(int argc, char * argv[])
     clipPath2 = tpPathCreate();
     tpPathAddRect(clipPath2, 300, 300, 200, 30);
 
+    clipPath3 = tpPathCreate();
+    tpPathAddRect(clipPath3, 400, 200, 50, 200);
+
     path = tpPathCreate();
     tpPathAddCircle(path, 400, 300, 50);
 
@@ -89,8 +91,6 @@ int main(int argc, char * argv[])
     style = tpStyleMake();
     style.fill = tpPaintMakeColor(1, 0, 0, 1);
     style.stroke.type = kTpPaintTypeNone;
-
-    animationTimer = 0.0f;
 
     /* the main loop */
     while (!glfwWindowShouldClose(window))
@@ -108,27 +108,16 @@ int main(int argc, char * argv[])
         tpPrepareDrawing(ctx);
         tpResetTransform(ctx);
         /* draw the path with our style */
-        printf("CLIP1\n");
         tpBeginClipping(ctx, clipPath);
-        printf("CLIP2\n");
         tpBeginClipping(ctx, clipPath2);
-        trans = tpTransformMakeRotation(TARP_PI * 0.0075);
-        tpSetTransform(ctx, &trans);
-        printf("CLIP22\n");
-        tpBeginClipping(ctx, clipPath2);
-        printf("DP\n");
+        tpBeginClipping(ctx, clipPath3);
         tpDrawPath(ctx, path, &style);
-        printf("EC1\n");
         tpEndClipping(ctx);
 
         trans = tpTransformMakeTranslation(0, 90);
         tpSetTransform(ctx, &trans);
-        printf("DP2\n");
         tpDrawPath(ctx, path, &style);
-
-        printf("EC2\n");
         tpEndClipping(ctx);
-        printf("EC3\n");
         tpEndClipping(ctx);
 
         /* call this when you are done with Tarp for the frame */
@@ -136,9 +125,6 @@ int main(int argc, char * argv[])
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-
-        printf("==========\n");
-        animationTimer += 0.1;
     }
 
     /* clean up tarp */
