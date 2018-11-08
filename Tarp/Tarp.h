@@ -4639,18 +4639,21 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
     {
         /* check if the last clip mask is still in one of the clipping
          * planes... */
-        if (ctx->bCanSwapStencilPlanes)
+        // if (ctx->bCanSwapStencilPlanes)
+        // {
+        //     ctx->currentClipStencilPlane =
+        //         ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne
+        //             ? _kTpGLClippingStencilPlaneTwo
+        //             : _kTpGLClippingStencilPlaneOne;
+        //     ctx->bCanSwapStencilPlanes = tpFalse;
+        //     printf("SWAP\n");
+        // }
+        // else
         {
-            ctx->currentClipStencilPlane =
-                ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne
-                    ? _kTpGLClippingStencilPlaneTwo
-                    : _kTpGLClippingStencilPlaneOne;
-            ctx->bCanSwapStencilPlanes = tpFalse;
-        }
-        else
-        {
+            printf("RECLIP\n");
             /* ...otherwise rebuild it */
             ctx->currentClipStencilPlane = _kTpGLClippingStencilPlaneOne;
+            ctx->bCanSwapStencilPlanes = tpTrue;
             _TARP_ASSERT_NO_GL_ERROR(
                 glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
             _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));
@@ -4661,7 +4664,6 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
                 /* draw clip path */
                 _tpGLGenerateClippingMaskForRenderCache(ctx, ctx->clippingStack[i], tpTrue);
             }
-            ctx->bCanSwapStencilPlanes = tpTrue;
         }
     }
     else
@@ -4671,6 +4673,7 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
         bounds to reset the stencil? Might scale better for a lot of paths
         :)
         */
+        printf("ENDCLIP\n");
         ctx->currentClipStencilPlane = _kTpGLClippingStencilPlaneOne;
         ctx->bCanSwapStencilPlanes = tpTrue;
         _TARP_ASSERT_NO_GL_ERROR(

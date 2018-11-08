@@ -108,17 +108,27 @@ int main(int argc, char * argv[])
         tpPrepareDrawing(ctx);
         tpResetTransform(ctx);
         /* draw the path with our style */
+        printf("CLIP1\n");
         tpBeginClipping(ctx, clipPath);
+        printf("CLIP2\n");
         tpBeginClipping(ctx, clipPath2);
+        trans = tpTransformMakeRotation(TARP_PI * 0.0075);
+        tpSetTransform(ctx, &trans);
+        printf("CLIP22\n");
+        tpBeginClipping(ctx, clipPath2);
+        printf("DP\n");
         tpDrawPath(ctx, path, &style);
+        printf("EC1\n");
         tpEndClipping(ctx);
-        // tpEndClipping(ctx);
-        // tpResetClipping(ctx);
 
         trans = tpTransformMakeTranslation(0, 90);
         tpSetTransform(ctx, &trans);
+        printf("DP2\n");
         tpDrawPath(ctx, path, &style);
 
+        printf("EC2\n");
+        tpEndClipping(ctx);
+        printf("EC3\n");
         tpEndClipping(ctx);
 
         /* call this when you are done with Tarp for the frame */
@@ -127,6 +137,7 @@ int main(int argc, char * argv[])
         glfwSwapBuffers(window);
         glfwPollEvents();
 
+        printf("==========\n");
         animationTimer += 0.1;
     }
 
