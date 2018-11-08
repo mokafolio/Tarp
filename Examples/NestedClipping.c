@@ -17,7 +17,7 @@ int main(int argc, char * argv[])
 
     tpPath clipPath, clipPath2, clipPath3, path;
     tpStyle style;
-    tpTransform trans, scale;
+    tpTransform trans;
     tpMat4 proj;
     tpGradient grad;
     int wwidth, wheight;
