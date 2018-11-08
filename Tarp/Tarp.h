@@ -4640,19 +4640,19 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
     {
         /* check if the last clip mask is still in one of the clipping
          * planes... */
-        // if (ctx->bCanSwapStencilPlanes)
-        // {
-        //     ctx->currentClipStencilPlane =
-        //         ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne
-        //             ? _kTpGLClippingStencilPlaneTwo
-        //             : _kTpGLClippingStencilPlaneOne;
-        //     ctx->bCanSwapStencilPlanes = tpFalse;
-        //     printf("SWAP\n");
-        // }
-        // else
+        if (ctx->bCanSwapStencilPlanes)
+        {
+            ctx->currentClipStencilPlane =
+                ctx->currentClipStencilPlane == _kTpGLClippingStencilPlaneOne
+                    ? _kTpGLClippingStencilPlaneTwo
+                    : _kTpGLClippingStencilPlaneOne;
+            ctx->bCanSwapStencilPlanes = tpFalse;
+            printf("SWAP\n");
+        }
+        else
         {
             /* ...otherwise rebuild it */
-            // ctx->currentClipStencilPlane = _kTpGLClippingStencilPlaneTwo;
+            ctx->currentClipStencilPlane = _kTpGLClippingStencilPlaneOne;
             _TARP_ASSERT_NO_GL_ERROR(
                 glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
             _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));

@@ -17,6 +17,7 @@ int main(int argc, char * argv[])
 
     tpPath clipPath, clipPath2, path;
     tpStyle style;
+    tpTransform trans;
     tpMat4 proj;
     tpGradient grad;
     int wwidth, wheight;
@@ -105,13 +106,20 @@ int main(int argc, char * argv[])
 
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);
-
+        tpResetTransform(ctx);
         /* draw the path with our style */
         tpBeginClipping(ctx, clipPath);
         tpBeginClipping(ctx, clipPath2);
         tpDrawPath(ctx, path, &style);
+        tpEndClipping(ctx);
         // tpEndClipping(ctx);
-        tpResetClipping(ctx);
+        // tpResetClipping(ctx);
+
+        trans = tpTransformMakeTranslation(0, 90);
+        tpSetTransform(ctx, &trans);
+        tpDrawPath(ctx, path, &style);
+
+        tpEndClipping(ctx);
 
         /* call this when you are done with Tarp for the frame */
         tpFinishDrawing(ctx);
@@ -123,7 +131,6 @@ int main(int argc, char * argv[])
     }
 
     /* clean up tarp */
-    tpGradientDestroy(grad);
     tpPathDestroy(path);
     tpContextDestroy(ctx);
 
