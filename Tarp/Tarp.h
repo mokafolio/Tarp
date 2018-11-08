@@ -4633,7 +4633,6 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
     _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
     assert(ctx->clippingStackDepth);
 
-    printf("CLIP STAK DEPTH %i\n", ctx->clippingStackDepth);
     --ctx->clippingStackDepth;
 
     if (ctx->clippingStackDepth)
@@ -4647,7 +4646,6 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
                     ? _kTpGLClippingStencilPlaneTwo
                     : _kTpGLClippingStencilPlaneOne;
             ctx->bCanSwapStencilPlanes = tpFalse;
-            printf("SWAP\n");
         }
         else
         {
@@ -4663,7 +4661,6 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
                 /* draw clip path */
                 _tpGLGenerateClippingMaskForRenderCache(ctx, ctx->clippingStack[i], tpTrue);
             }
-            printf("CLEAR %i\n", ctx->clippingStackDepth);
             ctx->bCanSwapStencilPlanes = tpTrue;
         }
     }
@@ -4680,7 +4677,6 @@ TARP_API tpBool tpEndClipping(tpContext _ctx)
             glStencilMask(_kTpGLClippingStencilPlaneOne | _kTpGLClippingStencilPlaneTwo));
         _TARP_ASSERT_NO_GL_ERROR(glClearStencil(0));
         _TARP_ASSERT_NO_GL_ERROR(glClear(GL_STENCIL_BUFFER_BIT));
-        printf("END CLEAR\n");
     }
 
     return tpFalse;
