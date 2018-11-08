@@ -3469,7 +3469,7 @@ TARP_LOCAL void _tpGLUpdateRampTexture(_tpGLGradient * _grad)
 
 TARP_LOCAL void _tpGLUpdateVAO(_tpGLVAO * _vao, void * _data, int _byteCount)
 {
-    /* not sure if this buffer orphaning style data upload makes a
+    /* @TODO: not sure if this buffer orphaning style data upload makes a
      * difference these days anymore. (TEST??) */
     if ((GLuint)_byteCount > _vao->vboSize)
     {
@@ -4163,13 +4163,26 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
     {
         /* remove all the old stroke vertices from the cache if this is not a full geometry
         update*/
-        /* @TODO: Should we remove the old bounds vertices, too? I guess they are overwritten?*/
-        _tpVec2ArrayRemoveRange(
-            &_cache->geometryCache, _cache->strokeVertexOffset, _cache->geometryCache.count);
+
+        /* the stroke was possibly removed, in that case this is enough */
+        _cache->strokeVertexCount = 0;
 
         if (bStyleHasStroke)
         {
+            /* otherwise check if there was a previous stroke. If so, remove it along with the
+             * cached bounds geometry */
+            if (_cache->strokeVertexOffset)
+                _tpVec2ArrayRemoveRange(&_cache->geometryCache,
+                                        _cache->strokeVertexOffset,
+                                        _cache->geometryCache.count);
+            else
+                /* otherwise just remove the cached bounds geometry */
+                _tpVec2ArrayRemoveRange(&_cache->geometryCache,
+                                        _cache->geometryCache.count - 4,
+                                        _cache->geometryCache.count);
+
             /* generate and add the stroke geometry to the cache. */
+            _cache->strokeVertexOffset = _cache->geometryCache.count;
             _cache->strokeVertexCount = 0;
             _tpGLStroke(_path,
                         &_cache->contours,
@@ -4468,7 +4481,13 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
         }
 
         if (!_bIsClipPath && !bStrokeDirty &&
-            (cache->style.strokeWidth != _style->strokeWidth ||
+            (cache->style.stroke.type !=
+                 _style->stroke.type || /* @TODO: This could be optimized by checking if either the
+                                           last or current stroke type was None and the last and
+                                           current type are different (i.e. so if you change from
+                                           solid fill to gradient and vice versa the geometry does
+                                           not regenerate, which it will right now)*/
+             cache->style.strokeWidth != _style->strokeWidth ||
              cache->style.strokeCap != _style->strokeCap ||
              cache->style.strokeJoin != _style->strokeJoin ||
              cache->style.dashCount != _style->dashCount ||
