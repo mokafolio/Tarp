@@ -103,6 +103,7 @@ Building the examples using CMake
 ```
 cd Tarp
 mkdir build
+cd build
 cmake ..
 make
 ```
