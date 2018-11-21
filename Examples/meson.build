@@ -1,16 +1,18 @@
 glfw = dependency('glfw3')
 gl = dependency('GL')
 
-deps = []
+deps = [gl, glfw]
 
 #we manually need to link glfw3 dependencies...hmm :/
 if host_machine.system() == 'darwin'
     deps += [dependency('Cocoa'), dependency('IOKit'), dependency('CoreFoundation'), dependency('CoreVideo')]
 elif host_machine.system() == 'linux'
-    deps += [dependency('x11', method: 'pkg-config'), static: false]
+	cc = meson.get_compiler('c')
+    deps += [dependency('x11'), 
+    		cc.find_library('dl', required : true),
+    		cc.find_library('m', required : true),
+    		dependency('threads')]
 endif #@TODO Add windows deps for glfw
-
-deps += [glfw, gl]
 
 gl3w = '../ExampleAndTestDeps/GL/gl3w.c'
 

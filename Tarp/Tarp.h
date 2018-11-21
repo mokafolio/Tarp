@@ -3095,9 +3095,9 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
             }
 
             offsetIntoPattern = _style->dashOffset;
-            if (fabsf(offsetIntoPattern) >= patternLen)
+            if (fabs(offsetIntoPattern) >= patternLen)
             {
-                offsetIntoPattern = fmodf(offsetIntoPattern, patternLen);
+                offsetIntoPattern = fmod(offsetIntoPattern, patternLen);
             }
 
             dashStartState.startDashLen = -offsetIntoPattern;
