@@ -19,7 +19,6 @@ int main(int argc, char * argv[])
     tpStyle style;
     tpTransform trans;
     tpMat4 proj;
-    tpGradient grad;
     int wwidth, wheight;
 
     /* initialize glfw */

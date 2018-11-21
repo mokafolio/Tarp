@@ -1,4 +1,4 @@
-Tarp (v0.1.4)
+Tarp (v0.1.5)
 ======
 
 Overview
@@ -98,9 +98,8 @@ tpContextDestroy(ctx);
 ```
 Check out *HelloWorld.c* in the examples folder for the full source of this example using *OpenGL* and *GLFW*.
 
-Building the examples
+Building the examples using CMake
 --------
-You need *CMake* to build the examples.
 ```
 cd Tarp
 mkdir build
@@ -108,9 +107,19 @@ cmake ..
 make
 ```
 
+Building the examples using Meson & Ninja
+--------
+```
+cd Tarp
+meson build
+cd build
+ninja
+```
+
 Installing Tarp
 --------
-If you use Tarp a lot and you'd prefer to have it installed, you can do so using `make install`. You'll need cmake to do so.
+If you use Tarp a lot and you'd prefer to have it installed, you can do it in one of the following ways:
+`make install` if you are using *CMake* and `ninja install` if you are using *Meson*.
 
 TODO
 --------

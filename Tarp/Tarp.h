@@ -1,5 +1,5 @@
 /*
-Tarp - v0.1.4
+Tarp - v0.1.5
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Tarp is an almost single header C library to raster vector graphics.
 It provides a lightweight and portable API purely focussed on decently
@@ -22,6 +22,9 @@ ChengCat (Github): Bug fixes, ideas
 
 Change History
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+v0.1.5 (11/20/2018):
+- Added Meson as an alternative to CMake to build the examples.
+
 v0.1.4 (11/06/2018):
 - Added tpBeginClippingFromRenderCache.
 - Made clipping stack in opengl implementation render cache based and fully immutable to guarantee

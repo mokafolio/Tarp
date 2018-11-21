@@ -20,7 +20,7 @@ ${OPENGL_LIBRARIES}
 
 #avoid opengl deprecation warnings on mojave +
 if (APPLE)
-add_compile_options(-D GL_SILENCE_DEPRECATION)
+add_compile_options(-DGL_SILENCE_DEPRECATION)
 endif()
 
 foreach ( file ${TARPINC} )
