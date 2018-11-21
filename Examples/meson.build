@@ -3,10 +3,12 @@ gl = dependency('GL')
 
 deps = [glfw, gl]
 
-#on osx we manually need to link glfw3 dependencies...hmm :/
+#we manually need to link glfw3 dependencies...hmm :/
 if host_machine.system() == 'darwin'
     deps += [dependency('Cocoa'), dependency('IOKit'), dependency('CoreFoundation'), dependency('CoreVideo')]
-endif
+elif host_machine.system() == 'linux'
+    deps += dependency('X11')
+endif #@TODO Add windows deps for glfw
 
 gl3w = '../ExampleAndTestDeps/GL/gl3w.c'
 
