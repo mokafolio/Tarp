@@ -1,7 +1,7 @@
 glfw = dependency('glfw3')
 gl = dependency('GL')
 
-deps = [glfw, gl]
+deps = []
 
 #we manually need to link glfw3 dependencies...hmm :/
 if host_machine.system() == 'darwin'
@@ -9,6 +9,8 @@ if host_machine.system() == 'darwin'
 elif host_machine.system() == 'linux'
     deps += dependency('x11')
 endif #@TODO Add windows deps for glfw
+
+deps += [glfw, gl]
 
 gl3w = '../ExampleAndTestDeps/GL/gl3w.c'
 
