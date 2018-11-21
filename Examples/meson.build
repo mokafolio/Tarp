@@ -7,7 +7,7 @@ deps = [glfw, gl]
 if host_machine.system() == 'darwin'
     deps += [dependency('Cocoa'), dependency('IOKit'), dependency('CoreFoundation'), dependency('CoreVideo')]
 elif host_machine.system() == 'linux'
-    deps += dependency('X11')
+    deps += dependency('x11')
 endif #@TODO Add windows deps for glfw
 
 gl3w = '../ExampleAndTestDeps/GL/gl3w.c'
