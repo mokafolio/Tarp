@@ -7,7 +7,7 @@ deps = []
 if host_machine.system() == 'darwin'
     deps += [dependency('Cocoa'), dependency('IOKit'), dependency('CoreFoundation'), dependency('CoreVideo')]
 elif host_machine.system() == 'linux'
-    deps += dependency('x11')
+    deps += [dependency('x11'), dependency('dl')]
 endif #@TODO Add windows deps for glfw
 
 deps += [glfw, gl]
