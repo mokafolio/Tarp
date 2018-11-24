@@ -428,6 +428,8 @@ tpTransformMake(tpFloat _a, tpFloat _b, tpFloat _x, tpFloat _c, tpFloat _d, tpFl
 
 TARP_API tpTransform tpTransformMakeIdentity();
 
+TARP_API tpTransform tpTransformMakeTranslation(tpFloat _x, tpFloat _y);
+    
 TARP_API tpTransform tpTransformMakeScale(tpFloat _x, tpFloat _y);
 
 TARP_API tpTransform tpTransformMakeSkew(tpFloat _x, tpFloat _y);
