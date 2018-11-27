@@ -1,5 +1,5 @@
 /*
-Tarp - v0.1.5
+Tarp - v0.1.6
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Tarp is an almost single header C library to raster vector graphics.
 It provides a lightweight and portable API purely focussed on decently
@@ -22,6 +22,9 @@ ChengCat (Github): Bug fixes, ideas
 
 Change History
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+v0.1.6 (11/27/2018):
+- Added opacity to gradient paints
+
 v0.1.5 (11/20/2018):
 - Added Meson as an alternative to CMake to build the examples.
 
@@ -314,9 +317,15 @@ typedef struct TARP_API
     tpVec2 handleOut;
 } tpSegment;
 
-typedef union TARP_API
+typedef struct TARP_API
 {
     tpGradient gradient;
+    tpFloat opacity;
+} _tpGradientPaintData;
+
+typedef union TARP_API
+{
+    _tpGradientPaintData gradientData;
     tpColor color;
 } _tpPaintUnion;
 
@@ -324,7 +333,6 @@ typedef struct TARP_API
 {
     _tpPaintUnion data;
     tpPaintType type;
-    tpFloat opacity;
 } tpPaint;
 
 typedef struct TARP_API
@@ -430,7 +438,7 @@ tpTransformMake(tpFloat _a, tpFloat _b, tpFloat _x, tpFloat _c, tpFloat _d, tpFl
 TARP_API tpTransform tpTransformMakeIdentity();
 
 TARP_API tpTransform tpTransformMakeTranslation(tpFloat _x, tpFloat _y);
-    
+
 TARP_API tpTransform tpTransformMakeScale(tpFloat _x, tpFloat _y);
 
 TARP_API tpTransform tpTransformMakeSkew(tpFloat _x, tpFloat _y);
@@ -580,6 +588,13 @@ TARP_API tpPaint tpPaintMakeColor(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a
 
 /* creates a gradient paint */
 TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient);
+
+/* Sets the opacity of the paint. For a color paint, it will simply change the alpha channel. For a
+ * gradient, it will set the _paint.data.gradientData.opacity */
+TARP_API void tpPaintSetOpacity(tpPaint * _paint, tpFloat _opacity);
+
+/* returns the opacity of the paint (this will be the alpha of a color paint, and the opacity of a gradient) */
+TARP_API tpFloat tpPaintOpacity(tpPaint * _paint);
 
 /*
 Style Functions
@@ -1172,17 +1187,34 @@ TARP_API tpPaint tpPaintMakeColor(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a
     tpPaint ret;
     ret.data.color = tpColorMake(_r, _g, _b, _a);
     ret.type = kTpPaintTypeColor;
-    ret.opacity = 1.0;
     return ret;
 }
 
 TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient)
 {
     tpPaint ret;
-    ret.data.gradient = _gradient;
+    ret.data.gradientData.gradient = _gradient;
+    ret.data.gradientData.opacity = 1.0;
     ret.type = kTpPaintTypeGradient;
-    ret.opacity = 1.0;
     return ret;
+}
+
+TARP_API void tpPaintSetOpacity(tpPaint * _paint, tpFloat _opacity)
+{
+    if(_paint->type == kTpPaintTypeColor)
+        _paint->data.color.a = _opacity;
+    else if(_paint->type == kTpPaintTypeGradient)
+        _paint->data.gradientData.opacity = _opacity;
+}
+
+TARP_API tpFloat tpPaintOpacity(tpPaint * _paint)
+{
+    if(_paint->type == kTpPaintTypeColor)
+        return _paint->data.color.a;
+    else if(_paint->type == kTpPaintTypeGradient)
+        return _paint->data.gradientData.opacity;
+    /* this should never be reached */
+    assert(tpFalse);
 }
 
 #ifdef TARP_IMPLEMENTATION_OPENGL
@@ -1202,53 +1234,45 @@ static const char * _vertexShaderCode =
     "#version 150 \n"
     "uniform mat4 transformProjection; \n"
     "uniform vec4 meshColor; \n"
-    "uniform float meshOpacity; \n"
     "in vec2 vertex; \n"
     "out vec4 icol;\n"
-    "out float iopa;\n"
     "void main() \n"
     "{ \n"
     "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
     "icol = meshColor;\n"
-    "iopa = meshOpacity;\n"
     "} \n";
 
 static const char * _fragmentShaderCode =
     "#version 150 \n"
     "in vec4 icol; \n"
-    "in float iopa;\n"
     "out vec4 pixelColor; \n"
     "void main() \n"
     "{ \n"
     "pixelColor = icol; \n"
-    "pixelColor.a = icol.a*iopa; \n"
     "} \n";
 
 static const char * _vertexShaderCodeTexture =
     "#version 150 \n"
     "uniform mat4 transformProjection; \n"
-    "uniform float meshOpacity; \n"
     "in vec2 vertex; \n"
     "in float tc; \n"
     "out float itc;\n"
-    "out float iopa;\n"
     "void main() \n"
     "{ \n"
     "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
     "itc = tc; \n"
-    "iopa = meshOpacity;\n"
     "} \n";
 
 static const char * _fragmentShaderCodeTexture =
     "#version 150 \n"
     "uniform sampler1D tex;\n"
+    "uniform float meshOpacity; \n"
     "in float itc; \n"
-    "in float iopa;\n"
     "out vec4 pixelColor; \n"
     "void main() \n"
     "{ \n"
     "pixelColor = texture(tex, itc); \n"
-    "pixelColor.a = pixelColor.a*iopa; \n"
+    "pixelColor.a = meshOpacity; \n"
     "} \n";
 
 typedef struct _tpGLContext _tpGLContext;
@@ -1452,11 +1476,15 @@ struct _tpGLContext
 {
     GLuint program;
     GLuint textureProgram;
+
+    /* uniform locations for the color shaders */
     GLuint tpLoc;
-    GLuint tpTextureLoc;
     GLuint meshColorLoc;
-    GLuint meshOpacityLoc;
-    
+
+    /* uniform locations for the texture shaders */
+    GLuint tpTextureLoc;
+    GLuint opacityTextureLoc;
+
     _tpGLVAO vao;
     _tpGLVAO textureVao;
 
@@ -1722,7 +1750,8 @@ TARP_API tpContext tpContextCreate()
 
     ctx->tpLoc = glGetUniformLocation(ctx->program, "transformProjection");
     ctx->meshColorLoc = glGetUniformLocation(ctx->program, "meshColor");
-    ctx->meshOpacityLoc = glGetUniformLocation(ctx->program, "meshOpacity");
+
+    ctx->opacityTextureLoc = glGetUniformLocation(ctx->textureProgram, "meshOpacity");
     ctx->tpTextureLoc = glGetUniformLocation(ctx->textureProgram, "transformProjection");
 
     _TARP_ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &ctx->vao.vao));
@@ -2301,10 +2330,8 @@ TARP_API tpStyle tpStyleMake()
 
     ret.fill.data.color = tpColorMake(1, 1, 1, 1);
     ret.fill.type = kTpPaintTypeColor;
-    ret.fill.opacity = 1.0;
     ret.stroke.data.color = tpColorMake(0, 0, 0, 1);
     ret.stroke.type = kTpPaintTypeColor;
-    ret.stroke.opacity = 1.0;
     ret.strokeWidth = 1.0;
     ret.strokeJoin = kTpStrokeJoinBevel;
     ret.strokeCap = kTpStrokeCapButt;
@@ -3514,12 +3541,11 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx,
     if (_paint->type == kTpPaintTypeColor)
     {
         _TARP_ASSERT_NO_GL_ERROR(glUniform4fv(_ctx->meshColorLoc, 1, &_paint->data.color.r));
-        _TARP_ASSERT_NO_GL_ERROR(glUniform1f(_ctx->meshOpacityLoc, _paint->opacity));
         _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _cache->boundsVertexOffset, 4));
     }
     else if (_paint->type == kTpPaintTypeGradient)
     {
-        _tpGLGradient * grad = (_tpGLGradient *)_paint->data.gradient.pointer;
+        _tpGLGradient * grad = (_tpGLGradient *)_paint->data.gradientData.gradient.pointer;
 
         /* bind the gradient's texture */
         _TARP_ASSERT_NO_GL_ERROR(glActiveTexture(GL_TEXTURE0));
@@ -3528,7 +3554,8 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx,
         _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
         _TARP_ASSERT_NO_GL_ERROR(
             glUniformMatrix4fv(_ctx->tpTextureLoc, 1, GL_FALSE, &_cache->renderMatrix.v[0]));
-        _TARP_ASSERT_NO_GL_ERROR(glUniform1f(_ctx->meshOpacityLoc, _paint->opacity));
+        _TARP_ASSERT_NO_GL_ERROR(
+            glUniform1f(_ctx->opacityTextureLoc, _paint->data.gradientData.opacity));
         _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
         _TARP_ASSERT_NO_GL_ERROR(
             glDrawArrays(GL_TRIANGLE_FAN, _gradCache->vertexOffset, _gradCache->vertexCount));
@@ -4230,7 +4257,7 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
         _tpGLTextureVertexArrayClear(&_ctx->tmpTexVertices);
         if (_style->fill.type == kTpPaintTypeGradient)
         {
-            _tpGLGradient * grad = (_tpGLGradient *)_style->fill.data.gradient.pointer;
+            _tpGLGradient * grad = (_tpGLGradient *)_style->fill.data.gradientData.gradient.pointer;
             _tpGLCacheGradientGeometry(_ctx,
                                        grad,
                                        _bFillGradientDirty ? NULL
@@ -4243,7 +4270,8 @@ TARP_API tpBool _tpGLCachePathImpl(_tpGLContext * _ctx,
 
         if (_style->stroke.type == kTpPaintTypeGradient)
         {
-            _tpGLGradient * grad = (_tpGLGradient *)_style->stroke.data.gradient.pointer;
+            _tpGLGradient * grad =
+                (_tpGLGradient *)_style->stroke.data.gradientData.gradient.pointer;
             _tpGLCacheGradientGeometry(_ctx,
                                        grad,
                                        _bStrokeGradientDirty ? NULL
@@ -4528,18 +4556,19 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
         if (!_bIsClipPath &&
             ((_style->fill.type == kTpPaintTypeGradient &&
               (_path->lastFillGradientID !=
-                   ((_tpGLGradient *)_style->fill.data.gradient.pointer)->gradientID ||
+                   ((_tpGLGradient *)_style->fill.data.gradientData.gradient.pointer)->gradientID ||
                _path->bFillPaintTransformDirty ||
-               ((_tpGLGradient *)_style->fill.data.gradient.pointer)->bDirty))))
+               ((_tpGLGradient *)_style->fill.data.gradientData.gradient.pointer)->bDirty))))
         {
             bFillGradientDirty = tpTrue;
         }
         if (!_bIsClipPath &&
             ((_style->stroke.type == kTpPaintTypeGradient &&
               (_path->lastStrokeGradientID !=
-                   ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->gradientID ||
+                   ((_tpGLGradient *)_style->stroke.data.gradientData.gradient.pointer)
+                       ->gradientID ||
                _path->bStrokePaintTransformDirty ||
-               ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->bDirty)) ||
+               ((_tpGLGradient *)_style->stroke.data.gradientData.gradient.pointer)->bDirty)) ||
              cache->style.scaleStroke != _style->scaleStroke))
         {
             bStrokeGradientDirty = tpTrue;
@@ -4579,13 +4608,13 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
         {
             _path->bFillPaintTransformDirty = tpFalse;
             _path->lastFillGradientID =
-                ((_tpGLGradient *)_style->fill.data.gradient.pointer)->gradientID;
+                ((_tpGLGradient *)_style->fill.data.gradientData.gradient.pointer)->gradientID;
         }
         if (bStrokeGradientDirty)
         {
             _path->bStrokePaintTransformDirty = tpFalse;
             _path->lastStrokeGradientID =
-                ((_tpGLGradient *)_style->stroke.data.gradient.pointer)->gradientID;
+                ((_tpGLGradient *)_style->stroke.data.gradientData.gradient.pointer)->gradientID;
         }
     }
 

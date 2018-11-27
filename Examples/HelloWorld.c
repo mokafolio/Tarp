@@ -8,7 +8,6 @@
 #define TARP_IMPLEMENTATION_OPENGL
 #include <Tarp/Tarp.h>
 
-
 int main(int argc, char * argv[])
 {
     /* this example is compile in pedantic c89, so we declare the variables up here */
@@ -88,6 +87,7 @@ int main(int argc, char * argv[])
     /* create a style that we can draw the path with */
     style = tpStyleMake();
     style.fill = tpPaintMakeGradient(grad);
+    tpPaintSetOpacity(&style.fill, 0.5);
     style.stroke = tpPaintMakeColor(1.0, 0.6, 0.1, 1.0);
     style.strokeWidth = 10.0;
     style.strokeJoin = kTpStrokeJoinRound;
@@ -108,7 +108,8 @@ int main(int argc, char * argv[])
         glViewport(0, 0, width, height);
 
         /* animate the gradient */
-        tpGradientSetFocalPointOffset(grad, sin(animationTimer) * 60.0, cos(animationTimer * 2) * 40.0);
+        tpGradientSetFocalPointOffset(
+            grad, sin(animationTimer) * 60.0, cos(animationTimer * 2) * 40.0);
 
         /* call this at the beginning of your frame */
         tpPrepareDrawing(ctx);
