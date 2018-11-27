@@ -19,11 +19,12 @@ Contributors <3
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Tilmann Rübbelke: Radial Gradients, bug fixes, ideas
 ChengCat (Github): Bug fixes, ideas
+conversy (Github): Paint Opacity, ideas
 
 Change History
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 v0.1.6 (11/27/2018):
-- Added opacity to gradient paints
+- Added opacity to gradient paints (see tpPaintSetOpacity and tpPaintOpacity)
 
 v0.1.5 (11/20/2018):
 - Added Meson as an alternative to CMake to build the examples.

@@ -87,7 +87,6 @@ int main(int argc, char * argv[])
     /* create a style that we can draw the path with */
     style = tpStyleMake();
     style.fill = tpPaintMakeGradient(grad);
-    tpPaintSetOpacity(&style.fill, 0.5);
     style.stroke = tpPaintMakeColor(1.0, 0.6, 0.1, 1.0);
     style.strokeWidth = 10.0;
     style.strokeJoin = kTpStrokeJoinRound;
