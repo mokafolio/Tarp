@@ -324,6 +324,7 @@ typedef struct TARP_API
 {
     _tpPaintUnion data;
     tpPaintType type;
+    tpFloat opacity;
 } tpPaint;
 
 typedef struct TARP_API
@@ -1171,6 +1172,7 @@ TARP_API tpPaint tpPaintMakeColor(tpFloat _r, tpFloat _g, tpFloat _b, tpFloat _a
     tpPaint ret;
     ret.data.color = tpColorMake(_r, _g, _b, _a);
     ret.type = kTpPaintTypeColor;
+    ret.opacity = 1.0;
     return ret;
 }
 
@@ -1179,6 +1181,7 @@ TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient)
     tpPaint ret;
     ret.data.gradient = _gradient;
     ret.type = kTpPaintTypeGradient;
+    ret.opacity = 1.0;
     return ret;
 }
 
@@ -1199,43 +1202,53 @@ static const char * _vertexShaderCode =
     "#version 150 \n"
     "uniform mat4 transformProjection; \n"
     "uniform vec4 meshColor; \n"
+    "uniform float meshOpacity; \n"
     "in vec2 vertex; \n"
     "out vec4 icol;\n"
+    "out float iopa;\n"
     "void main() \n"
     "{ \n"
     "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
     "icol = meshColor;\n"
+    "iopa = meshOpacity;\n"
     "} \n";
 
 static const char * _fragmentShaderCode =
     "#version 150 \n"
     "in vec4 icol; \n"
+    "in float iopa;\n"
     "out vec4 pixelColor; \n"
     "void main() \n"
     "{ \n"
     "pixelColor = icol; \n"
+    "pixelColor.a = icol.a*iopa; \n"
     "} \n";
 
 static const char * _vertexShaderCodeTexture =
     "#version 150 \n"
     "uniform mat4 transformProjection; \n"
+    "uniform float meshOpacity; \n"
     "in vec2 vertex; \n"
     "in float tc; \n"
     "out float itc;\n"
+    "out float iopa;\n"
     "void main() \n"
     "{ \n"
     "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
     "itc = tc; \n"
+    "iopa = meshOpacity;\n"
     "} \n";
 
 static const char * _fragmentShaderCodeTexture =
     "#version 150 \n"
     "uniform sampler1D tex;\n"
     "in float itc; \n"
+    "in float iopa;\n"
     "out vec4 pixelColor; \n"
     "void main() \n"
     "{ \n"
     "pixelColor = texture(tex, itc); \n"
+    "pixelColor.a = pixelColor.a*iopa; \n"
     "} \n";
 
 typedef struct _tpGLContext _tpGLContext;
@@ -1442,7 +1455,8 @@ struct _tpGLContext
     GLuint tpLoc;
     GLuint tpTextureLoc;
     GLuint meshColorLoc;
-
+    GLuint meshOpacityLoc;
+    
     _tpGLVAO vao;
     _tpGLVAO textureVao;
 
@@ -1708,6 +1722,7 @@ TARP_API tpContext tpContextCreate()
 
     ctx->tpLoc = glGetUniformLocation(ctx->program, "transformProjection");
     ctx->meshColorLoc = glGetUniformLocation(ctx->program, "meshColor");
+    ctx->meshOpacityLoc = glGetUniformLocation(ctx->program, "meshOpacity");
     ctx->tpTextureLoc = glGetUniformLocation(ctx->textureProgram, "transformProjection");
 
     _TARP_ASSERT_NO_GL_ERROR(glGenVertexArrays(1, &ctx->vao.vao));
@@ -2286,8 +2301,10 @@ TARP_API tpStyle tpStyleMake()
 
     ret.fill.data.color = tpColorMake(1, 1, 1, 1);
     ret.fill.type = kTpPaintTypeColor;
+    ret.fill.opacity = 1.0;
     ret.stroke.data.color = tpColorMake(0, 0, 0, 1);
     ret.stroke.type = kTpPaintTypeColor;
+    ret.stroke.opacity = 1.0;
     ret.strokeWidth = 1.0;
     ret.strokeJoin = kTpStrokeJoinBevel;
     ret.strokeCap = kTpStrokeCapButt;
@@ -3497,6 +3514,7 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx,
     if (_paint->type == kTpPaintTypeColor)
     {
         _TARP_ASSERT_NO_GL_ERROR(glUniform4fv(_ctx->meshColorLoc, 1, &_paint->data.color.r));
+        _TARP_ASSERT_NO_GL_ERROR(glUniform1f(_ctx->meshOpacityLoc, _paint->opacity));
         _TARP_ASSERT_NO_GL_ERROR(glDrawArrays(GL_TRIANGLE_STRIP, _cache->boundsVertexOffset, 4));
     }
     else if (_paint->type == kTpPaintTypeGradient)
@@ -3510,6 +3528,7 @@ TARP_LOCAL void _tpGLDrawPaint(_tpGLContext * _ctx,
         _TARP_ASSERT_NO_GL_ERROR(glUseProgram(_ctx->textureProgram));
         _TARP_ASSERT_NO_GL_ERROR(
             glUniformMatrix4fv(_ctx->tpTextureLoc, 1, GL_FALSE, &_cache->renderMatrix.v[0]));
+        _TARP_ASSERT_NO_GL_ERROR(glUniform1f(_ctx->meshOpacityLoc, _paint->opacity));
         _TARP_ASSERT_NO_GL_ERROR(glBindVertexArray(_ctx->textureVao.vao));
         _TARP_ASSERT_NO_GL_ERROR(
             glDrawArrays(GL_TRIANGLE_FAN, _gradCache->vertexOffset, _gradCache->vertexCount));
