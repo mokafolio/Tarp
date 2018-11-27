@@ -530,6 +530,11 @@ TARP_API tpBool tpPathCubicCurveTo(
 TARP_API tpBool
 tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, tpFloat _px, tpFloat _py);
 
+/* Connects the last segment of the current contour with an arc
+ * to x, y */
+TARP_API tpBool
+tpPathArcTo(tpPath _path, tpFloat _rx, tpFloat _ry, tpFloat _rotx, tpFloat _fl, tpFloat _swfl, tpFloat _x, tpFloat _y);
+    
 /* Closes the current contour */
 TARP_API tpBool tpPathClose(tpPath _path);
 
@@ -2057,7 +2062,155 @@ tpPathQuadraticCurveTo(tpPath _path, tpFloat _hx, tpFloat _hy, tpFloat _px, tpFl
     _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->handleOut = tpVec2Make(_hx, _hy);
     return _tpGLContourAddSegment(p, c, _hx, _hy, _px, _py, _px, _py);
 }
+    
+// Arc calculation code based on nanosvg (https://github.com/memononen/nanosvg)
+// itself based on canvg (https://code.google.com/p/canvg/)
+static float nsvg__sqr(float x) { return x*x; }
+static float nsvg__vmag(float x, float y) { return sqrtf(x*x + y*y); }
+static float nsvg__vecrat(float ux, float uy, float vx, float vy)
+{
+    return (ux*vx + uy*vy) / (nsvg__vmag(ux,uy) * nsvg__vmag(vx,vy));
+}
+static float nsvg__vecang(float ux, float uy, float vx, float vy)
+{
+    float r = nsvg__vecrat(ux,uy, vx,vy);
+    if (r < -1.0f) r = -1.0f;
+    if (r > 1.0f) r = 1.0f;
+    return ((ux*vy < uy*vx) ? -1.0f : 1.0f) * acosf(r);
+}
+static void nsvg__xformPoint(float* dx, float* dy, float x, float y, float* t)
+{
+    *dx = x*t[0] + y*t[2] + t[4];
+    *dy = x*t[1] + y*t[3] + t[5];
+}
+static void nsvg__xformVec(float* dx, float* dy, float x, float y, float* t)
+{
+    *dx = x*t[0] + y*t[2];
+    *dy = x*t[1] + y*t[3];
+}
 
+TARP_API tpBool
+tpPathArcTo(tpPath _path, tpFloat _rx, tpFloat _ry, tpFloat _rotx, tpFloat _fl, tpFloat _swfl, tpFloat _x, tpFloat _y)
+{
+    float rx, ry, rotx;
+    float x1, y1, x2, y2, cx, cy, dx, dy, d;
+    float x1p, y1p, cxp, cyp, s, sa, sb;
+    float ux, uy, vx, vy, a1, da;
+    float x, y, tanx, tany, a, px = 0, py = 0, ptanx = 0, ptany = 0, t[6];
+    float sinrx, cosrx;
+    int fa, fs;
+    int i, ndivs;
+    float hda, kappa;
+
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    _tpGLContour * c = _tpGLCurrentContour(p);
+    if (!c || c->lastSegmentIndex == -1)
+    {
+        _tpGLSetErrorMessage(
+            "You have to start a contour before issuing "
+            "this command (see tpPathArcTo).");
+        return tpTrue;
+    }
+
+    rx = _rx;                // y radius
+    ry = _ry;                // x radius
+    rotx = _rotx / 180.0f * 3.14;      // x rotation angle
+    fa = fabsf(_fl) > 1e-6 ? 1 : 0; // Large arc
+    fs = fabsf(_swfl) > 1e-6 ? 1 : 0; // Sweep direction
+    x1 = _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->position.x;                          // start point
+    y1 = _tpSegmentArrayAtPtr(&c->segments, c->lastSegmentIndex)->position.y;
+    x2 = _x;
+    y2 = _y;
+
+    dx = x1 - x2;
+    dy = y1 - y2;
+    d = sqrtf(dx*dx + dy*dy);
+    if (d < 1e-6f || rx < 1e-6f || ry < 1e-6f) {
+        // The arc degenerates to a line
+        return tpPathLineTo(_path, x2, y2);
+    }
+
+    sinrx = sinf(rotx);
+    cosrx = cosf(rotx);
+
+    // Convert to center point parameterization.
+    // http://www.w3.org/TR/SVG11/implnote.html#ArcImplementationNotes
+    // 1) Compute x1', y1'
+    x1p = cosrx * dx / 2.0f + sinrx * dy / 2.0f;
+    y1p = -sinrx * dx / 2.0f + cosrx * dy / 2.0f;
+    d = nsvg__sqr(x1p)/nsvg__sqr(rx) + nsvg__sqr(y1p)/nsvg__sqr(ry);
+    if (d > 1) {
+        d = sqrtf(d);
+        rx *= d;
+        ry *= d;
+    }
+    // 2) Compute cx', cy'
+    s = 0.0f;
+    sa = nsvg__sqr(rx)*nsvg__sqr(ry) - nsvg__sqr(rx)*nsvg__sqr(y1p) - nsvg__sqr(ry)*nsvg__sqr(x1p);
+    sb = nsvg__sqr(rx)*nsvg__sqr(y1p) + nsvg__sqr(ry)*nsvg__sqr(x1p);
+    if (sa < 0.0f) sa = 0.0f;
+    if (sb > 0.0f)
+        s = sqrtf(sa / sb);
+    if (fa == fs)
+        s = -s;
+    cxp = s * rx * y1p / ry;
+    cyp = s * -ry * x1p / rx;
+
+    // 3) Compute cx,cy from cx',cy'
+    cx = (x1 + x2)/2.0f + cosrx*cxp - sinrx*cyp;
+    cy = (y1 + y2)/2.0f + sinrx*cxp + cosrx*cyp;
+
+    // 4) Calculate theta1, and delta theta.
+    ux = (x1p - cxp) / rx;
+    uy = (y1p - cyp) / ry;
+    vx = (-x1p - cxp) / rx;
+    vy = (-y1p - cyp) / ry;
+    a1 = nsvg__vecang(1.0f,0.0f, ux,uy);    // Initial angle
+    da = nsvg__vecang(ux,uy, vx,vy);        // Delta angle
+
+//  if (vecrat(ux,uy,vx,vy) <= -1.0f) da = NSVG_PI;
+//  if (vecrat(ux,uy,vx,vy) >= 1.0f) da = 0;
+
+    if (fs == 0 && da > 0)
+        da -= 2 * TARP_PI;
+    else if (fs == 1 && da < 0)
+        da += 2 * TARP_PI;
+
+    // Approximate the arc using cubic spline segments.
+    t[0] = cosrx; t[1] = sinrx;
+    t[2] = -sinrx; t[3] = cosrx;
+    t[4] = cx; t[5] = cy;
+
+    // Split arc into max 90 degree segments.
+    // The loop assumes an iteration per end point (including start and end), this +1.
+    ndivs = (int)(fabsf(da) / (TARP_HALF_PI) + 1.0f);
+    hda = (da / (float)ndivs) / 2.0f;
+    kappa = fabsf(4.0f / 3.0f * (1.0f - cosf(hda)) / sinf(hda));
+    if (da < 0.0f)
+        kappa = -kappa;
+
+    for (i = 0; i <= ndivs; i++) {
+        a = a1 + da * ((float)i/(float)ndivs);
+        dx = cosf(a);
+        dy = sinf(a);
+        nsvg__xformPoint(&x, &y, dx*rx, dy*ry, t); // position
+        nsvg__xformVec(&tanx, &tany, -dy*rx * kappa, dx*ry * kappa, t); // tangent
+
+        if (i > 0) {
+            tpBool ret = tpPathCubicCurveTo(_path, px+ptanx,py+ptany, x-tanx, y-tany, x, y);
+            if (ret) return ret;
+        }
+        px = x;
+        py = y;
+        ptanx = tanx;
+        ptany = tany;
+    }
+
+    //*cpx = x2;
+    //*cpy = y2;
+    return tpFalse;
+}
+    
 TARP_API tpBool tpPathClose(tpPath _path)
 {
     _tpGLPath * p = (_tpGLPath *)_path.pointer;
