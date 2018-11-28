@@ -1234,22 +1234,20 @@ TARP_LOCAL void _tpGLSetErrorMessage(const char * _message)
 static const char * _vertexShaderCode =
     "#version 150 \n"
     "uniform mat4 transformProjection; \n"
-    "uniform vec4 meshColor; \n"
     "in vec2 vertex; \n"
-    "out vec4 icol;\n"
     "void main() \n"
     "{ \n"
     "gl_Position = transformProjection * vec4(vertex, 0.0, 1.0); \n"
-    "icol = meshColor;\n"
     "} \n";
 
 static const char * _fragmentShaderCode =
     "#version 150 \n"
+    "uniform vec4 meshColor; \n"
     "in vec4 icol; \n"
     "out vec4 pixelColor; \n"
     "void main() \n"
     "{ \n"
-    "pixelColor = icol; \n"
+    "pixelColor = meshColor; \n"
     "} \n";
 
 static const char * _vertexShaderCodeTexture =
