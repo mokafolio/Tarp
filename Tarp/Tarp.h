@@ -1274,7 +1274,7 @@ static const char * _fragmentShaderCodeTexture =
     "pixelColor.a = meshOpacity; \n"
     "} \n";
 
-typedef struct _tpGLContext _tpGLContext;
+typedef struct TARP_LOCAL _tpGLContext _tpGLContext;
 
 typedef enum TARP_LOCAL
 {
@@ -1471,7 +1471,7 @@ typedef struct TARP_LOCAL
     GLuint program;
 } _tpGLStateBackup;
 
-struct TARP_LOCAL _tpGLContext
+struct _tpGLContext
 {
     GLuint program;
     GLuint textureProgram;
