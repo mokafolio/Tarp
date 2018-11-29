@@ -1471,7 +1471,7 @@ typedef struct TARP_LOCAL
     GLuint program;
 } _tpGLStateBackup;
 
-struct _tpGLContext
+struct TARP_LOCAL _tpGLContext
 {
     GLuint program;
     GLuint textureProgram;
