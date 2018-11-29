@@ -7,4 +7,8 @@ incDirs = include_directories('.', 'ExampleAndTestDeps')
 
 install_headers(['Tarp/Tarp.h', 'Tarp/TarpArray.h'], subdir: 'Tarp')
 
+tarpDep = declare_dependency(
+    include_directories: incDirs
+)
+
 subdir('Examples')
