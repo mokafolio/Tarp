@@ -1,7 +1,9 @@
 project('Tarp', 'c', default_options : ['c_std=c99'])
 
-#remove this rather bogus warning
-add_global_arguments('-Wno-missing-braces', language: 'c')
+if meson.is_subproject() == false
+    #remove this rather bogus warning
+    add_global_arguments('-Wno-missing-braces', language: 'c')
+endif
 
 incDirs = include_directories('.', 'ExampleAndTestDeps')
 
@@ -11,4 +13,6 @@ tarpDep = declare_dependency(
     include_directories: incDirs
 )
 
-subdir('Examples')
+if meson.is_subproject() == false
+    subdir('Examples')
+endif
