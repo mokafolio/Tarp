@@ -594,7 +594,8 @@ TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient);
  * gradient, it will set the _paint.data.gradientData.opacity */
 TARP_API void tpPaintSetOpacity(tpPaint * _paint, tpFloat _opacity);
 
-/* returns the opacity of the paint (this will be the alpha of a color paint, and the opacity of a gradient) */
+/* returns the opacity of the paint (this will be the alpha of a color paint, and the opacity of a
+ * gradient) */
 TARP_API tpFloat tpPaintOpacity(tpPaint * _paint);
 
 /*
@@ -1202,17 +1203,17 @@ TARP_API tpPaint tpPaintMakeGradient(tpGradient _gradient)
 
 TARP_API void tpPaintSetOpacity(tpPaint * _paint, tpFloat _opacity)
 {
-    if(_paint->type == kTpPaintTypeColor)
+    if (_paint->type == kTpPaintTypeColor)
         _paint->data.color.a = _opacity;
-    else if(_paint->type == kTpPaintTypeGradient)
+    else if (_paint->type == kTpPaintTypeGradient)
         _paint->data.gradientData.opacity = _opacity;
 }
 
 TARP_API tpFloat tpPaintOpacity(tpPaint * _paint)
 {
-    if(_paint->type == kTpPaintTypeColor)
+    if (_paint->type == kTpPaintTypeColor)
         return _paint->data.color.a;
-    else if(_paint->type == kTpPaintTypeGradient)
+    else if (_paint->type == kTpPaintTypeGradient)
         return _paint->data.gradientData.opacity;
     /* this should never be reached */
     assert(tpFalse);
@@ -2200,6 +2201,7 @@ TARP_API tpBool tpPathAddContour(tpPath _path,
 
     if (_bClosed)
         return tpPathClose(_path);
+
     return tpFalse;
 }
 
@@ -2213,7 +2215,7 @@ TARP_API tpBool tpPathSetContour(
         _tpSegmentArrayClear(&c->segments);
         _tpSegmentArrayAppendCArray(&c->segments, _segments, _count);
         c->lastSegmentIndex = c->segments.count - 1;
-        c->bIsClosed = tpTrue;
+        c->bIsClosed = _bClosed;
         c->bDirty = tpTrue;
         p->bPathGeometryDirty = tpTrue;
         return tpFalse;
