@@ -4482,6 +4482,8 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
         bMarkAllContoursDirty, bVirgin, bTransformDirty;
     _tpGLRenderCache * cache;
 
+    bTransformDirty = tpFalse;
+
     /* early out if the path has no contours */
     if (!_path->contours.count)
         return tpFalse;
@@ -4499,7 +4501,6 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
         bFillGradientDirty = tpFalse;
         bStrokeGradientDirty = tpFalse;
         bMarkAllContoursDirty = tpFalse;
-        bTransformDirty = tpFalse;
 
         /* check if the transform projection is dirty */
         if (_path->lastDrawContext != _ctx || _path->lastTransformID != _ctx->transformID)
