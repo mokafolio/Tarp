@@ -4619,6 +4619,11 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
                 ((_tpGLGradient *)_style->stroke.data.gradientData.gradient.pointer)->gradientID;
         }
     }
+    else
+    {
+        /* otherwise make sure that the style of the cache is up to date */
+        _tpGLRenderCacheCopyStyle(_style, cache);
+    }
 
     return tpFalse;
 }
