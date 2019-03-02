@@ -7,7 +7,9 @@ endif
 
 incDirs = include_directories('.', 'ExampleAndTestDeps')
 
-install_headers(['Tarp/Tarp.h', 'Tarp/TarpArray.h'], subdir: 'Tarp')
+if meson.is_subproject() == false
+    install_headers(['Tarp/Tarp.h', 'Tarp/TarpArray.h'], subdir: 'Tarp')
+endif
 
 tarpDep = declare_dependency(
     include_directories: incDirs
