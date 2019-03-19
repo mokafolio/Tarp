@@ -16,7 +16,6 @@ int main(int argc, char * argv[])
 
     tpPath path;
     tpStyle style;
-    tpMat4 proj;
     tpGradient grad;
     int wwidth, wheight;
     tpFloat animationTimer;
@@ -63,9 +62,8 @@ int main(int argc, char * argv[])
     /* set an orthographic projection on the context based on the window size */
     glfwGetWindowSize(window, &wwidth, &wheight);
 
-    /* set an orthographic projection based on the window size */
-    proj = tpMat4MakeOrtho(0, wwidth, wheight, 0, -1, 1);
-    tpSetProjection(ctx, &proj);
+    /* set size of the context draw area based on the window size */
+    tpSetSize(ctx, wwidth, wheight);
 
     /* create a path and add one circle contour */
     path = tpPathCreate();

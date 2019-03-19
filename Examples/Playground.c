@@ -410,9 +410,8 @@ int main(int argc, char * argv[])
         return EXIT_FAILURE;
     }
 
-    //set an orthographic projection on the context based on the window size;
-    tpMat4 proj = tpMat4MakeOrtho(0, wwidth, wheight, 0, -1, 1);
-    tpSetProjection(ctx, &proj);
+    /* set size of the context draw area based on the window size */
+    tpSetSize(ctx, wwidth, wheight);
 
     //create the dash offset drawing
     PathWithStyle dashOffsetDrawing = makePathWithStyle();
