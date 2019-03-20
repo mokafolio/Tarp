@@ -82,7 +82,7 @@ int main(int argc, char * argv[])
     glfwGetWindowSize(window, &wwidth, &wheight);
 
     /* set size of the context draw area based on the window size */
-    tpSetSize(ctx, wwidth, wheight);
+    tpSetDefaultProjection(ctx, wwidth, wheight);
 
     /* create a path and add one circle contour */
     path = tpPathCreate();

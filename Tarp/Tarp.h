@@ -24,7 +24,8 @@ conversy (Github): Paint Opacity, ideas
 Change History
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 NEXT VERSION:
-- removed tpSetProjection in favor of tpSetSize (which will automatically seup the correct projection based on that) 
+- added tpSetDefaultProjection to setup an easy default projection for a certain draw area so you dont need to
+touch tpSetProjection most of the time.
 - bug fixes
 
 v0.1.6 (11/27/2018):
@@ -678,8 +679,12 @@ TARP_API tpBool tpPrepareDrawing(tpContext _ctx);
 /* Call this at the end of a "frame" after you are done drawing */
 TARP_API tpBool tpFinishDrawing(tpContext _ctx);
 
-/* Set the size of the context render area (this is mainly used to setup a proper projection for rendering)*/
-TARP_API tpBool tpSetSize(tpContext _ctx, tpFloat _width, tpFloat _height);
+/* set a custom projection matrix */
+TARP_API tpBool tpSetProjection(tpContext _ctx, const tpMat4 * _proj);
+
+/* Set the size of the context render area (this is mainly used to setup a proper projection for
+ * rendering)*/
+TARP_API tpBool tpSetDefaultProjection(tpContext _ctx, tpFloat _width, tpFloat _height);
 
 /* Set the path transformation. All following draw calls will be affected by
  * it. */
@@ -1507,7 +1512,6 @@ struct _tpGLContext
     tpMat4 projection;
     tpMat4 transformProjection;
     tpFloat transformScale;
-    tpVec2 size;
     int transformID;
     int projectionID;
     tpBool bTransformProjDirty;
@@ -4787,15 +4791,20 @@ TARP_API tpBool tpResetClipping(tpContext _ctx)
     return tpFalse;
 }
 
-TARP_API tpBool tpSetSize(tpContext _ctx, tpFloat _width, tpFloat _height)
+TARP_API tpBool tpSetProjection(tpContext _ctx, const tpMat4 * _proj)
 {
     _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
-    ctx->projection = tpMat4MakeOrtho(0, _width, _height, 0, -1, 1);
+    ctx->projection = *_proj;
     ctx->projectionID++;
     ctx->bTransformProjDirty = tpTrue;
-    ctx->size = tpVec2Make(_width, _height);
 
     return tpFalse;
+}
+
+TARP_API tpBool tpSetDefaultProjection(tpContext _ctx, tpFloat _width, tpFloat _height)
+{
+    tpMat4 ortho = tpMat4MakeOrtho(0, _width, _height, 0, -1, 1);
+    return tpSetProjection(_ctx, &ortho);
 }
 
 TARP_API tpBool tpSetTransform(tpContext _ctx, const tpTransform * _transform)

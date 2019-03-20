@@ -411,7 +411,7 @@ int main(int argc, char * argv[])
     }
 
     /* set size of the context draw area based on the window size */
-    tpSetSize(ctx, wwidth, wheight);
+    tpSetDefaultProjection(ctx, wwidth, wheight);
 
     //create the dash offset drawing
     PathWithStyle dashOffsetDrawing = makePathWithStyle();
