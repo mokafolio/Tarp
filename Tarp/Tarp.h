@@ -1439,6 +1439,7 @@ typedef struct TARP_LOCAL
 
     _tpGLContext * lastDrawContext;
     int lastTransformID;
+    int lastProjectionID;
 
     tpTransform fillPaintTransform;
     tpTransform strokePaintTransform;
@@ -1867,6 +1868,7 @@ TARP_API tpPath tpPathCreate()
 
     path->lastDrawContext = NULL;
     path->lastTransformID = 0;
+    path->lastProjectionID = 0;
 
     path->lastFillGradientID = -1;
     path->lastStrokeGradientID = -1;
@@ -1931,6 +1933,7 @@ TARP_API tpPath tpPathClone(tpPath _path)
 
     path->lastDrawContext = from->lastDrawContext;
     path->lastTransformID = from->lastTransformID;
+    path->lastProjectionID = from->lastProjectionID;
 
     return ret;
 }
@@ -4512,7 +4515,7 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
         bMarkAllContoursDirty = tpFalse;
 
         /* check if the transform projection is dirty */
-        if (_path->lastDrawContext != _ctx || _path->lastTransformID != _ctx->transformID)
+        if (_path->lastDrawContext != _ctx || _path->lastTransformID != _ctx->transformID || _path->lastProjectionID != _ctx->projectionID)
         {
             bTransformDirty = tpTrue;
 
@@ -4525,6 +4528,7 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
             }
 
             _path->lastTransformID = _ctx->transformID;
+            _path->lastProjectionID = _ctx->projectionID;
             _path->lastDrawContext = _ctx;
             _path->lastTransformScale = _ctx->transformScale;
         }
