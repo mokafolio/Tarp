@@ -24,8 +24,8 @@ conversy (Github): Paint Opacity, ideas
 Change History
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 NEXT VERSION:
-- added tpSetDefaultProjection to setup an easy default projection for a certain draw area so you dont need to
-touch tpSetProjection most of the time.
+- added tpSetDefaultProjection to setup an easy default projection for a certain draw area so you
+dont need to touch tpSetProjection most of the time.
 - bug fixes
 
 v0.1.6 (11/27/2018):
@@ -580,6 +580,9 @@ a new contour will be added to the path.
 TARP_API tpBool tpPathSetContour(
     tpPath _path, int _contourIndex, const tpSegment * _segments, int _count, tpBool _bClosed);
 
+TARP_API tpBool tpPathFlattenedContour(
+    tpContext _ctx, tpPath _path, int _contourIndex, tpVec2 ** _outVertices, int * _outCount);
+
 /* generates tpPathInvalidHandle() and tpPathIsValidHandle(tpPath) functions
 to generate an invalid handle and check a handle for validity. */
 TARP_HANDLE_FUNCTIONS_DEF(tpPath)
@@ -706,6 +709,11 @@ TARP_API tpBool tpCachePath(tpContext _ctx,
 TARP_API void tpRenderCacheDestroy(tpRenderCache _cache);
 
 TARP_API tpBool tpDrawRenderCache(tpContext _ctx, tpRenderCache _cache);
+
+TARP_API tpBool tpRenderCacheFlattenedContour(tpRenderCache _cache,
+                                              int _contourIndex,
+                                              tpVec2 ** _outVertices,
+                                              int * _outCount);
 
 TARP_HANDLE_FUNCTIONS_DEF(tpRenderCache)
 
@@ -4515,7 +4523,8 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
         bMarkAllContoursDirty = tpFalse;
 
         /* check if the transform projection is dirty */
-        if (_path->lastDrawContext != _ctx || _path->lastTransformID != _ctx->transformID || _path->lastProjectionID != _ctx->projectionID)
+        if (_path->lastDrawContext != _ctx || _path->lastTransformID != _ctx->transformID ||
+            _path->lastProjectionID != _ctx->projectionID)
         {
             bTransformDirty = tpTrue;
 
@@ -4663,6 +4672,46 @@ TARP_API tpBool tpDrawRenderCache(tpContext _ctx, tpRenderCache _cache)
 {
     return _tpGLDrawRenderCacheImpl(
         (_tpGLContext *)_ctx.pointer, (_tpGLRenderCache *)_cache.pointer, tpFalse);
+}
+
+TARP_API tpBool _tpGLRenderCacheFlattenedContour(_tpGLRenderCache * _cache,
+                                                 int _contourIndex,
+                                                 tpVec2 ** _outVertices,
+                                                 int * _outCount)
+{
+    _tpGLRenderCacheContour * c;
+    if (_contourIndex >= _cache->contours.count)
+    {
+        *_outVertices = NULL;
+        *_outCount = -1;
+        /* @TODO: Set error message on context? */
+        return tpTrue;
+    }
+
+    c = _tpGLRenderCacheContourArrayAtPtr(&_cache->contours, _contourIndex);
+    *_outVertices = _tpVec2ArrayAtPtr(&_cache->geometryCache, c->fillVertexOffset);
+    *_outCount = c->fillVertexCount;
+
+    return tpFalse;
+}
+
+TARP_API tpBool tpPathFlattenedContour(
+    tpContext _ctx, tpPath _path, int _contourIndex, tpVec2 ** _outVertices, int * _outCount)
+{
+    _tpGLContext * ctx = (_tpGLContext *)_ctx.pointer;
+    _tpGLPath * p = (_tpGLPath *)_path.pointer;
+    if (_tpGLUpdateInternalPathCache(ctx, p, &ctx->clippingStyle, tpTrue))
+        return tpTrue;
+    return _tpGLRenderCacheFlattenedContour(p->renderCache, _contourIndex, _outVertices, _outCount);
+}
+
+TARP_API tpBool tpRenderCacheFlattenedContour(tpRenderCache _cache,
+                                              int _contourIndex,
+                                              tpVec2 ** _outVertices,
+                                              int * _outCount)
+{
+    return _tpGLRenderCacheFlattenedContour(
+        (_tpGLRenderCache *)_cache.pointer, _contourIndex, _outVertices, _outCount);
 }
 
 TARP_LOCAL tpBool _tpGLGenerateClippingMaskForRenderCache(_tpGLContext * _ctx,
