@@ -26,7 +26,8 @@ Change History
 NEXT VERSION:
 - added tpSetDefaultProjection to setup an easy default projection for a certain draw area so you
 dont need to touch tpSetProjection most of the time.
-- bug fixes
+- fixed bug where cached strokes did not properly get copied to new renderCache.
+- more bug fixes
 
 v0.1.6 (11/27/2018):
 - Added opacity to gradient paints (see tpPaintSetOpacity and tpPaintOpacity)
@@ -2771,7 +2772,7 @@ TARP_LOCAL void _tpGLMakeCap(tpStrokeCap _type,
     }
 }
 
-TARP_LOCAL void _tpGLRenderCacheContourContinousStrokeGeometry(_tpGLRenderCacheContour * _contour,
+TARP_LOCAL void _tpGLRenderCacheContourContinuousStrokeGeometry(_tpGLRenderCacheContour * _contour,
                                                                const tpStyle * _style,
                                                                _tpVec2Array * _outVertices,
                                                                _tpBoolArray * _outJoints)
@@ -3136,7 +3137,7 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
 {
     int i;
     _tpGLContour * c;
-    _tpGLRenderCacheContour * rc;
+    _tpGLRenderCacheContour * rc, *oldRc;
     _tpGLDashStartState dashStartState;
 
     assert(_vertices->count == _joints->count);
@@ -3215,17 +3216,19 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
             }
             else
             {
-                _tpGLRenderCacheContourContinousStrokeGeometry(rc, _style, _vertices, _joints);
+                _tpGLRenderCacheContourContinuousStrokeGeometry(rc, _style, _vertices, _joints);
             }
         }
         else
         {
             /* grab the contour from the old cache and copy the old stroke data for the contour */
-            rc = _tpGLRenderCacheContourArrayAtPtr(&_oldCache->contours, i);
+            rc->strokeVertexOffset = _vertices->count;
+            oldRc = _tpGLRenderCacheContourArrayAtPtr(&_oldCache->contours, i);
+            rc->strokeVertexCount = oldRc->strokeVertexCount;
             _tpVec2ArrayAppendCArray(
                 _vertices,
-                _tpVec2ArrayAtPtr(&_oldCache->geometryCache, rc->strokeVertexOffset),
-                rc->strokeVertexCount);
+                _tpVec2ArrayAtPtr(&_oldCache->geometryCache, oldRc->strokeVertexOffset),
+                oldRc->strokeVertexCount);
         }
 
         *_outStrokeVertexCount += rc->strokeVertexCount;
