@@ -2773,9 +2773,9 @@ TARP_LOCAL void _tpGLMakeCap(tpStrokeCap _type,
 }
 
 TARP_LOCAL void _tpGLRenderCacheContourContinuousStrokeGeometry(_tpGLRenderCacheContour * _contour,
-                                                               const tpStyle * _style,
-                                                               _tpVec2Array * _outVertices,
-                                                               _tpBoolArray * _outJoints)
+                                                                const tpStyle * _style,
+                                                                _tpVec2Array * _outVertices,
+                                                                _tpBoolArray * _outJoints)
 {
     int j, voff;
     tpVec2 p0, p1, dir, perp, dirPrev, perpPrev;
@@ -3137,7 +3137,7 @@ TARP_LOCAL void _tpGLStroke(_tpGLPath * _path,
 {
     int i;
     _tpGLContour * c;
-    _tpGLRenderCacheContour * rc, *oldRc;
+    _tpGLRenderCacheContour *rc, *oldRc;
     _tpGLDashStartState dashStartState;
 
     assert(_vertices->count == _joints->count);
@@ -4572,6 +4572,7 @@ TARP_LOCAL tpBool _tpGLUpdateInternalPathCache(_tpGLContext * _ctx,
              cache->style.strokeJoin != _style->strokeJoin ||
              cache->style.dashCount != _style->dashCount ||
              cache->style.dashOffset != _style->dashOffset ||
+             cache->style.miterLimit != _style->miterLimit ||
              memcmp(cache->style.dashArray,
                     _style->dashArray,
                     sizeof(tpFloat) * _style->dashCount) != 0))
