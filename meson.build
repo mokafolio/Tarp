@@ -7,7 +7,7 @@ endif
 
 incDirs = include_directories('.', 'ExampleAndTestDeps')
 
-if meson.is_subproject() == false
+if meson.is_subproject() == false or get_option('forceInstallHeaders')
     install_headers(['Tarp/Tarp.h', 'Tarp/TarpArray.h'], subdir: 'Tarp')
 endif
 

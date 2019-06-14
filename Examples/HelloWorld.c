@@ -76,6 +76,10 @@ int main(int argc, char * argv[])
     tpPathQuadraticCurveTo(path, 400, 260, 380, 280);
     tpPathClose(path); /* close the contour */
 
+    tpVec2 * flat;
+    int count;
+    tpPathFlattenedContour(ctx, path, 0, &flat, &count);
+
     /* create a gradient */
     grad = tpGradientCreateRadialSymmetric(400, 300, 80);
     tpGradientAddColorStop(grad, 1.0, 1.0, 0.0, 1.0, 0.0);
