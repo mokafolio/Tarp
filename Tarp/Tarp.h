@@ -2607,7 +2607,11 @@ TARP_LOCAL void _tpGLMakeCircleSector(
     rot = tpMat2MakeRotation(stepSize);
     r = _r0;
     last = tpVec2Add(_center, r);
-    for (i=0; i <= 16; ++i)
+    /* @NOTE: Hardcoded the number of segments to prevent potential infinite loop due to numeric
+     * inaccuracies. Once the circle sector segment count is not hardcoded anymore, change it here,
+     * too!!
+     */
+    for (i = 0; i <= 16; ++i)
     {
         r = tpMat2MultVec2(&rot, r);
         if (tpVec2Cross(r, _r1) < 0)

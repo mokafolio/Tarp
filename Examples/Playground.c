@@ -374,9 +374,12 @@ int main(int argc, char * argv[])
     glfwWindowHint(GLFW_SAMPLES, 8);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+//#ifdef GLFW_SCALE_TO_MONITOR
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+//#endif //GLFW_SCALE_TO_MONITOR
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     // create the window
     GLFWwindow * window = glfwCreateWindow(650, 800, "Tarp Playground", NULL, NULL);
@@ -411,7 +414,7 @@ int main(int argc, char * argv[])
     }
 
     /* set size of the context draw area based on the window size */
-    tpSetDefaultProjection(ctx, wwidth, wheight);
+    tpSetDefaultProjection(ctx, wwidth / 2, wheight / 2);
 
     //create the dash offset drawing
     PathWithStyle dashOffsetDrawing = makePathWithStyle();
@@ -706,6 +709,7 @@ int main(int argc, char * argv[])
         // and set it as the viewport on the renderer
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
+        printf("w %i h %i\n", width, height);
 
         //set the viewport based on the actual width and height in pixels
         glViewport(0, 0, width, height);
