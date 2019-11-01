@@ -2374,7 +2374,7 @@ TARP_LOCAL _tpGLGradient * tpGradientCreate()
     _tpGLGradient * ret = (_tpGLGradient *)TARP_MALLOC(sizeof(_tpGLGradient));
     ret->bDirty = tpTrue;
     /*
-    the static id and incrementing is not multi threadding friendly...no
+    @TODO: the static id and incrementing is not multi threadding friendly...no
     care for now thread local storage will most likely be the nicest way to
     make this thread safe
     */
@@ -2600,13 +2600,14 @@ TARP_LOCAL void _tpGLMakeCircleSector(
     tpMat2 rot;
     tpVec2 r, current, last;
     tpFloat stepSize;
+    int i;
 
     /* @TODO: The step size should depend on _levelOfDetail. */
     stepSize = TARP_PI / 16;
     rot = tpMat2MakeRotation(stepSize);
     r = _r0;
     last = tpVec2Add(_center, r);
-    for (;;)
+    for (i=0; i <= 16; ++i)
     {
         r = tpMat2MultVec2(&rot, r);
         if (tpVec2Cross(r, _r1) < 0)
